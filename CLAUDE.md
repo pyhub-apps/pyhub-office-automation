@@ -88,7 +88,7 @@ pip install -e .[dev]
 
 ## Excel Automation Features (xlwings)
 
-### Command Structure (Updated: Issue #15)
+### Command Structure (Updated: Issue #16)
 Excel commands are organized by category for better usability:
 
 **Sheet Management (4 commands)**
@@ -97,9 +97,11 @@ Excel commands are organized by category for better usability:
 - `sheet-delete` - Delete sheet from workbook
 - `sheet-rename` - Rename existing sheet
 
-**Workbook Operations (2 commands)**
+**Workbook Operations (4 commands)**
 - `workbook-create` - Create new Excel workbook
 - `workbook-open` - Open existing workbook or connect to active one
+- `workbook-list` - List all currently open workbooks with basic info
+- `workbook-info` - Get detailed information about a specific workbook
 
 **Range Operations (2 commands)**
 - `range-read` - Read data from cell ranges
@@ -140,6 +142,11 @@ oa excel workbook-open --file-path "report.xlsx"
 oa excel sheet-add --use-active --name "Results"
 oa excel range-write --use-active --range "A1" --data '["Name", "Score"]'
 oa excel table-read --use-active --output-file "summary.csv"
+
+# Workbook discovery and information gathering (Issue #16)
+oa excel workbook-list --detailed  # List all open workbooks with details
+oa excel workbook-info --use-active --include-sheets  # Get active workbook info with sheet details
+oa excel workbook-info --workbook-name "Sales.xlsx" --include-sheets --include-properties  # Comprehensive info
 ```
 
 #### Benefits for AI Agents
@@ -147,6 +154,9 @@ oa excel table-read --use-active --output-file "summary.csv"
 - **Workflow Continuity**: Seamless multi-step operations on the same workbook
 - **User Experience**: Works naturally with user's existing Excel sessions
 - **Performance**: Faster execution by avoiding application startup overhead
+- **Context Awareness**: Use `workbook-list` and `workbook-info` to understand current work context
+- **Smart Targeting**: Avoid unnecessary file operations by checking what's already open
+- **Error Prevention**: Validate workbook existence before attempting operations
 
 #### Validation
 - Commands validate that exactly one connection method is specified
@@ -209,6 +219,12 @@ AI agents should use these commands to understand available functionality:
 - `oa get-help <category> <command>` - Get detailed help for specific commands
 - `oa info` - Package version and dependency status
 
+### Context Discovery
+AI agents should use these commands to understand current work context:
+- `oa excel workbook-list` - Discover all currently open workbooks
+- `oa excel workbook-list --detailed` - Get comprehensive list with file info, sheet counts, save status
+- `oa excel workbook-info --use-active --include-sheets` - Analyze active workbook structure
+
 ### Parameter Handling
 - All inputs via CLI options: `--option-name value`
 - Large text/data via temporary files with auto-cleanup
@@ -218,6 +234,46 @@ AI agents should use these commands to understand available functionality:
 - All scripts return structured JSON with version metadata
 - AI agents parse raw output and present user-friendly summaries
 - Error messages structured for AI interpretation and user explanation
+
+### AI Agent Workflow Examples
+
+#### Context-Aware Data Analysis
+```bash
+# 1. Discover current work environment
+oa excel workbook-list --detailed
+
+# 2. Choose appropriate workbook and get structure
+oa excel workbook-info --workbook-name "Sales.xlsx" --include-sheets
+
+# 3. Perform operations on identified workbook and sheets
+oa excel range-read --workbook-name "Sales.xlsx" --sheet "Data" --range "A1:F100"
+```
+
+#### Multi-Workbook Analysis
+```bash
+# 1. List all open workbooks to understand scope
+oa excel workbook-list
+
+# 2. Analyze each workbook for unsaved changes
+oa excel workbook-info --workbook-name "Report1.xlsx"
+oa excel workbook-info --workbook-name "Report2.xlsx"
+
+# 3. Save any unsaved workbooks before proceeding
+# (Implementation for save commands to be added)
+```
+
+#### Error Prevention Workflow
+```bash
+# 1. Check if target workbook is already open
+oa excel workbook-list | grep "target.xlsx"
+
+# 2. If open, use existing; if not, open new
+# Open: oa excel workbook-info --workbook-name "target.xlsx"
+# Not open: oa excel workbook-open --file-path "/path/to/target.xlsx"
+
+# 3. Proceed with operations using appropriate connection method
+oa excel range-read --workbook-name "target.xlsx" --range "A1:C10"
+```
 
 ### Installation Guidance
 - `oa install-guide` provides step-by-step installation instructions
