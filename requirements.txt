@@ -1,0 +1,20 @@
+# Core dependencies
+click>=8.0.0
+pandas>=2.0.0
+pathlib2>=2.3.0
+
+# Excel automation
+xlwings>=0.30.0
+
+# HWP automation (Windows only)
+pyhwpx>=0.2.0; sys_platform == "win32"
+
+# Development dependencies
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+
+# Build dependencies
+setuptools>=65.0.0
+wheel>=0.38.0
+PyInstaller>=5.0.0; sys_platform == "win32"

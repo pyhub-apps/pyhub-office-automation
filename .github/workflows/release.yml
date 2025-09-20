@@ -1,0 +1,87 @@
+name: Build and Release Windows Executable
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Get version info
+      id: version
+      run: |
+        $version = python -c "import sys; sys.path.insert(0, 'pyhub_office_automation'); from version import get_version; print(get_version())"
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Version: $version"
+
+    - name: Build executable with PyInstaller
+      run: |
+        pyinstaller --onefile --name "oa-${{ steps.version.outputs.VERSION }}" --console pyhub_office_automation/cli/main.py
+
+    - name: Test executable
+      run: |
+        ./dist/oa-${{ steps.version.outputs.VERSION }}.exe --version
+        ./dist/oa-${{ steps.version.outputs.VERSION }}.exe info --format json
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body: |
+          ## pyhub-office-automation ${{ github.ref_name }}
+
+          ### Changes
+          - Windows executable build
+          - Version: ${{ steps.version.outputs.VERSION }}
+          - HeadVer format: {head}.{yearweek}.{build}
+
+          ### Installation
+          1. Download `oa-${{ steps.version.outputs.VERSION }}.exe`
+          2. Run the executable directly (no Python installation required)
+          3. Use `oa-${{ steps.version.outputs.VERSION }}.exe --help` for available commands
+
+          ### System Requirements
+          - Windows 10/11
+          - For Excel automation: Microsoft Excel installed
+          - For HWP automation: 한글(HWP) program installed
+
+          ### Usage
+          ```
+          oa-${{ steps.version.outputs.VERSION }}.exe info
+          oa-${{ steps.version.outputs.VERSION }}.exe install-guide
+          oa-${{ steps.version.outputs.VERSION }}.exe excel list
+          oa-${{ steps.version.outputs.VERSION }}.exe hwp list
+          ```
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/oa-${{ steps.version.outputs.VERSION }}.exe
+        asset_name: oa-${{ steps.version.outputs.VERSION }}.exe
+        asset_content_type: application/octet-stream

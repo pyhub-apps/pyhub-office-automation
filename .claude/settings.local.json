@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/allieus/Apps/warp/scripts/**)",
+      "Bash(gh repo view:*)",
+      "Bash(gh issue list:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
