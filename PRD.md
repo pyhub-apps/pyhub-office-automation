@@ -20,10 +20,10 @@
     *   xlwings가 제공하는 모든 기능을 활용할 수 있도록 다양한 스크립트를 제공하되, 초기에는 가장 자주 사용될 법한 핵심 기능 위주로 구성합니다.
     *   각 스크립트는 자체적인 버전을 가지며, CLI `--version` 옵션을 통해 조회 가능합니다.
 *   **주요 기능 (예시):**
-    *   `open-workbook.py`: 특정 경로의 엑셀 파일 열기. (호출 예시: `oa excel open-workbook --file-path "C:\data\sample.xlsx"`)
-    *   `save-workbook.py`: 현재 열려있는 엑셀 파일 저장 (다른 이름으로 저장 포함).
-    *   `close-workbook.py`: 엑셀 파일 닫기.
-    *   `create-workbook.py`: 새 엑셀 파일 생성.
+    *   `workbook-open.py`: 특정 경로의 엑셀 파일 열기. (호출 예시: `oa excel workbook-open --file-path "C:\data\sample.xlsx"`)
+    *   `workbook-save.py`: 현재 열려있는 엑셀 파일 저장 (다른 이름으로 저장 포함).
+    *   `workbook-close.py`: 엑셀 파일 닫기.
+    *   `workbook-create.py`: 새 엑셀 파일 생성.
     *   `add-sheet.py`: 새 워크시트 추가.
     *   `delete-sheet.py`: 특정 워크시트 삭제.
     *   `rename-sheet.py`: 워크시트 이름 변경.

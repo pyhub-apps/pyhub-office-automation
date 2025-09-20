@@ -39,15 +39,36 @@ from pyhub_office_automation.excel.chart_position import chart_position
 from pyhub_office_automation.excel.pivot_configure import pivot_configure
 from pyhub_office_automation.excel.pivot_create import pivot_create
 
+# Shape 명령어 import
+from pyhub_office_automation.excel.shape_add import shape_add
+from pyhub_office_automation.excel.shape_delete import shape_delete
+from pyhub_office_automation.excel.shape_format import shape_format
+from pyhub_office_automation.excel.shape_group import shape_group
+from pyhub_office_automation.excel.shape_list import shape_list
+from pyhub_office_automation.excel.textbox_add import textbox_add
+
+# Slicer 명령어 import
+from pyhub_office_automation.excel.slicer_add import slicer_add
+from pyhub_office_automation.excel.slicer_connect import slicer_connect
+from pyhub_office_automation.excel.slicer_list import slicer_list
+from pyhub_office_automation.excel.slicer_position import slicer_position
+
 # Typer 앱 생성
 app = typer.Typer(help="pyhub-office-automation: AI 에이전트를 위한 Office 자동화 도구")
+
+# version 명령어 추가
+@app.command()
+def version():
+    """버전 정보 출력"""
+    version_info = get_version_info()
+    typer.echo(f"pyhub-office-automation version {version_info['version']}")
 excel_app = typer.Typer(help="Excel 자동화 명령어들", no_args_is_help=True)
 hwp_app = typer.Typer(help="HWP 자동화 명령어들 (Windows 전용)", no_args_is_help=True)
 
 # Rich 콘솔
 console = Console()
 
-# Excel 명령어 등록
+# Excel 명령어 등록 (단계적 테스트)
 # Range Commands
 excel_app.command("range-read")(range_read)
 excel_app.command("range-write")(range_write)
@@ -81,6 +102,111 @@ excel_app.command("chart-position")(chart_position)
 excel_app.command("pivot-configure")(pivot_configure)
 excel_app.command("pivot-create")(pivot_create)
 
+# Shape Commands (Click 기반이므로 Typer 변환 필요)
+# excel_app.command("shape-add")(shape_add)
+# excel_app.command("shape-delete")(shape_delete)
+# excel_app.command("shape-format")(shape_format)
+# excel_app.command("shape-group")(shape_group)
+# excel_app.command("shape-list")(shape_list)
+# excel_app.command("textbox-add")(textbox_add)
+
+# Slicer Commands (임시 주석 - typing.Any 에러)
+# excel_app.command("slicer-add")(slicer_add)
+# excel_app.command("slicer-connect")(slicer_connect)
+# excel_app.command("slicer-list")(slicer_list)
+# excel_app.command("slicer-position")(slicer_position)
+
+# Excel list command
+@excel_app.command("list")
+def excel_list_temp(
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
+):
+    """Excel 자동화 명령어 목록 출력"""
+    commands = [
+        # Workbook Commands
+        {"name": "workbook-list", "description": "열린 Excel 워크북 목록 조회", "category": "workbook"},
+        {"name": "workbook-open", "description": "Excel 워크북 열기", "category": "workbook"},
+        {"name": "workbook-create", "description": "새 Excel 워크북 생성", "category": "workbook"},
+        {"name": "workbook-info", "description": "워크북 정보 조회", "category": "workbook"},
+
+        # Sheet Commands
+        {"name": "sheet-activate", "description": "시트 활성화", "category": "sheet"},
+        {"name": "sheet-add", "description": "새 시트 추가", "category": "sheet"},
+        {"name": "sheet-delete", "description": "시트 삭제", "category": "sheet"},
+        {"name": "sheet-rename", "description": "시트 이름 변경", "category": "sheet"},
+
+        # Range Commands
+        {"name": "range-read", "description": "셀 범위 데이터 읽기", "category": "range"},
+        {"name": "range-write", "description": "셀 범위에 데이터 쓰기", "category": "range"},
+
+        # Table Commands
+        {"name": "table-read", "description": "테이블 데이터를 DataFrame으로 읽기", "category": "table"},
+        {"name": "table-write", "description": "DataFrame을 Excel 테이블로 쓰기", "category": "table"},
+
+        # Chart Commands
+        {"name": "chart-add", "description": "차트 추가", "category": "chart"},
+        {"name": "chart-configure", "description": "차트 설정", "category": "chart"},
+        {"name": "chart-delete", "description": "차트 삭제", "category": "chart"},
+        {"name": "chart-export", "description": "차트 내보내기", "category": "chart"},
+        {"name": "chart-list", "description": "차트 목록 조회", "category": "chart"},
+        {"name": "chart-pivot-create", "description": "피벗 차트 생성", "category": "chart"},
+        {"name": "chart-position", "description": "차트 위치 설정", "category": "chart"},
+
+        # Pivot Commands
+        {"name": "pivot-configure", "description": "피벗테이블 설정", "category": "pivot"},
+        {"name": "pivot-create", "description": "피벗테이블 생성", "category": "pivot"},
+
+        # Shape Commands
+        {"name": "shape-add", "description": "도형 추가", "category": "shape"},
+        {"name": "shape-delete", "description": "도형 삭제", "category": "shape"},
+        {"name": "shape-format", "description": "도형 서식 설정", "category": "shape"},
+        {"name": "shape-group", "description": "도형 그룹화", "category": "shape"},
+        {"name": "shape-list", "description": "도형 목록 조회", "category": "shape"},
+        {"name": "textbox-add", "description": "텍스트 상자 추가", "category": "shape"},
+
+        # Slicer Commands
+        {"name": "slicer-add", "description": "슬라이서 추가", "category": "slicer"},
+        {"name": "slicer-connect", "description": "슬라이서 연결", "category": "slicer"},
+        {"name": "slicer-list", "description": "슬라이서 목록 조회", "category": "slicer"},
+        {"name": "slicer-position", "description": "슬라이서 위치 설정", "category": "slicer"},
+    ]
+
+    excel_data = {
+        "category": "excel",
+        "description": "Excel 자동화 명령어들 (xlwings 기반)",
+        "platform_requirement": "Windows (전체 기능) / macOS (제한적)",
+        "commands": commands,
+        "total_commands": len(commands),
+        "package_version": get_version()
+    }
+
+    if output_format == 'json':
+        try:
+            json_output = json.dumps(excel_data, ensure_ascii=False, indent=2)
+            typer.echo(json_output)
+        except UnicodeEncodeError:
+            json_output = json.dumps(excel_data, ensure_ascii=True, indent=2)
+            typer.echo(json_output)
+    else:
+        console.print("=== Excel 자동화 명령어 목록 ===", style="bold green")
+        console.print(f"Platform: {excel_data['platform_requirement']}")
+        console.print(f"Total: {excel_data['total_commands']} commands")
+        console.print()
+
+        categories = {}
+        for cmd in commands:
+            category = cmd['category']
+            if category not in categories:
+                categories[category] = []
+            categories[category].append(cmd)
+
+        for category, cmds in categories.items():
+            console.print(f"[bold blue]{category.upper()} Commands:[/bold blue]")
+            for cmd in cmds:
+                console.print(f"  • oa excel {cmd['name']}")
+                console.print(f"    {cmd['description']}")
+            console.print()
+
 # Excel 앱을 메인 앱에 등록
 app.add_typer(excel_app, name="excel")
 app.add_typer(hwp_app, name="hwp")
@@ -105,7 +231,12 @@ def info(
         }
 
         if output_format == 'json':
-            typer.echo(json.dumps(info_data, ensure_ascii=False, indent=2))
+            try:
+                json_output = json.dumps(info_data, ensure_ascii=False, indent=2)
+                typer.echo(json_output)
+            except UnicodeEncodeError:
+                json_output = json.dumps(info_data, ensure_ascii=True, indent=2)
+                typer.echo(json_output)
         else:
             console.print(f"Package: {info_data['package']}", style="bold green")
             console.print(f"Version: {info_data['version']['version']}")
@@ -183,7 +314,14 @@ def install_guide(
     }
 
     if output_format == 'json':
-        typer.echo(json.dumps(guide_data, ensure_ascii=False, indent=2))
+        try:
+            # JSON 출력 시 한글 인코딩 문제 해결
+            json_output = json.dumps(guide_data, ensure_ascii=False, indent=2)
+            typer.echo(json_output)
+        except UnicodeEncodeError:
+            # Windows 콘솔 인코딩 문제 시 ensure_ascii=True로 폴백
+            json_output = json.dumps(guide_data, ensure_ascii=True, indent=2)
+            typer.echo(json_output)
     else:
         console.print(f"=== {guide_data['title']} ===", style="bold blue")
         console.print(f"Version: {guide_data['version']}")
@@ -234,7 +372,12 @@ def hwp_list(
     }
 
     if output_format == 'json':
-        typer.echo(json.dumps(hwp_data, ensure_ascii=False, indent=2))
+        try:
+            json_output = json.dumps(hwp_data, ensure_ascii=False, indent=2)
+            typer.echo(json_output)
+        except UnicodeEncodeError:
+            json_output = json.dumps(hwp_data, ensure_ascii=True, indent=2)
+            typer.echo(json_output)
     else:
         console.print("=== HWP 자동화 명령어 목록 ===", style="bold blue")
         console.print(f"Platform: {hwp_data['platform_requirement']}")
@@ -264,7 +407,12 @@ def get_help(
     }
 
     if output_format == 'json':
-        typer.echo(json.dumps(help_data, ensure_ascii=False, indent=2))
+        try:
+            json_output = json.dumps(help_data, ensure_ascii=False, indent=2)
+            typer.echo(json_output)
+        except UnicodeEncodeError:
+            json_output = json.dumps(help_data, ensure_ascii=True, indent=2)
+            typer.echo(json_output)
     else:
         console.print(f"Command: oa {category} {command_name}", style="bold")
         console.print(f"Usage: {help_data['usage']}")

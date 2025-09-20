@@ -13,7 +13,7 @@ import platform
 import time
 import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 import xlwings as xw
 from pyhub_office_automation.version import get_version
 
@@ -145,7 +145,7 @@ def get_range(sheet: xw.Sheet, range_str: str, expand_mode: Optional[str] = None
     return range_obj
 
 
-def handle_temp_file(data: Any, file_format: str = "json") -> str:
+def handle_temp_file(data: Union[str, list, dict], file_format: str = "json") -> str:
     """
     임시 파일을 생성하고 데이터를 저장합니다.
 
@@ -202,7 +202,7 @@ def cleanup_temp_file(file_path: str) -> None:
         pass
 
 
-def format_output(data: Any, output_format: str = "json", include_version: bool = True) -> str:
+def format_output(data: Union[str, list, dict], output_format: str = "json", include_version: bool = True) -> str:
     """
     데이터를 지정된 형식으로 포맷팅합니다.
 
@@ -235,7 +235,7 @@ def format_output(data: Any, output_format: str = "json", include_version: bool 
         return str(data)
 
 
-def load_data_from_file(file_path: str) -> Any:
+def load_data_from_file(file_path: str) -> Union[str, list, dict]:
     """
     파일에서 데이터를 로드합니다.
 
@@ -296,7 +296,7 @@ def validate_range_string(range_str: str) -> bool:
     return bool(re.match(range_pattern, range_part.upper()))
 
 
-def create_error_response(error: Exception, command: str) -> Dict[str, Any]:
+def create_error_response(error: Exception, command: str) -> Dict[str, Union[str, int, float]]:
     """
     표준 에러 응답을 생성합니다.
 
@@ -329,13 +329,13 @@ def create_error_response(error: Exception, command: str) -> Dict[str, Any]:
 
 
 def create_success_response(
-    data: Any,
+    data: Union[str, list, dict],
     command: str,
     message: str = None,
     execution_time_ms: float = None,
     book: Optional[xw.Book] = None,
     **stats_kwargs
-) -> Dict[str, Any]:
+) -> Dict[str, Union[str, int, float, list, dict]]:
     """
     AI 에이전트 호환성이 향상된 표준 성공 응답을 생성합니다.
 
@@ -719,7 +719,7 @@ OPERATION_TYPES = {
 }
 
 
-def get_execution_context(book: Optional[xw.Book] = None) -> Dict[str, Any]:
+def get_execution_context(book: Optional[xw.Book] = None) -> Dict[str, Union[str, int, float, list, dict]]:
     """
     현재 Excel 실행 컨텍스트 정보를 수집합니다.
 
@@ -771,7 +771,7 @@ def get_execution_context(book: Optional[xw.Book] = None) -> Dict[str, Any]:
     return context
 
 
-def calculate_operation_stats(command: str, **kwargs) -> Dict[str, Any]:
+def calculate_operation_stats(command: str, **kwargs) -> Dict[str, Union[str, int, float, list, dict]]:
     """
     작업별 통계 정보를 계산합니다.
 
@@ -825,7 +825,7 @@ def calculate_operation_stats(command: str, **kwargs) -> Dict[str, Any]:
     return stats
 
 
-def suggest_next_commands(command: str, context: Dict[str, Any], **kwargs) -> List[Dict[str, str]]:
+def suggest_next_commands(command: str, context: Dict[str, Union[str, int, float, list, dict]], **kwargs) -> List[Dict[str, str]]:
     """
     현재 명령어와 컨텍스트를 기반으로 후속 명령어를 추천합니다.
 
@@ -1081,7 +1081,7 @@ def get_shape_by_name(sheet: xw.Sheet, shape_name: str) -> Optional[xw.Shape]:
         return None
 
 
-def get_shapes_info(sheet: xw.Sheet) -> List[Dict[str, Any]]:
+def get_shapes_info(sheet: xw.Sheet) -> List[Dict[str, Union[str, int, float]]]:
     """
     시트의 모든 도형 정보를 수집합니다.
 
@@ -1194,7 +1194,7 @@ def generate_unique_shape_name(sheet: xw.Sheet, base_name: str = "Shape") -> str
 
 # ========== Slicer 관리 기능 추가 ==========
 
-def get_pivot_tables(sheet: xw.Sheet) -> List[Dict[str, Any]]:
+def get_pivot_tables(sheet: xw.Sheet) -> List[Dict[str, Union[str, int, float]]]:
     """
     시트의 모든 피벗테이블 정보를 수집합니다.
 
@@ -1256,7 +1256,7 @@ def get_slicer_by_name(workbook: xw.Book, slicer_name: str):
         return None
 
 
-def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Any]]:
+def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Union[str, int, float]]]:
     """
     워크북의 모든 슬라이서 정보를 수집합니다.
 

@@ -1,24 +1,24 @@
 """
-Excel create-workbook 명령어 간단 테스트
+Excel workbook-create 명령어 간단 테스트
 """
 
 import json
 import pytest
 from pathlib import Path
-from click.testing import CliRunner
+from typer.testing import CliRunner
 from unittest.mock import patch, Mock
 
-from pyhub_office_automation.excel.create_workbook import create_workbook
+from pyhub_office_automation.cli.main import excel_app
 
 
 class TestCreateWorkbookSimple:
-    """Excel create-workbook 명령어 간단 테스트 클래스"""
+    """Excel workbook-create 명령어 간단 테스트 클래스"""
 
     def test_help_option(self):
         """도움말 옵션 테스트"""
         runner = CliRunner()
 
-        result = runner.invoke(create_workbook, ['--help'])
+        result = runner.invoke(excel_app, ['workbook-create', '--help'])
 
         assert result.exit_code == 0
         assert '새로운 Excel 워크북을 생성합니다' in result.output
@@ -28,16 +28,16 @@ class TestCreateWorkbookSimple:
         assert '--format' in result.output
 
     def test_version_option(self):
-        """버전 옵션 테스트"""
+        """버전 옵션 테스트 - Typer에서는 개별 명령어에 --version이 없음"""
         runner = CliRunner()
 
-        result = runner.invoke(create_workbook, ['--version'])
+        # Typer에서는 개별 명령어에 --version이 없으므로 실패해야 함
+        result = runner.invoke(excel_app, ['workbook-create', '--version'])
 
-        assert result.exit_code == 0
-        # 버전 정보가 출력되는지 확인
-        assert result.output.strip() != ""
+        assert result.exit_code != 0  # 실패해야 함
+        assert 'No such option' in result.output or 'Unrecognized arguments' in result.output
 
-    @patch('pyhub_office_automation.excel.create_workbook.xw')
+    @patch('pyhub_office_automation.excel.workbook_create.xw')
     def test_successful_create_workbook_basic(self, mock_xw):
         """정상적인 워크북 생성 - 기본 테스트"""
         # xlwings 모킹 설정
@@ -65,7 +65,7 @@ class TestCreateWorkbookSimple:
         mock_app.books.add.return_value = mock_book
 
         runner = CliRunner()
-        result = runner.invoke(create_workbook, [
+        result = runner.invoke(excel_app, ['workbook-create',
             '--name', 'TestWorkbook',
             '--format', 'json'
         ])
@@ -81,18 +81,18 @@ class TestCreateWorkbookSimple:
         output_data = json.loads(result.output)
 
         assert output_data['success'] is True
-        assert output_data['command'] == 'create-workbook'
+        assert output_data['command'] == 'workbook-create'
         assert 'version' in output_data
         assert output_data['workbook_info']['name'] == 'Book1'
 
-    @patch('pyhub_office_automation.excel.create_workbook.xw')
+    @patch('pyhub_office_automation.excel.workbook_create.xw')
     def test_excel_application_error(self, mock_xw):
         """Excel 애플리케이션 시작 실패 테스트"""
         # Excel 애플리케이션 시작 실패 설정
         mock_xw.App.side_effect = Exception("Excel을 시작할 수 없습니다")
 
         runner = CliRunner()
-        result = runner.invoke(create_workbook, [
+        result = runner.invoke(excel_app, ['workbook-create',
             '--name', 'TestWorkbook',
             '--format', 'json'
         ])

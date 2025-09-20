@@ -8,12 +8,9 @@ import json
 import csv
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from click.testing import CliRunner
+from typer.testing import CliRunner
 
-from pyhub_office_automation.excel.read_range import read_range
-from pyhub_office_automation.excel.write_range import write_range
-from pyhub_office_automation.excel.read_table import read_table
-from pyhub_office_automation.excel.write_table import write_table
+from pyhub_office_automation.cli.main import excel_app
 from pyhub_office_automation.excel.utils import (
     parse_range, validate_range_string, create_error_response,
     create_success_response, load_data_from_file
@@ -113,12 +110,12 @@ class TestCliCommands:
         """테스트 설정"""
         self.runner = CliRunner()
 
-    @patch('pyhub_office_automation.excel.read_range.get_workbook')
-    def test_read_range_file_not_found(self, mock_get_workbook):
+    @patch('pyhub_office_automation.excel.range_read.get_or_open_workbook')
+    def test_read_range_file_not_found(self, mock_get_or_open_workbook):
         """존재하지 않는 파일 읽기 테스트"""
-        mock_get_workbook.side_effect = FileNotFoundError("File not found")
+        mock_get_or_open_workbook.side_effect = FileNotFoundError("File not found")
 
-        result = self.runner.invoke(read_range, [
+        result = self.runner.invoke(excel_app, ['range-read',
             '--file-path', 'non_existent.xlsx',
             '--range', 'A1:C10'
         ])
@@ -130,7 +127,7 @@ class TestCliCommands:
 
     def test_read_range_invalid_range(self):
         """잘못된 범위 형식 테스트"""
-        result = self.runner.invoke(read_range, [
+        result = self.runner.invoke(excel_app, ['range-read',
             '--file-path', 'test.xlsx',
             '--range', 'invalid_range'
         ])
@@ -143,7 +140,7 @@ class TestCliCommands:
 
     def test_write_range_no_data(self):
         """데이터 없이 쓰기 명령 테스트"""
-        result = self.runner.invoke(write_range, [
+        result = self.runner.invoke(excel_app, ['range-write',
             '--file-path', 'test.xlsx',
             '--range', 'A1'
         ])
@@ -155,7 +152,7 @@ class TestCliCommands:
 
     def test_write_range_both_data_sources(self):
         """데이터 소스 중복 지정 테스트"""
-        result = self.runner.invoke(write_range, [
+        result = self.runner.invoke(excel_app, ['range-write',
             '--file-path', 'test.xlsx',
             '--range', 'A1',
             '--data-file', 'data.json',
@@ -169,7 +166,7 @@ class TestCliCommands:
 
     def test_write_range_invalid_json(self):
         """잘못된 JSON 데이터 테스트"""
-        result = self.runner.invoke(write_range, [
+        result = self.runner.invoke(excel_app, ['range-write',
             '--file-path', 'test.xlsx',
             '--range', 'A1',
             '--data', 'invalid_json'
@@ -182,19 +179,19 @@ class TestCliCommands:
 
     def test_read_table_help(self):
         """read-table 도움말 테스트"""
-        result = self.runner.invoke(read_table, ['--help'])
+        result = self.runner.invoke(excel_app, ['table-read', '--help'])
         assert result.exit_code == 0
         assert "Excel 테이블 데이터를 pandas DataFrame으로 읽습니다" in result.output
 
     def test_write_table_help(self):
         """write-table 도움말 테스트"""
-        result = self.runner.invoke(write_table, ['--help'])
+        result = self.runner.invoke(excel_app, ['table-write', '--help'])
         assert result.exit_code == 0
         assert "pandas DataFrame을 Excel 테이블로 씁니다" in result.output
 
     def test_write_table_missing_data_file(self):
         """데이터 파일 누락 테스트"""
-        result = self.runner.invoke(write_table, [
+        result = self.runner.invoke(excel_app, ['table-write',
             '--file-path', 'test.xlsx',
             '--data-file', 'non_existent.csv'
         ])

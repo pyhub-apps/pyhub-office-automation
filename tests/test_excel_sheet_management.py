@@ -6,13 +6,10 @@ add-sheet, rename-sheet, activate-sheet, delete-sheet 테스트
 import json
 import pytest
 from pathlib import Path
-from click.testing import CliRunner
+from typer.testing import CliRunner
 from unittest.mock import patch, Mock, MagicMock
 
-from pyhub_office_automation.excel.add_sheet import add_sheet
-from pyhub_office_automation.excel.rename_sheet import rename_sheet
-from pyhub_office_automation.excel.activate_sheet import activate_sheet
-from pyhub_office_automation.excel.delete_sheet import delete_sheet
+from pyhub_office_automation.cli.main import excel_app
 
 
 def create_mock_sheets_collection(sheet_list, active_sheet=None):
@@ -32,7 +29,7 @@ class TestAddSheet:
     def test_help_option(self):
         """도움말 옵션 테스트"""
         runner = CliRunner()
-        result = runner.invoke(add_sheet, ['--help'])
+        result = runner.invoke(excel_app, ['sheet-add', '--help'])
 
         assert result.exit_code == 0
         assert 'Excel 워크북에 새 워크시트를 추가합니다' in result.output
@@ -41,8 +38,8 @@ class TestAddSheet:
         assert '--before' in result.output
         assert '--after' in result.output
 
-    @patch('pyhub_office_automation.excel.add_sheet.get_workbook')
-    def test_successful_add_sheet_basic(self, mock_get_workbook):
+    @patch('pyhub_office_automation.excel.sheet_add.get_or_open_workbook')
+    def test_successful_add_sheet_basic(self, mock_get_or_open_workbook):
         """정상적인 시트 추가 - 기본 테스트"""
         # 모킹 설정
         mock_book = Mock()
@@ -69,11 +66,11 @@ class TestAddSheet:
         mock_book.sheets = mock_sheets
         mock_book.save = Mock()
 
-        mock_get_workbook.return_value = mock_book
+        mock_get_or_open_workbook.return_value = mock_book
 
         runner = CliRunner()
-        result = runner.invoke(add_sheet, [
-            '--workbook', 'test.xlsx',
+        result = runner.invoke(excel_app, ['sheet-add',
+            '--file-path', 'test.xlsx',
             '--name', 'NewSheet'
         ])
 
@@ -85,18 +82,18 @@ class TestAddSheet:
 
     def test_add_sheet_duplicate_name_error(self):
         """중복 이름 에러 테스트"""
-        with patch('pyhub_office_automation.excel.add_sheet.get_workbook') as mock_get_workbook:
+        with patch('pyhub_office_automation.excel.sheet_add.get_or_open_workbook') as mock_get_or_open_workbook:
             mock_book = Mock()
             mock_sheet1 = Mock()
             mock_sheet1.name = "ExistingSheet"
 
             mock_sheets = create_mock_sheets_collection([mock_sheet1], mock_sheet1)
             mock_book.sheets = mock_sheets
-            mock_get_workbook.return_value = mock_book
+            mock_get_or_open_workbook.return_value = mock_book
 
             runner = CliRunner()
-            result = runner.invoke(add_sheet, [
-                '--workbook', 'test.xlsx',
+            result = runner.invoke(excel_app, ['sheet-add',
+                '--file-path', 'test.xlsx',
                 '--name', 'ExistingSheet'
             ])
 
@@ -108,8 +105,8 @@ class TestAddSheet:
     def test_add_sheet_invalid_options(self):
         """잘못된 옵션 조합 테스트"""
         runner = CliRunner()
-        result = runner.invoke(add_sheet, [
-            '--workbook', 'test.xlsx',
+        result = runner.invoke(excel_app, ['sheet-add',
+            '--file-path', 'test.xlsx',
             '--before', 'Sheet1',
             '--after', 'Sheet2',
             '--index', '1'
@@ -127,15 +124,15 @@ class TestRenameSheet:
     def test_help_option(self):
         """도움말 옵션 테스트"""
         runner = CliRunner()
-        result = runner.invoke(rename_sheet, ['--help'])
+        result = runner.invoke(excel_app, ['sheet-rename', '--help'])
 
         assert result.exit_code == 0
         assert 'Excel 워크북의 시트 이름을 변경합니다' in result.output
-        assert '--current-name' in result.output
+        assert '--old-name' in result.output
         assert '--new-name' in result.output
 
-    @patch('pyhub_office_automation.excel.rename_sheet.get_workbook')
-    def test_successful_rename_sheet(self, mock_get_workbook):
+    @patch('pyhub_office_automation.excel.sheet_rename.get_or_open_workbook')
+    def test_successful_rename_sheet(self, mock_get_or_open_workbook):
         """정상적인 시트 이름 변경 테스트"""
         mock_book = Mock()
         mock_sheet = Mock()
@@ -152,12 +149,12 @@ class TestRenameSheet:
             mock_sheet.name = value
         type(mock_sheet).name = property(lambda self: mock_sheet.name, set_name)
 
-        mock_get_workbook.return_value = mock_book
+        mock_get_or_open_workbook.return_value = mock_book
 
         runner = CliRunner()
-        result = runner.invoke(rename_sheet, [
-            '--workbook', 'test.xlsx',
-            '--current-name', 'OldName',
+        result = runner.invoke(excel_app, ['sheet-rename',
+            '--file-path', 'test.xlsx',
+            '--old-name', 'OldName',
             '--new-name', 'NewName'
         ])
 
@@ -168,9 +165,9 @@ class TestRenameSheet:
     def test_rename_sheet_invalid_chars(self):
         """잘못된 문자 포함 이름 테스트"""
         runner = CliRunner()
-        result = runner.invoke(rename_sheet, [
-            '--workbook', 'test.xlsx',
-            '--current-name', 'Sheet1',
+        result = runner.invoke(excel_app, ['sheet-rename',
+            '--file-path', 'test.xlsx',
+            '--old-name', 'Sheet1',
             '--new-name', 'Invalid/Name'
         ])
 
@@ -183,9 +180,9 @@ class TestRenameSheet:
         """너무 긴 이름 테스트"""
         long_name = "A" * 32  # 31자 초과
         runner = CliRunner()
-        result = runner.invoke(rename_sheet, [
-            '--workbook', 'test.xlsx',
-            '--current-name', 'Sheet1',
+        result = runner.invoke(excel_app, ['sheet-rename',
+            '--file-path', 'test.xlsx',
+            '--old-name', 'Sheet1',
             '--new-name', long_name
         ])
 
@@ -201,15 +198,15 @@ class TestActivateSheet:
     def test_help_option(self):
         """도움말 옵션 테스트"""
         runner = CliRunner()
-        result = runner.invoke(activate_sheet, ['--help'])
+        result = runner.invoke(excel_app, ['sheet-activate', '--help'])
 
         assert result.exit_code == 0
         assert 'Excel 워크북의 특정 시트를 활성화합니다' in result.output
         assert '--name' in result.output
         assert '--index' in result.output
 
-    @patch('pyhub_office_automation.excel.activate_sheet.get_workbook')
-    def test_successful_activate_sheet(self, mock_get_workbook):
+    @patch('pyhub_office_automation.excel.sheet_activate.get_or_open_workbook')
+    def test_successful_activate_sheet(self, mock_get_or_open_workbook):
         """정상적인 시트 활성화 테스트"""
         mock_book = Mock()
         mock_sheet1 = Mock()
@@ -224,11 +221,11 @@ class TestActivateSheet:
         mock_sheets = create_mock_sheets_collection([mock_sheet1, mock_sheet2], mock_sheet1)
         mock_book.sheets = mock_sheets
 
-        mock_get_workbook.return_value = mock_book
+        mock_get_or_open_workbook.return_value = mock_book
 
         runner = CliRunner()
-        result = runner.invoke(activate_sheet, [
-            '--workbook', 'test.xlsx',
+        result = runner.invoke(excel_app, ['sheet-activate',
+            '--file-path', 'test.xlsx',
             '--name', 'Sheet1'
         ])
 
@@ -240,18 +237,18 @@ class TestActivateSheet:
 
     def test_activate_sheet_not_found(self):
         """존재하지 않는 시트 활성화 테스트"""
-        with patch('pyhub_office_automation.excel.activate_sheet.get_workbook') as mock_get_workbook:
+        with patch('pyhub_office_automation.excel.sheet_activate.get_or_open_workbook') as mock_get_or_open_workbook:
             mock_book = Mock()
             mock_sheet = Mock()
             mock_sheet.name = "Sheet1"
 
             mock_sheets = create_mock_sheets_collection([mock_sheet], mock_sheet)
             mock_book.sheets = mock_sheets
-            mock_get_workbook.return_value = mock_book
+            mock_get_or_open_workbook.return_value = mock_book
 
             runner = CliRunner()
-            result = runner.invoke(activate_sheet, [
-                '--workbook', 'test.xlsx',
+            result = runner.invoke(excel_app, ['sheet-activate',
+                '--file-path', 'test.xlsx',
                 '--name', 'NonExistentSheet'
             ])
 
@@ -267,15 +264,15 @@ class TestDeleteSheet:
     def test_help_option(self):
         """도움말 옵션 테스트"""
         runner = CliRunner()
-        result = runner.invoke(delete_sheet, ['--help'])
+        result = runner.invoke(excel_app, ['sheet-delete', '--help'])
 
         assert result.exit_code == 0
         assert 'Excel 워크북에서 시트를 삭제합니다' in result.output
         assert '--name' in result.output
         assert '--force' in result.output
 
-    @patch('pyhub_office_automation.excel.delete_sheet.get_workbook')
-    def test_successful_delete_sheet(self, mock_get_workbook):
+    @patch('pyhub_office_automation.excel.sheet_delete.get_or_open_workbook')
+    def test_successful_delete_sheet(self, mock_get_or_open_workbook):
         """정상적인 시트 삭제 테스트"""
         mock_book = Mock()
 
@@ -302,11 +299,11 @@ class TestDeleteSheet:
 
         mock_sheet1.delete.side_effect = delete_side_effect
 
-        mock_get_workbook.return_value = mock_book
+        mock_get_or_open_workbook.return_value = mock_book
 
         runner = CliRunner()
-        result = runner.invoke(delete_sheet, [
-            '--workbook', 'test.xlsx',
+        result = runner.invoke(excel_app, ['sheet-delete',
+            '--file-path', 'test.xlsx',
             '--name', 'Sheet1',
             '--force'  # 확인 없이 삭제
         ])
@@ -319,18 +316,18 @@ class TestDeleteSheet:
 
     def test_delete_last_sheet_error(self):
         """마지막 시트 삭제 시도 에러 테스트"""
-        with patch('pyhub_office_automation.excel.delete_sheet.get_workbook') as mock_get_workbook:
+        with patch('pyhub_office_automation.excel.sheet_delete.get_or_open_workbook') as mock_get_or_open_workbook:
             mock_book = Mock()
             mock_sheet = Mock()
             mock_sheet.name = "Sheet1"
 
             mock_sheets = create_mock_sheets_collection([mock_sheet], mock_sheet)
             mock_book.sheets = mock_sheets
-            mock_get_workbook.return_value = mock_book
+            mock_get_or_open_workbook.return_value = mock_book
 
             runner = CliRunner()
-            result = runner.invoke(delete_sheet, [
-                '--workbook', 'test.xlsx',
+            result = runner.invoke(excel_app, ['sheet-delete',
+                '--file-path', 'test.xlsx',
                 '--name', 'Sheet1',
                 '--force'
             ])
@@ -342,7 +339,7 @@ class TestDeleteSheet:
 
     def test_delete_sheet_not_found(self):
         """존재하지 않는 시트 삭제 테스트"""
-        with patch('pyhub_office_automation.excel.delete_sheet.get_workbook') as mock_get_workbook:
+        with patch('pyhub_office_automation.excel.sheet_delete.get_or_open_workbook') as mock_get_or_open_workbook:
             mock_book = Mock()
             mock_sheet = Mock()
             mock_sheet.name = "Sheet1"
@@ -352,11 +349,11 @@ class TestDeleteSheet:
             mock_sheet2.name = "Sheet2"
             mock_sheets = create_mock_sheets_collection([mock_sheet, mock_sheet2], mock_sheet)
             mock_book.sheets = mock_sheets
-            mock_get_workbook.return_value = mock_book
+            mock_get_or_open_workbook.return_value = mock_book
 
             runner = CliRunner()
-            result = runner.invoke(delete_sheet, [
-                '--workbook', 'test.xlsx',
+            result = runner.invoke(excel_app, ['sheet-delete',
+                '--file-path', 'test.xlsx',
                 '--name', 'NonExistentSheet',
                 '--force'
             ])
@@ -375,7 +372,7 @@ class TestSheetManagementEdgeCases:
         runner = CliRunner()
 
         # add-sheet 테스트
-        result = runner.invoke(add_sheet, ['--name', 'TestSheet'])
+        result = runner.invoke(excel_app, ['sheet-add', '--name', 'TestSheet'])
         assert result.exit_code != 0
         assert 'Missing option' in result.output
 
@@ -384,9 +381,9 @@ class TestSheetManagementEdgeCases:
         runner = CliRunner()
 
         # rename-sheet에서 new-name 누락
-        result = runner.invoke(rename_sheet, [
-            '--workbook', 'test.xlsx',
-            '--current-name', 'Sheet1'
+        result = runner.invoke(excel_app, ['sheet-rename',
+            '--file-path', 'test.xlsx',
+            '--old-name', 'Sheet1'
         ])
         assert result.exit_code != 0
 
@@ -395,15 +392,15 @@ class TestSheetManagementEdgeCases:
         runner = CliRunner()
 
         # activate-sheet에서 name과 index 동시 사용
-        result = runner.invoke(activate_sheet, [
-            '--workbook', 'test.xlsx',
+        result = runner.invoke(excel_app, ['sheet-activate',
+            '--file-path', 'test.xlsx',
             '--name', 'Sheet1',
             '--index', '0'
         ])
         assert result.exit_code == 1
 
-    @patch('pyhub_office_automation.excel.add_sheet.get_workbook')
-    def test_text_output_format(self, mock_get_workbook):
+    @patch('pyhub_office_automation.excel.sheet_add.get_or_open_workbook')
+    def test_text_output_format(self, mock_get_or_open_workbook):
         """텍스트 출력 형식 테스트"""
         mock_book = Mock()
         mock_sheet = Mock()
@@ -420,11 +417,11 @@ class TestSheetManagementEdgeCases:
 
         mock_book.sheets = mock_sheets
         mock_book.save = Mock()
-        mock_get_workbook.return_value = mock_book
+        mock_get_or_open_workbook.return_value = mock_book
 
         runner = CliRunner()
-        result = runner.invoke(add_sheet, [
-            '--workbook', 'test.xlsx',
+        result = runner.invoke(excel_app, ['sheet-add',
+            '--file-path', 'test.xlsx',
             '--name', 'NewSheet',
             '--format', 'text'
         ])

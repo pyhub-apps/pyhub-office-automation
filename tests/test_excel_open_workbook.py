@@ -1,20 +1,20 @@
 """
-Excel open-workbook 명령어 테스트
+Excel workbook-open 명령어 테스트
 """
 
 import json
 import pytest
 from pathlib import Path
-from click.testing import CliRunner
+from typer.testing import CliRunner
 from unittest.mock import patch, Mock
 
-from pyhub_office_automation.excel.open_workbook import open_workbook
+from pyhub_office_automation.cli.main import excel_app
 
 
-class TestOpenWorkbook:
-    """Excel open-workbook 명령어 테스트 클래스"""
+class TestWorkbookOpen:
+    """Excel workbook-open 명령어 테스트 클래스"""
 
-    @patch('pyhub_office_automation.excel.open_workbook.xw')
+    @patch('pyhub_office_automation.excel.workbook_open.xw')
     def test_successful_open_workbook_json_output(self, mock_xw, temp_excel_file):
         """정상적인 워크북 열기 - JSON 출력 테스트"""
         # xlwings 모킹 설정
@@ -51,7 +51,7 @@ class TestOpenWorkbook:
         # 실제 파일이 존재하도록 생성
         temp_excel_file.touch()
 
-        result = runner.invoke(open_workbook, [
+        result = runner.invoke(excel_app, ['workbook-open',
             '--file-path', str(temp_excel_file),
             '--format', 'json'
         ])
@@ -62,7 +62,7 @@ class TestOpenWorkbook:
         output_data = json.loads(result.output)
 
         assert output_data['success'] is True
-        assert output_data['command'] == 'open-workbook'
+        assert output_data['command'] == 'workbook-open'
         assert 'version' in output_data
         assert output_data['file_info']['exists'] is True
         assert output_data['file_info']['name'] == temp_excel_file.name
@@ -77,7 +77,7 @@ class TestOpenWorkbook:
         # 실제 파일이 존재하도록 생성
         temp_excel_file.touch()
 
-        result = runner.invoke(open_workbook, [
+        result = runner.invoke(excel_app, ['workbook-open',
             '--file-path', str(temp_excel_file),
             '--format', 'text'
         ])
@@ -91,7 +91,7 @@ class TestOpenWorkbook:
         """파일이 존재하지 않는 경우 테스트"""
         runner = CliRunner()
 
-        result = runner.invoke(open_workbook, [
+        result = runner.invoke(excel_app, ['workbook-open',
             '--file-path', non_existent_file,
             '--format', 'json'
         ])
@@ -109,7 +109,7 @@ class TestOpenWorkbook:
         """잘못된 파일 확장자 테스트"""
         runner = CliRunner()
 
-        result = runner.invoke(open_workbook, [
+        result = runner.invoke(excel_app, ['workbook-open',
             '--file-path', str(temp_invalid_file),
             '--format', 'json'
         ])
@@ -130,7 +130,7 @@ class TestOpenWorkbook:
         # 실제 파일이 존재하도록 생성
         temp_excel_file.touch()
 
-        result = runner.invoke(open_workbook, [
+        result = runner.invoke(excel_app, ['workbook-open',
             '--file-path', str(temp_excel_file),
             '--format', 'json'
         ])
@@ -154,7 +154,7 @@ class TestOpenWorkbook:
         # 워크북 열기 실패 설정
         mock_xlwings['app'].books.open.side_effect = Exception("워크북을 열 수 없습니다")
 
-        result = runner.invoke(open_workbook, [
+        result = runner.invoke(excel_app, ['workbook-open',
             '--file-path', str(temp_excel_file),
             '--format', 'json'
         ])
@@ -175,7 +175,7 @@ class TestOpenWorkbook:
         # 실제 파일이 존재하도록 생성
         temp_excel_file.touch()
 
-        result = runner.invoke(open_workbook, [
+        result = runner.invoke(excel_app, ['workbook-open',
             '--file-path', str(temp_excel_file),
             '--visible', 'False',
             '--format', 'json'
@@ -190,23 +190,23 @@ class TestOpenWorkbook:
         """도움말 옵션 테스트"""
         runner = CliRunner()
 
-        result = runner.invoke(open_workbook, ['--help'])
+        result = runner.invoke(excel_app, ['workbook-open', '--help'])
 
         assert result.exit_code == 0
-        assert 'Excel 워크북 파일을 엽니다' in result.output
+        assert 'Excel 워크북을 열거나 기존 워크북의 정보를 가져옵니다' in result.output
         assert '--file-path' in result.output
         assert '--visible' in result.output
         assert '--format' in result.output
 
     def test_version_option(self):
-        """버전 옵션 테스트"""
+        """버전 옵션 테스트 - Typer에서는 개별 명령어에 --version이 없음"""
         runner = CliRunner()
 
-        result = runner.invoke(open_workbook, ['--version'])
+        # Typer에서는 개별 명령어에 --version이 없으므로 실패해야 함
+        result = runner.invoke(excel_app, ['workbook-open', '--version'])
 
-        assert result.exit_code == 0
-        # 버전 정보가 출력되는지 확인 (정확한 버전은 get_version() 함수에 의존)
-        assert result.output.strip() != ""
+        assert result.exit_code != 0  # 실패해야 함
+        assert 'No such option' in result.output or 'Unrecognized arguments' in result.output
 
     def test_empty_sheet_handling(self, temp_excel_file, mock_xlwings):
         """빈 시트 처리 테스트"""
@@ -218,7 +218,7 @@ class TestOpenWorkbook:
         # 빈 시트 설정 (used_range가 None인 경우)
         mock_xlwings['sheet'].used_range = None
 
-        result = runner.invoke(open_workbook, [
+        result = runner.invoke(excel_app, ['workbook-open',
             '--file-path', str(temp_excel_file),
             '--format', 'json'
         ])
@@ -241,7 +241,7 @@ class TestOpenWorkbook:
         # 시트 정보 수집 시 에러 발생 설정
         mock_xlwings['sheet'].used_range = property(lambda self: (_ for _ in ()).throw(Exception("시트 접근 오류")))
 
-        result = runner.invoke(open_workbook, [
+        result = runner.invoke(excel_app, ['workbook-open',
             '--file-path', str(temp_excel_file),
             '--format', 'json'
         ])

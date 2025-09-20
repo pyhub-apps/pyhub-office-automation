@@ -38,8 +38,8 @@ jobs:
         oa info --format json
         oa excel list --format json
         oa install-guide --format json
-        oa excel create-workbook --help
-        oa excel open-workbook --help
+        oa excel workbook-create --help
+        oa excel workbook-open --help
 
     - name: Test new shape and slicer commands (help only)
       run: |
