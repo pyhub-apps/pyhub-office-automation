@@ -1,35 +1,28 @@
 """
-Excel 워크시트 활성화 명령어
+Excel 워크시트 활성화 명령어 (Typer 버전)
 AI 에이전트와의 연동을 위한 구조화된 출력 제공
 """
 
 import json
 import sys
 from pathlib import Path
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
-from .utils import get_workbook, create_error_response, create_success_response, get_or_open_workbook
+
+from pyhub_office_automation.version import get_version
+from .utils import get_workbook, create_error_response, create_success_response, get_or_open_workbook, ExecutionTimer
 
 
-@click.command()
-@click.option('--workbook',
-              help='워크북 파일 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--name',
-              help='활성화할 시트의 이름')
-@click.option('--index', type=int,
-              help='활성화할 시트의 인덱스 (0부터 시작, name과 함께 사용 불가)')
-@click.option('--visible', default=True, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.version_option(version=get_version(), prog_name="oa excel activate-sheet")
-def activate_sheet(workbook, use_active, workbook_name, name, index, visible, output_format):
+def sheet_activate(
+    workbook: Optional[str] = typer.Option(None, "--workbook", help="워크북 파일 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
+    name: Optional[str] = typer.Option(None, "--name", help="활성화할 시트의 이름"),
+    index: Optional[int] = typer.Option(None, "--index", help="활성화할 시트의 인덱스 (1부터 시작)"),
+    visible: bool = typer.Option(True, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택")
+):
     """
     Excel 워크북의 특정 시트를 활성화합니다.
 
@@ -40,7 +33,13 @@ def activate_sheet(workbook, use_active, workbook_name, name, index, visible, ou
     - --workbook: 파일 경로로 워크북 열기 (기존 방식)
     - --use-active: 현재 활성 워크북 사용
     - --workbook-name: 열린 워크북 이름으로 접근
+
+    예제:
+        oa excel sheet-activate --use-active --name "Sheet2"
+        oa excel sheet-activate --workbook "data.xlsx" --index 2
+        oa excel sheet-activate --workbook-name "Sales.xlsx" --name "Summary"
     """
+    book = None
     try:
         # 옵션 검증
         if name and index is not None:
@@ -49,115 +48,166 @@ def activate_sheet(workbook, use_active, workbook_name, name, index, visible, ou
         if not name and index is None:
             raise ValueError("--name 또는 --index 중 하나는 반드시 지정해야 합니다")
 
-        # 워크북 연결 (새로운 통합 함수 사용)
-        book = get_or_open_workbook(
-            file_path=workbook,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+        # 실행 시간 측정 시작
+        with ExecutionTimer() as timer:
+            # 워크북 연결
+            book = get_or_open_workbook(
+                file_path=workbook,
+                workbook_name=workbook_name,
+                use_active=use_active,
+                visible=visible
+            )
 
-        # 기존 시트 정보 수집
-        existing_sheets = [sheet.name for sheet in book.sheets]
-        previous_active_sheet = book.sheets.active.name if book.sheets.active else None
+            # 기존 활성 시트 정보 수집
+            old_active_sheet = book.sheets.active
+            old_active_info = {
+                "name": old_active_sheet.name,
+                "index": old_active_sheet.index
+            }
 
-        # 대상 시트 찾기
-        target_sheet = None
-
-        if name:
-            if name not in existing_sheets:
-                raise ValueError(f"시트를 찾을 수 없습니다: '{name}'")
-            target_sheet = book.sheets[name]
-        else:  # index 사용
-            if index < 0 or index >= len(book.sheets):
-                raise ValueError(f"인덱스가 범위를 벗어났습니다: {index} (0-{len(book.sheets)-1} 범위)")
-            target_sheet = book.sheets[index]
-
-        # 시트 활성화
-        try:
-            target_sheet.activate()
-        except Exception as e:
-            raise RuntimeError(f"시트 활성화 중 오류 발생: {str(e)}")
-
-        # 활성화 후 상태 확인
-        current_active_sheet = book.sheets.active.name if book.sheets.active else None
-        activation_success = current_active_sheet == target_sheet.name
-
-        # 활성화된 시트 정보 수집
-        sheet_info = {
-            "name": target_sheet.name,
-            "index": target_sheet.index,
-            "visible": target_sheet.visible,
-            "is_active": activation_success,
-            "previous_active_sheet": previous_active_sheet
-        }
-
-        # 워크북 정보 수집
-        workbook_info = {
-            "name": normalize_path(book.name),
-            "full_name": normalize_path(book.fullname),
-            "sheet_count": len(book.sheets),
-            "active_sheet": current_active_sheet,
-            "all_sheets": [
-                {
+            # 시트 목록 수집
+            all_sheets = []
+            for sheet in book.sheets:
+                all_sheets.append({
                     "name": sheet.name,
                     "index": sheet.index,
-                    "is_active": sheet.name == current_active_sheet
-                } for sheet in book.sheets
-            ]
-        }
+                    "is_active": sheet == old_active_sheet
+                })
 
-        # 성공 응답 생성
-        result_data = create_success_response(
-            data={
-                "activated_sheet": sheet_info,
-                "workbook": workbook_info
-            },
-            command="activate-sheet",
-            message=f"시트가 성공적으로 활성화되었습니다: '{target_sheet.name}'"
-        )
+            # 대상 시트 찾기 및 활성화
+            target_sheet = None
 
-        # 활성화 실패 경고
-        if not activation_success:
-            result_data["warning"] = f"시트 활성화 명령은 실행되었지만 예상과 다른 시트가 활성화되었습니다. 현재 활성 시트: '{current_active_sheet}'"
-
-        # 출력 형식에 따른 결과 반환
-        if output_format == 'json':
-            click.echo(json.dumps(result_data, ensure_ascii=False, indent=2))
-        else:
-            click.echo(f"✅ 시트 활성화 성공: '{sheet_info['name']}'")
-            click.echo(f"📍 위치: {sheet_info['index']}번째")
-            if sheet_info['previous_active_sheet'] and sheet_info['previous_active_sheet'] != sheet_info['name']:
-                click.echo(f"🔄 이전 활성 시트: '{sheet_info['previous_active_sheet']}'")
-            click.echo(f"📊 전체 시트 수: {workbook_info['sheet_count']}")
-
-            if result_data.get("warning"):
-                click.echo(f"⚠️ {result_data['warning']}")
+            if name:
+                # 이름으로 찾기
+                try:
+                    target_sheet = book.sheets[name]
+                except KeyError:
+                    available_names = [sheet.name for sheet in book.sheets]
+                    raise ValueError(f"시트 '{name}'을 찾을 수 없습니다. 사용 가능한 시트: {available_names}")
             else:
-                click.echo(f"🎯 현재 활성 시트: '{workbook_info['active_sheet']}'")
+                # 인덱스로 찾기
+                try:
+                    # xlwings는 1부터 시작하는 인덱스 사용
+                    target_sheet = book.sheets[index]
+                except IndexError:
+                    sheet_count = len(book.sheets)
+                    raise ValueError(f"인덱스 {index}가 범위를 벗어났습니다. 사용 가능한 인덱스: 1-{sheet_count}")
 
-    except (FileNotFoundError, ValueError, RuntimeError) as e:
-        error_data = create_error_response(e, "activate-sheet")
+            # 시트 활성화
+            target_sheet.activate()
 
+            # 활성화 후 정보 수집
+            new_active_sheet = book.sheets.active
+            new_active_info = {
+                "name": new_active_sheet.name,
+                "index": new_active_sheet.index
+            }
+
+            # 시트 정보 업데이트
+            for sheet_info in all_sheets:
+                sheet_info["is_active"] = (sheet_info["name"] == new_active_sheet.name)
+
+            # 활성화된 시트의 추가 정보
+            activated_sheet_info = {
+                "name": target_sheet.name,
+                "index": target_sheet.index,
+                "is_visible": getattr(target_sheet, 'visible', True)
+            }
+
+            # 사용된 범위 정보 추가 (가능한 경우)
+            try:
+                used_range = target_sheet.used_range
+                if used_range:
+                    activated_sheet_info["used_range"] = {
+                        "address": used_range.address,
+                        "last_cell": used_range.last_cell.address,
+                        "row_count": used_range.rows.count,
+                        "column_count": used_range.columns.count
+                    }
+                else:
+                    activated_sheet_info["used_range"] = None
+            except:
+                activated_sheet_info["used_range"] = None
+
+            # 워크북 정보
+            workbook_info = {
+                "name": book.name,
+                "full_name": book.fullname,
+                "total_sheets": len(book.sheets)
+            }
+
+            # 데이터 구성
+            data_content = {
+                "activated_sheet": activated_sheet_info,
+                "previous_active": old_active_info,
+                "workbook": workbook_info,
+                "all_sheets": all_sheets
+            }
+
+            # 성공 메시지
+            if name:
+                message = f"시트 '{target_sheet.name}'을(를) 활성화했습니다"
+            else:
+                message = f"인덱스 {index}번 시트 '{target_sheet.name}'을(를) 활성화했습니다"
+
+            # 성공 응답 생성
+            response = create_success_response(
+                data=data_content,
+                command="sheet-activate",
+                message=message,
+                execution_time_ms=timer.execution_time_ms,
+                book=book
+            )
+
+            # 출력 형식에 따른 결과 반환
+            if output_format == 'json':
+                typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
+            else:  # text 형식
+                activated = activated_sheet_info
+                wb = workbook_info
+
+                typer.echo(f"✅ {message}")
+                typer.echo()
+                typer.echo(f"📁 워크북: {wb['name']}")
+                typer.echo(f"📄 활성 시트: {activated['name']} (인덱스: {activated['index']})")
+
+                if activated.get('used_range'):
+                    used = activated['used_range']
+                    typer.echo(f"📊 사용된 범위: {used['address']} ({used['row_count']}행 × {used['column_count']}열)")
+                else:
+                    typer.echo(f"📊 사용된 범위: 없음 (빈 시트)")
+
+                typer.echo()
+                typer.echo(f"📋 전체 시트 목록 ({wb['total_sheets']}개):")
+                for i, sheet in enumerate(all_sheets, 1):
+                    active_mark = " ← 현재 활성" if sheet['is_active'] else ""
+                    typer.echo(f"  {i}. {sheet['name']}{active_mark}")
+
+    except ValueError as e:
+        error_response = create_error_response(e, "sheet-activate")
         if output_format == 'json':
-            click.echo(json.dumps(error_data, ensure_ascii=False, indent=2), err=True)
+            typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ {str(e)}", err=True)
-            if error_data.get("suggestion"):
-                click.echo(f"💡 {error_data['suggestion']}", err=True)
-
-        sys.exit(1)
+            typer.echo(f"❌ {str(e)}", err=True)
+        raise typer.Exit(1)
 
     except Exception as e:
-        error_data = create_error_response(e, "activate-sheet")
-
+        error_response = create_error_response(e, "sheet-activate")
         if output_format == 'json':
-            click.echo(json.dumps(error_data, ensure_ascii=False, indent=2), err=True)
+            typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)
+            typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)
+            typer.echo("💡 Excel이 설치되어 있는지 확인하고, 워크북이 열려있는지 확인하세요.", err=True)
+        raise typer.Exit(1)
 
-        sys.exit(1)
+    finally:
+        # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
+        if book and not visible and workbook:
+            try:
+                book.app.quit()
+            except:
+                pass
 
 
-if __name__ == '__main__':
-    activate_sheet()
+if __name__ == "__main__":
+    typer.run(sheet_activate)

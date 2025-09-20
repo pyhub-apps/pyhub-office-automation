@@ -82,7 +82,7 @@ setup(
     extras_require=extras_require,
     entry_points={
         "console_scripts": [
-            "oa=pyhub_office_automation.cli.main:cli",
+            "oa=pyhub_office_automation.cli.main:main",
         ],
     },
     include_package_data=True,

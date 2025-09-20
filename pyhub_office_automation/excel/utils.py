@@ -15,7 +15,7 @@ import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 
 
 def normalize_path(path: str) -> str:
