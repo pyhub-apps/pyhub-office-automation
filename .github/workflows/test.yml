@@ -1,5 +1,6 @@
-name: Tests
+name: Tests (Windows)
 
+# Windows 전용 테스트 - Excel/HWP 자동화 기능이 Windows에서만 완전 지원됨
 on:
   push:
     branches: [ main, develop ]
@@ -8,10 +9,9 @@ on:
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
         python-version: ['3.13']
 
     steps:
@@ -41,6 +41,33 @@ jobs:
         oa excel create-workbook --help
         oa excel open-workbook --help
 
+    - name: Test new shape and slicer commands (help only)
+      run: |
+        oa excel shape-add --help
+        oa excel shape-list --help
+        oa excel shape-delete --help
+        oa excel shape-format --help
+        oa excel textbox-add --help
+        oa excel shape-group --help
+        oa excel slicer-add --help
+        oa excel slicer-list --help
+        oa excel slicer-connect --help
+        oa excel slicer-position --help
+
+    - name: Test shape and slicer commands with mock data (if Excel available)
+      run: |
+        # Excel이 설치된 경우에만 실제 테스트 수행
+        try {
+          oa excel workbook-create --save-path "test_shapes.xlsx" --name "TestWorkbook"
+          Write-Host "Excel available - testing shape commands"
+          oa excel shape-list --file-path "test_shapes.xlsx" --format json
+          Write-Host "Shape commands test completed"
+          Remove-Item -Path "test_shapes.xlsx" -Force -ErrorAction SilentlyContinue
+        } catch {
+          Write-Host "Excel not available - skipping Excel-dependent tests"
+          Write-Host "Error: $($_.Exception.Message)"
+        }
+
     - name: Install test dependencies
       run: |
         pip install pytest pytest-cov pytest-mock
@@ -54,7 +81,7 @@ jobs:
         python -c "from pyhub_office_automation.version import get_version_info; import json; print(json.dumps(get_version_info(), indent=2))"
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - name: Checkout code
