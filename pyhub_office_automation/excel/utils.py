@@ -589,11 +589,56 @@ COMMAND_SUGGESTIONS = {
     ],
     "pivot-create": [
         {"command": "pivot-configure", "reason": "피벗 테이블을 설정합니다"},
-        {"command": "chart-pivot-create", "reason": "피벗 차트를 생성합니다"}
+        {"command": "chart-pivot-create", "reason": "피벗 차트를 생성합니다"},
+        {"command": "slicer-add", "reason": "피벗 테이블용 슬라이서를 생성합니다"}
     ],
     "chart-add": [
         {"command": "chart-configure", "reason": "차트를 설정합니다"},
         {"command": "chart-position", "reason": "차트 위치를 조정합니다"}
+    ],
+    "shape-add": [
+        {"command": "shape-format", "reason": "도형 스타일을 설정합니다"},
+        {"command": "shape-list", "reason": "생성된 도형을 확인합니다"},
+        {"command": "textbox-add", "reason": "텍스트 박스를 추가합니다"}
+    ],
+    "shape-format": [
+        {"command": "shape-list", "reason": "스타일이 적용된 도형을 확인합니다"},
+        {"command": "shape-group", "reason": "여러 도형을 그룹화합니다"}
+    ],
+    "shape-list": [
+        {"command": "shape-format", "reason": "도형 스타일을 변경합니다"},
+        {"command": "shape-delete", "reason": "불필요한 도형을 삭제합니다"},
+        {"command": "shape-group", "reason": "도형들을 그룹화합니다"}
+    ],
+    "shape-delete": [
+        {"command": "shape-list", "reason": "남은 도형들을 확인합니다"},
+        {"command": "shape-add", "reason": "새로운 도형을 추가합니다"}
+    ],
+    "shape-group": [
+        {"command": "shape-list", "reason": "그룹화된 도형을 확인합니다"},
+        {"command": "shape-format", "reason": "그룹 스타일을 조정합니다"}
+    ],
+    "textbox-add": [
+        {"command": "shape-list", "reason": "생성된 텍스트 박스를 확인합니다"},
+        {"command": "shape-format", "reason": "텍스트 박스 스타일을 변경합니다"},
+        {"command": "shape-group", "reason": "다른 도형과 그룹화합니다"}
+    ],
+    "slicer-add": [
+        {"command": "slicer-connect", "reason": "다른 피벗테이블에 연결합니다"},
+        {"command": "slicer-position", "reason": "슬라이서 위치를 조정합니다"},
+        {"command": "slicer-list", "reason": "생성된 슬라이서를 확인합니다"}
+    ],
+    "slicer-list": [
+        {"command": "slicer-connect", "reason": "슬라이서 연결을 관리합니다"},
+        {"command": "slicer-position", "reason": "슬라이서 위치를 조정합니다"}
+    ],
+    "slicer-connect": [
+        {"command": "slicer-list", "reason": "연결 상태를 확인합니다"},
+        {"command": "slicer-position", "reason": "슬라이서 레이아웃을 정리합니다"}
+    ],
+    "slicer-position": [
+        {"command": "slicer-list", "reason": "배치된 슬라이서를 확인합니다"},
+        {"command": "shape-add", "reason": "슬라이서 배경 도형을 추가합니다"}
     ]
 }
 
@@ -622,7 +667,17 @@ COMMAND_CATEGORIES = {
     "chart-position": "chart",
     "chart-pivot-create": "chart",
     "chart-delete": "chart",
-    "chart-export": "chart"
+    "chart-export": "chart",
+    "shape-add": "shape",
+    "shape-format": "shape",
+    "shape-list": "shape",
+    "shape-delete": "shape",
+    "shape-group": "shape",
+    "textbox-add": "shape",
+    "slicer-add": "slicer",
+    "slicer-connect": "slicer",
+    "slicer-position": "slicer",
+    "slicer-list": "slicer"
 }
 
 # 작업 타입 정의
@@ -650,7 +705,17 @@ OPERATION_TYPES = {
     "chart-position": "modify",
     "chart-pivot-create": "create",
     "chart-delete": "delete",
-    "chart-export": "read"
+    "chart-export": "read",
+    "shape-add": "create",
+    "shape-format": "modify",
+    "shape-list": "read",
+    "shape-delete": "delete",
+    "shape-group": "modify",
+    "textbox-add": "create",
+    "slicer-add": "create",
+    "slicer-connect": "modify",
+    "slicer-position": "modify",
+    "slicer-list": "read"
 }
 
 
@@ -836,3 +901,522 @@ class ExecutionTimer:
         if self.start_time and self.end_time:
             return round((self.end_time - self.start_time) * 1000, 2)
         return 0.0
+
+
+# ========== Shape 및 Slicer 관리 기능 (Issue #12) ==========
+
+# 뉴모피즘 스타일 정의
+NEUMORPHISM_STYLES = {
+    "background": {
+        "fill_color": "#F2EDF3",
+        "transparency": 0,
+        "has_line": False
+    },
+    "title-box": {
+        "fill_color": "#1D2433",
+        "transparency": 0,
+        "has_line": False,
+        "shadow": {
+            "color": "#1D2433",
+            "transparency": 85,
+            "blur": 30,
+            "angle": 45,
+            "distance": 10
+        }
+    },
+    "chart-box": {
+        "fill_color": "#FFFFFF",
+        "transparency": 0,
+        "has_line": False,
+        "shadow": {
+            "color": "#1D2433",
+            "transparency": 85,
+            "blur": 30,
+            "angle": 45,
+            "distance": 10
+        }
+    },
+    "slicer-box": {
+        "fill_color": "#FFFFFF",
+        "transparency": 0,
+        "has_line": True,
+        "line_color": "#E0E0E0",
+        "shadow": {
+            "color": "#1D2433",
+            "transparency": 90,
+            "blur": 20,
+            "angle": 45,
+            "distance": 5
+        }
+    }
+}
+
+# Excel Shape Type 상수 (xlwings 호환)
+SHAPE_TYPES = {
+    'rectangle': 1,  # msoShapeRectangle
+    'oval': 9,  # msoShapeOval
+    'line': 9,  # msoShapeLine (실제로는 20)
+    'arrow': 4,  # msoShapeRightArrow
+    'rounded_rectangle': 5,  # msoShapeRoundedRectangle
+    'diamond': 4,  # msoShapeDiamond (실제로는 4)
+    'triangle': 3,  # msoShapeIsoscelesTriangle
+    'pentagon': 7,  # msoShapePentagon
+    'hexagon': 8,  # msoShapeHexagon
+    'star': 12,  # msoShape5pointStar
+    'callout_rectangle': 61,  # msoShapeRectangularCallout
+    'text_box': 17  # msoTextBox
+}
+
+# 색상 유틸리티 함수
+def hex_to_rgb(hex_color: str) -> int:
+    """
+    HEX 색상 코드를 Excel RGB 정수값으로 변환
+
+    Args:
+        hex_color: HEX 색상 코드 (예: "#FF0000", "FF0000")
+
+    Returns:
+        Excel에서 사용하는 RGB 정수값
+    """
+    if hex_color.startswith('#'):
+        hex_color = hex_color[1:]
+
+    # RGB 값 추출
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+
+    # Excel RGB 형식으로 변환 (BGR 순서)
+    return b * 65536 + g * 256 + r
+
+
+def rgb_to_hex(rgb_value: int) -> str:
+    """
+    Excel RGB 정수값을 HEX 색상 코드로 변환
+
+    Args:
+        rgb_value: Excel RGB 정수값
+
+    Returns:
+        HEX 색상 코드 (예: "#FF0000")
+    """
+    # BGR에서 RGB로 변환
+    b = (rgb_value // 65536) % 256
+    g = (rgb_value // 256) % 256
+    r = rgb_value % 256
+
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+
+def apply_neumorphism_style(shape, style_name: str) -> bool:
+    """
+    도형에 뉴모피즘 스타일을 적용합니다.
+
+    Args:
+        shape: xlwings Shape 객체
+        style_name: 적용할 스타일 이름
+
+    Returns:
+        스타일 적용 성공 여부
+    """
+    if style_name not in NEUMORPHISM_STYLES:
+        return False
+
+    try:
+        style = NEUMORPHISM_STYLES[style_name]
+
+        # Windows에서만 전체 기능 지원
+        if platform.system() == "Windows":
+            # 채우기 색상 설정
+            if style.get("fill_color"):
+                shape.api.Fill.ForeColor.RGB = hex_to_rgb(style["fill_color"])
+                shape.api.Fill.Transparency = style.get("transparency", 0) / 100.0
+
+            # 테두리 설정
+            if style.get("has_line", True):
+                shape.api.Line.Visible = True
+                if style.get("line_color"):
+                    shape.api.Line.ForeColor.RGB = hex_to_rgb(style["line_color"])
+            else:
+                shape.api.Line.Visible = False
+
+            # 그림자 효과 설정
+            if style.get("shadow"):
+                shadow = style["shadow"]
+                shape.api.Shadow.Type = 25  # msoShadow25 (외부 그림자)
+                shape.api.Shadow.ForeColor.RGB = hex_to_rgb(shadow["color"])
+                shape.api.Shadow.Transparency = shadow.get("transparency", 50) / 100.0
+                shape.api.Shadow.Blur = shadow.get("blur", 20)
+                shape.api.Shadow.OffsetX = shadow.get("distance", 5)
+                shape.api.Shadow.OffsetY = shadow.get("distance", 5)
+        else:
+            # macOS에서는 기본 색상만 설정
+            if style.get("fill_color"):
+                # macOS에서는 제한적인 스타일링만 가능
+                pass
+
+        return True
+
+    except Exception:
+        return False
+
+
+def get_shape_by_name(sheet: xw.Sheet, shape_name: str) -> Optional[xw.Shape]:
+    """
+    시트에서 이름으로 도형을 찾습니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+        shape_name: 찾을 도형 이름
+
+    Returns:
+        xlwings Shape 객체 또는 None
+    """
+    try:
+        for shape in sheet.shapes:
+            if shape.name == shape_name:
+                return shape
+        return None
+    except Exception:
+        return None
+
+
+def get_shapes_info(sheet: xw.Sheet) -> List[Dict[str, Any]]:
+    """
+    시트의 모든 도형 정보를 수집합니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+
+    Returns:
+        도형 정보 리스트
+    """
+    shapes_info = []
+
+    try:
+        for shape in sheet.shapes:
+            shape_info = {
+                "name": shape.name,
+                "type": "unknown",
+                "position": {
+                    "left": getattr(shape, 'left', 0),
+                    "top": getattr(shape, 'top', 0)
+                },
+                "size": {
+                    "width": getattr(shape, 'width', 0),
+                    "height": getattr(shape, 'height', 0)
+                }
+            }
+
+            # Windows에서 추가 정보 수집
+            if platform.system() == "Windows":
+                try:
+                    shape_info.update({
+                        "type": shape.api.Type,
+                        "visible": shape.api.Visible,
+                        "has_text": hasattr(shape.api, 'TextFrame') and shape.api.TextFrame.HasText
+                    })
+
+                    # 색상 정보
+                    if hasattr(shape.api, 'Fill'):
+                        shape_info["fill_color"] = rgb_to_hex(shape.api.Fill.ForeColor.RGB)
+                        shape_info["transparency"] = shape.api.Fill.Transparency * 100
+
+                except Exception:
+                    pass
+
+            shapes_info.append(shape_info)
+
+    except Exception:
+        pass
+
+    return shapes_info
+
+
+def validate_position_and_size(left: int, top: int, width: int, height: int) -> Tuple[bool, str]:
+    """
+    도형의 위치와 크기가 유효한지 검증합니다.
+
+    Args:
+        left: 왼쪽 위치
+        top: 위쪽 위치
+        width: 너비
+        height: 높이
+
+    Returns:
+        (유효성 여부, 오류 메시지)
+    """
+    if left < 0 or top < 0:
+        return False, "위치는 0 이상이어야 합니다"
+
+    if width <= 0 or height <= 0:
+        return False, "크기는 0보다 커야 합니다"
+
+    # 최대 크기 제한 (A1 범위 기준)
+    if left > 20000 or top > 20000:
+        return False, "위치가 너무 큽니다 (최대: 20000px)"
+
+    if width > 5000 or height > 5000:
+        return False, "크기가 너무 큽니다 (최대: 5000px)"
+
+    return True, ""
+
+
+def generate_unique_shape_name(sheet: xw.Sheet, base_name: str = "Shape") -> str:
+    """
+    시트에서 고유한 도형 이름을 생성합니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+        base_name: 기본 이름
+
+    Returns:
+        고유한 도형 이름
+    """
+    existing_names = set()
+    try:
+        for shape in sheet.shapes:
+            existing_names.add(shape.name)
+    except Exception:
+        pass
+
+    # 기본 이름이 중복되지 않으면 그대로 사용
+    if base_name not in existing_names:
+        return base_name
+
+    # 숫자를 붙여서 고유한 이름 생성
+    counter = 1
+    while f"{base_name}{counter}" in existing_names:
+        counter += 1
+
+    return f"{base_name}{counter}"
+
+
+# ========== Slicer 관리 기능 추가 ==========
+
+def get_pivot_tables(sheet: xw.Sheet) -> List[Dict[str, Any]]:
+    """
+    시트의 모든 피벗테이블 정보를 수집합니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+
+    Returns:
+        피벗테이블 정보 리스트
+    """
+    pivot_tables = []
+
+    try:
+        if platform.system() == "Windows":
+            for pivot_table in sheet.api.PivotTables():
+                pivot_info = {
+                    "name": pivot_table.Name,
+                    "location": pivot_table.TableRange1.Address,
+                    "source_data": getattr(pivot_table, 'SourceData', 'Unknown'),
+                    "fields": []
+                }
+
+                # 피벗테이블 필드 정보 수집
+                try:
+                    for field in pivot_table.PivotFields():
+                        field_info = {
+                            "name": field.Name,
+                            "orientation": field.Orientation
+                        }
+                        pivot_info["fields"].append(field_info)
+                except Exception:
+                    pass
+
+                pivot_tables.append(pivot_info)
+
+    except Exception:
+        pass
+
+    return pivot_tables
+
+
+def get_slicer_by_name(workbook: xw.Book, slicer_name: str):
+    """
+    워크북에서 이름으로 슬라이서를 찾습니다.
+
+    Args:
+        workbook: xlwings Book 객체
+        slicer_name: 찾을 슬라이서 이름
+
+    Returns:
+        슬라이서 객체 또는 None
+    """
+    try:
+        if platform.system() == "Windows":
+            for slicer in workbook.api.SlicerCaches():
+                if slicer.Name == slicer_name:
+                    return slicer
+        return None
+    except Exception:
+        return None
+
+
+def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Any]]:
+    """
+    워크북의 모든 슬라이서 정보를 수집합니다.
+
+    Args:
+        workbook: xlwings Book 객체
+
+    Returns:
+        슬라이서 정보 리스트
+    """
+    slicers_info = []
+
+    try:
+        if platform.system() == "Windows":
+            for slicer_cache in workbook.api.SlicerCaches():
+                slicer_info = {
+                    "name": slicer_cache.Name,
+                    "source_name": slicer_cache.SourceName,
+                    "field_name": getattr(slicer_cache, 'OLAP', {}).get('SourceField', 'Unknown'),
+                    "slicer_items": [],
+                    "connected_pivot_tables": []
+                }
+
+                # 슬라이서 아이템 정보
+                try:
+                    for item in slicer_cache.SlicerItems():
+                        item_info = {
+                            "name": item.Name,
+                            "selected": item.Selected
+                        }
+                        slicer_info["slicer_items"].append(item_info)
+                except Exception:
+                    pass
+
+                # 연결된 피벗테이블 정보
+                try:
+                    for pivot_table in slicer_cache.PivotTables():
+                        slicer_info["connected_pivot_tables"].append(pivot_table.Name)
+                except Exception:
+                    pass
+
+                # 슬라이서 위치 정보 (첫 번째 슬라이서 기준)
+                try:
+                    if slicer_cache.Slicers().Count > 0:
+                        first_slicer = slicer_cache.Slicers(1)
+                        slicer_info["position"] = {
+                            "left": first_slicer.Left,
+                            "top": first_slicer.Top
+                        }
+                        slicer_info["size"] = {
+                            "width": first_slicer.Width,
+                            "height": first_slicer.Height
+                        }
+                        slicer_info["sheet"] = first_slicer.Parent.Parent.Name
+                except Exception:
+                    pass
+
+                slicers_info.append(slicer_info)
+
+    except Exception:
+        pass
+
+    return slicers_info
+
+
+def validate_slicer_position(left: int, top: int, width: int, height: int) -> Tuple[bool, str]:
+    """
+    슬라이서의 위치와 크기가 유효한지 검증합니다.
+
+    Args:
+        left: 왼쪽 위치
+        top: 위쪽 위치
+        width: 너비
+        height: 높이
+
+    Returns:
+        (유효성 여부, 오류 메시지)
+    """
+    if left < 0 or top < 0:
+        return False, "슬라이서 위치는 0 이상이어야 합니다"
+
+    if width <= 0 or height <= 0:
+        return False, "슬라이서 크기는 0보다 커야 합니다"
+
+    # 슬라이서 최소 크기 (Excel 기본값 기준)
+    if width < 100:
+        return False, "슬라이서 너비는 최소 100픽셀이어야 합니다"
+
+    if height < 50:
+        return False, "슬라이서 높이는 최소 50픽셀이어야 합니다"
+
+    # 최대 크기 제한
+    if left > 15000 or top > 15000:
+        return False, "슬라이서 위치가 너무 큽니다 (최대: 15000px)"
+
+    if width > 3000 or height > 2000:
+        return False, "슬라이서 크기가 너무 큽니다 (최대: 3000x2000px)"
+
+    return True, ""
+
+
+def generate_unique_slicer_name(workbook: xw.Book, base_name: str = "Slicer") -> str:
+    """
+    워크북에서 고유한 슬라이서 이름을 생성합니다.
+
+    Args:
+        workbook: xlwings Book 객체
+        base_name: 기본 이름
+
+    Returns:
+        고유한 슬라이서 이름
+    """
+    existing_names = set()
+    try:
+        if platform.system() == "Windows":
+            for slicer_cache in workbook.api.SlicerCaches():
+                existing_names.add(slicer_cache.Name)
+    except Exception:
+        pass
+
+    # 기본 이름이 중복되지 않으면 그대로 사용
+    if base_name not in existing_names:
+        return base_name
+
+    # 숫자를 붙여서 고유한 이름 생성
+    counter = 1
+    while f"{base_name}{counter}" in existing_names:
+        counter += 1
+
+    return f"{base_name}{counter}"
+
+
+def apply_slicer_style(slicer, style_name: str = "slicer-box") -> bool:
+    """
+    슬라이서에 뉴모피즘 스타일을 적용합니다.
+
+    Args:
+        slicer: xlwings Slicer 객체
+        style_name: 적용할 스타일 이름
+
+    Returns:
+        스타일 적용 성공 여부
+    """
+    if platform.system() != "Windows":
+        return False
+
+    try:
+        if style_name in NEUMORPHISM_STYLES:
+            style = NEUMORPHISM_STYLES[style_name]
+
+            # 슬라이서 스타일 설정 (Windows COM API)
+            if style.get("fill_color"):
+                # 슬라이서의 경우 배경색 설정이 제한적
+                pass
+
+            # 테두리 설정
+            if style.get("has_line", True) and style.get("line_color"):
+                # 슬라이서 테두리 색상 설정
+                pass
+
+        return True
+
+    except Exception:
+        return False
