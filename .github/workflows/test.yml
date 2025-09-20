@@ -32,15 +32,22 @@ jobs:
       run: |
         pip install -e .
 
-    - name: Test CLI installation
+    - name: Test CLI installation and commands
       run: |
         oa --version
         oa info --format json
+        oa excel list --format json
+        oa install-guide --format json
+        oa excel create-workbook --help
+        oa excel open-workbook --help
 
-    - name: Run unit tests (when available)
+    - name: Install test dependencies
       run: |
-        # pytest tests/ --cov=pyhub_office_automation --cov-report=xml
-        echo "Unit tests will be added in future releases"
+        pip install pytest pytest-cov pytest-mock
+
+    - name: Run unit tests
+      run: |
+        pytest tests/ -v --cov=pyhub_office_automation --cov-report=term-missing --cov-report=xml
 
     - name: Test version system
       run: |

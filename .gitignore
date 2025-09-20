@@ -1,6 +1,8 @@
 .DS_Store
 .venv
-__pycache__
+__pycache__/
+*.py[cod]
+*$py.class
 db.sqlite3
 
 # Claude Code local settings
@@ -10,3 +12,22 @@ db.sqlite3
 *.egg-info/
 build/
 dist/
+.eggs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+*.tmp
+*.temp

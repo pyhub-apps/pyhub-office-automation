@@ -6,6 +6,8 @@ AI 에이전트와의 연동을 위한 구조화된 출력 제공
 import json
 import click
 import sys
+import importlib
+import inspect
 from pathlib import Path
 
 from ..version import get_version_info, get_version
@@ -136,10 +138,112 @@ def install_guide(output_format):
             click.echo()
 
 
+def discover_excel_commands():
+    """Excel 디렉토리에서 사용 가능한 명령어들을 동적으로 발견"""
+    excel_dir = Path(__file__).parent.parent / "excel"
+    commands = []
+
+    if not excel_dir.exists():
+        return commands
+
+    for py_file in excel_dir.glob("*.py"):
+        if py_file.name.startswith("__") or py_file.name in ["__init__.py"]:
+            continue
+
+        try:
+            # 모듈 이름 생성 (파일명에서 .py 제거)
+            module_name = py_file.stem
+            module_path = f"pyhub_office_automation.excel.{module_name}"
+
+            # 동적으로 모듈 import
+            module = importlib.import_module(module_path)
+
+            # click 명령어 찾기 (함수 또는 Command 객체)
+            for name, obj in inspect.getmembers(module):
+                if name.startswith('_'):  # private 멤버 제외
+                    continue
+
+                is_click_command = False
+
+                # click.core.Command 타입인지 확인
+                if hasattr(obj, '__class__') and 'click.core.Command' in str(type(obj)):
+                    is_click_command = True
+
+                # 또는 click 데코레이터가 적용된 함수인지 확인
+                elif (inspect.isfunction(obj) and
+                      hasattr(obj, '__click_params__')):
+                    is_click_command = True
+
+                if is_click_command:
+                    # 명령어 이름을 파일명에서 가져오기 (snake_case를 kebab-case로)
+                    command_name = module_name.replace('_', '-')
+
+                    # 명령어 설명 추출
+                    description = "설명 없음"
+
+                    # Command 객체에서 help 가져오기
+                    if hasattr(obj, 'help') and obj.help:
+                        description = obj.help.strip()
+                    # 또는 docstring에서 가져오기
+                    elif hasattr(obj, '__doc__') and obj.__doc__:
+                        # docstring의 첫 번째 줄만 사용
+                        description = obj.__doc__.strip().split('\n')[0]
+                    # 함수의 경우 callback에서 가져오기
+                    elif hasattr(obj, 'callback') and obj.callback and obj.callback.__doc__:
+                        description = obj.callback.__doc__.strip().split('\n')[0]
+
+                    # 설명이 여러 줄인 경우 첫 번째 줄만 사용
+                    if '\n' in description:
+                        description = description.split('\n')[0].strip()
+
+                    commands.append({
+                        "name": command_name,
+                        "description": description,
+                        "module": module_path,
+                        "function": name,
+                        "status": "available"
+                    })
+                    break  # 첫 번째 click 명령어만 사용
+
+        except Exception as e:
+            # 모듈 import 실패 시 계속 진행
+            commands.append({
+                "name": py_file.stem.replace('_', '-'),
+                "description": f"로드 실패: {str(e)}",
+                "status": "error"
+            })
+            continue
+
+    return commands
+
+
 @cli.group()
 def excel():
     """Excel 자동화 명령어들"""
     pass
+
+
+def register_excel_commands():
+    """발견된 Excel 명령어들을 동적으로 등록"""
+    commands = discover_excel_commands()
+
+    for cmd_info in commands:
+        if cmd_info["status"] == "available":
+            try:
+                # 모듈 import 및 함수 가져오기
+                module = importlib.import_module(cmd_info["module"])
+                command_func = getattr(module, cmd_info["function"])
+
+                # Excel 그룹에 명령어 추가
+                excel.add_command(command_func, name=cmd_info["name"])
+
+            except Exception as e:
+                # 등록 실패 시 로그만 남기고 계속 진행
+                pass
+
+
+# Excel 명령어들을 동적으로 등록
+register_excel_commands()
 
 
 @excel.command(name='list')
@@ -148,39 +252,19 @@ def excel():
               help='출력 형식 선택')
 def excel_list(output_format):
     """Excel 자동화 명령어 목록 출력"""
-    # TODO: 실제 Excel 명령어들이 구현된 후 동적으로 스캔
-    commands = [
-        {
-            "name": "open-workbook",
-            "description": "Excel 파일 열기",
-            "version": "1.0.0",
-            "status": "planned"
-        },
-        {
-            "name": "save-workbook",
-            "description": "Excel 파일 저장",
-            "version": "1.0.0",
-            "status": "planned"
-        },
-        {
-            "name": "close-workbook",
-            "description": "Excel 파일 닫기",
-            "version": "1.0.0",
-            "status": "planned"
-        },
-        {
-            "name": "create-workbook",
-            "description": "새 Excel 파일 생성",
-            "version": "1.0.0",
-            "status": "planned"
-        }
-    ]
+    # 실제 구현된 명령어들을 동적으로 스캔
+    commands = discover_excel_commands()
+
+    # 추가 정보 보강
+    for cmd in commands:
+        cmd["version"] = get_version()  # 패키지 버전 사용
 
     excel_data = {
         "category": "excel",
         "description": "Excel 자동화 명령어들 (xlwings 기반)",
         "commands": commands,
         "total_commands": len(commands),
+        "available_commands": len([cmd for cmd in commands if cmd["status"] == "available"]),
         "package_version": get_version()
     }
 
@@ -189,11 +273,21 @@ def excel_list(output_format):
     else:
         click.echo(f"=== Excel 자동화 명령어 목록 ===")
         click.echo(f"Total: {excel_data['total_commands']} commands")
+        click.echo(f"Available: {excel_data['available_commands']} commands")
         click.echo()
         for cmd in commands:
-            status_mark = "✓" if cmd['status'] == 'available' else "○"
+            if cmd["status"] == "available":
+                status_mark = "✅"
+            elif cmd["status"] == "error":
+                status_mark = "❌"
+            else:
+                status_mark = "○"
+
             click.echo(f"  {status_mark} oa excel {cmd['name']}")
-            click.echo(f"     {cmd['description']} (v{cmd['version']})")
+            click.echo(f"     {cmd['description']}")
+            if cmd["status"] == "available":
+                click.echo(f"     버전: {cmd.get('version', 'unknown')}")
+            click.echo()
 
 
 @cli.group()
