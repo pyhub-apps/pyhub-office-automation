@@ -9,46 +9,57 @@ from pathlib import Path
 import click
 import xlwings as xw
 from ..version import get_version
+from .utils import get_or_open_workbook, normalize_path
 
 
 @click.command()
-@click.option('--file-path', required=True,
+@click.option('--file-path',
               help='열 Excel 파일의 절대 경로')
+@click.option('--use-active', is_flag=True,
+              help='현재 활성 워크북 정보를 가져옵니다')
+@click.option('--workbook-name',
+              help='열린 워크북 이름으로 찾기 (예: "Sales.xlsx")')
 @click.option('--visible', default=True, type=bool,
               help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: True)')
 @click.option('--format', 'output_format', default='json',
               type=click.Choice(['json', 'text']),
               help='출력 형식 선택')
 @click.version_option(version=get_version(), prog_name="oa excel open-workbook")
-def open_workbook(file_path, visible, output_format):
+def open_workbook(file_path, use_active, workbook_name, visible, output_format):
     """
-    Excel 워크북 파일을 엽니다.
+    Excel 워크북을 열거나 기존 워크북의 정보를 가져옵니다.
 
-    지정된 경로의 Excel 파일을 xlwings를 통해 열고,
-    파일 정보와 시트 목록을 반환합니다.
+    다음 방법 중 하나를 사용할 수 있습니다:
+    - --file-path: 지정된 경로의 파일을 엽니다
+    - --use-active: 현재 활성 워크북의 정보를 가져옵니다
+    - --workbook-name: 이미 열린 워크북을 이름으로 찾습니다
     """
     try:
-        # 파일 경로 검증
-        file_path = Path(file_path).resolve()
+        # 옵션 검증
+        options_count = sum([bool(file_path), use_active, bool(workbook_name)])
+        if options_count == 0:
+            raise ValueError("--file-path, --use-active, --workbook-name 중 하나는 반드시 지정해야 합니다")
+        elif options_count > 1:
+            raise ValueError("--file-path, --use-active, --workbook-name 중 하나만 지정할 수 있습니다")
 
-        if not file_path.exists():
-            raise FileNotFoundError(f"파일을 찾을 수 없습니다: {file_path}")
+        # 파일 경로가 지정된 경우 파일 검증
+        if file_path:
+            file_path = Path(normalize_path(file_path)).resolve()
+            if not file_path.exists():
+                raise FileNotFoundError(f"파일을 찾을 수 없습니다: {file_path}")
+            if not file_path.suffix.lower() in ['.xlsx', '.xls', '.xlsm']:
+                raise ValueError(f"지원되지 않는 파일 형식입니다: {file_path.suffix}")
 
-        if not file_path.suffix.lower() in ['.xlsx', '.xls', '.xlsm']:
-            raise ValueError(f"지원되지 않는 파일 형식입니다: {file_path.suffix}")
+        # 워크북 가져오기
+        book = get_or_open_workbook(
+            file_path=str(file_path) if file_path else None,
+            workbook_name=workbook_name,
+            use_active=use_active,
+            visible=visible
+        )
 
-        # Excel 애플리케이션이 사용 가능한지 확인
-        try:
-            app = xw.App(visible=visible)
-        except Exception as e:
-            raise RuntimeError(f"Excel 애플리케이션을 시작할 수 없습니다: {str(e)}")
-
-        # 워크북 열기
-        try:
-            book = app.books.open(str(file_path))
-        except Exception as e:
-            app.quit()
-            raise RuntimeError(f"워크북을 열 수 없습니다: {str(e)}")
+        # 앱 객체 가져오기
+        app = book.app
 
         # 시트 정보 수집
         sheets_info = []
@@ -89,30 +100,48 @@ def open_workbook(file_path, visible, output_format):
             "success": True,
             "command": "open-workbook",
             "version": get_version(),
-            "file_info": {
-                "path": str(file_path),
-                "name": file_path.name,
-                "size_bytes": file_path.stat().st_size,
-                "exists": True
-            },
             "workbook_info": {
-                "name": book.name,
-                "full_name": book.fullname,
+                "name": normalize_path(book.name),
+                "full_name": normalize_path(book.fullname),
                 "saved": book.saved,
                 "app_visible": app.visible,
                 "sheet_count": len(book.sheets),
                 "active_sheet": book.sheets.active.name if book.sheets else None
             },
             "sheets": sheets_info,
-            "message": f"워크북이 성공적으로 열렸습니다: {file_path.name}"
+            "connection_method": {
+                "file_path": bool(file_path),
+                "use_active": use_active,
+                "workbook_name": bool(workbook_name)
+            }
         }
+
+        # 파일 정보 추가 (파일 경로가 지정된 경우에만)
+        if file_path:
+            result_data["file_info"] = {
+                "path": str(file_path),
+                "name": file_path.name,
+                "size_bytes": file_path.stat().st_size,
+                "exists": True
+            }
+            result_data["message"] = f"워크북이 성공적으로 열렸습니다: {file_path.name}"
+        elif use_active:
+            result_data["message"] = f"활성 워크북 정보를 가져왔습니다: {normalize_path(book.name)}"
+        elif workbook_name:
+            result_data["message"] = f"워크북을 찾았습니다: {normalize_path(book.name)}"
 
         # 출력 형식에 따른 결과 반환
         if output_format == 'json':
             click.echo(json.dumps(result_data, ensure_ascii=False, indent=2))
         else:
-            click.echo(f"✅ 워크북 열기 성공: {file_path.name}")
-            click.echo(f"📄 파일 경로: {file_path}")
+            if use_active:
+                click.echo(f"✅ 활성 워크북 정보: {normalize_path(book.name)}")
+            elif workbook_name:
+                click.echo(f"✅ 워크북 찾기 성공: {normalize_path(book.name)}")
+            else:
+                click.echo(f"✅ 워크북 열기 성공: {file_path.name}")
+                click.echo(f"📄 파일 경로: {file_path}")
+
             click.echo(f"📊 시트 수: {len(sheets_info)}")
             click.echo(f"🎯 활성 시트: {result_data['workbook_info']['active_sheet']}")
             if sheets_info:
@@ -130,13 +159,13 @@ def open_workbook(file_path, visible, output_format):
             "error": str(e),
             "command": "open-workbook",
             "version": get_version(),
-            "file_path": str(file_path)
+            "file_path": str(file_path) if file_path else None
         }
 
         if output_format == 'json':
             click.echo(json.dumps(error_data, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ 파일을 찾을 수 없습니다: {file_path}", err=True)
+            click.echo(f"❌ {str(e)}", err=True)
 
         sys.exit(1)
 
@@ -147,7 +176,9 @@ def open_workbook(file_path, visible, output_format):
             "error": str(e),
             "command": "open-workbook",
             "version": get_version(),
-            "file_path": str(file_path)
+            "file_path": str(file_path) if file_path else None,
+            "workbook_name": workbook_name,
+            "use_active": use_active
         }
 
         if output_format == 'json':
@@ -164,7 +195,9 @@ def open_workbook(file_path, visible, output_format):
             "error": str(e),
             "command": "open-workbook",
             "version": get_version(),
-            "file_path": str(file_path),
+            "file_path": str(file_path) if file_path else None,
+            "workbook_name": workbook_name,
+            "use_active": use_active,
             "suggestion": "Excel이 설치되어 있는지 확인하고, 파일이 다른 프로그램에서 사용 중이지 않은지 확인하세요."
         }
 
@@ -183,7 +216,9 @@ def open_workbook(file_path, visible, output_format):
             "error": str(e),
             "command": "open-workbook",
             "version": get_version(),
-            "file_path": str(file_path)
+            "file_path": str(file_path) if file_path else None,
+            "workbook_name": workbook_name,
+            "use_active": use_active
         }
 
         if output_format == 'json':

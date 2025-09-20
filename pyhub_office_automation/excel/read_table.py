@@ -14,13 +14,18 @@ from ..version import get_version
 from .utils import (
     get_workbook, get_sheet, parse_range, get_range,
     format_output, create_error_response, create_success_response,
-    validate_range_string, cleanup_temp_file
+    validate_range_string, cleanup_temp_file, get_or_open_workbook,
+    normalize_path
 )
 
 
 @click.command()
-@click.option('--file-path', required=True,
+@click.option('--file-path',
               help='읽을 Excel 파일의 절대 경로')
+@click.option('--use-active', is_flag=True,
+              help='현재 활성 워크북 사용')
+@click.option('--workbook-name',
+              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
 @click.option('--range', 'range_str',
               help='읽을 테이블 범위 (지정하지 않으면 used_range 사용)')
 @click.option('--sheet',
@@ -37,24 +42,34 @@ from .utils import (
 @click.option('--max-rows', default=None, type=int,
               help='최대 읽을 행 수 (제한 없음: None)')
 @click.version_option(version=get_version(), prog_name="oa excel read-table")
-def read_table(file_path, range_str, sheet, has_headers, output_file, output_format, visible, max_rows):
+def read_table(file_path, use_active, workbook_name, range_str, sheet, has_headers, output_file, output_format, visible, max_rows):
     """
     Excel 테이블 데이터를 pandas DataFrame으로 읽습니다.
 
     지정된 범위 또는 전체 사용 영역의 데이터를 테이블 형태로 읽어서
     pandas DataFrame으로 변환합니다.
 
+    워크북 접근 방법:
+    - --file-path: 파일 경로로 워크북 열기 (기존 방식)
+    - --use-active: 현재 활성 워크북 사용
+    - --workbook-name: 열린 워크북 이름으로 접근
+
     예제:
         oa excel read-table --file-path "data.xlsx"
-        oa excel read-table --file-path "data.xlsx" --sheet "Sales" --output-file "sales.csv"
-        oa excel read-table --file-path "data.xlsx" --range "A1:E100" --has-headers false
+        oa excel read-table --use-active --sheet "Sales" --output-file "sales.csv"
+        oa excel read-table --workbook-name "Report.xlsx" --range "A1:E100" --has-headers false
     """
     book = None
     temp_output_file = None
 
     try:
-        # 워크북 열기
-        book = get_workbook(file_path, visible=visible)
+        # 워크북 연결 (새로운 통합 함수 사용)
+        book = get_or_open_workbook(
+            file_path=file_path,
+            workbook_name=workbook_name,
+            use_active=use_active,
+            visible=visible
+        )
 
         # 시트 가져오기
         if range_str and '!' in range_str:
@@ -155,8 +170,8 @@ def read_table(file_path, range_str, sheet, has_headers, output_file, output_for
             "range": range_obj.address,
             "sheet": target_sheet.name,
             "file_info": {
-                "path": str(Path(file_path).resolve()),
-                "name": Path(file_path).name
+                "path": str(Path(normalize_path(file_path)).resolve()) if file_path else (normalize_path(book.fullname) if hasattr(book, 'fullname') else None),
+                "name": Path(normalize_path(file_path)).name if file_path else normalize_path(book.name)
             }
         }
 
@@ -241,8 +256,8 @@ def read_table(file_path, range_str, sheet, has_headers, output_file, output_for
         if temp_output_file:
             cleanup_temp_file(temp_output_file)
 
-        # 워크북 정리
-        if book and not visible:
+        # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
+        if book and not visible and file_path:
             try:
                 book.app.quit()
             except:

@@ -9,6 +9,7 @@ from pathlib import Path
 import click
 import xlwings as xw
 from ..version import get_version
+from .utils import get_active_app, normalize_path
 
 
 @click.command()
@@ -16,31 +17,58 @@ from ..version import get_version
               help='생성할 워크북의 이름 (기본값: NewWorkbook)')
 @click.option('--save-path',
               help='워크북을 저장할 경로 (지정하지 않으면 저장하지 않음)')
+@click.option('--use-active', is_flag=True,
+              help='기존 Excel 애플리케이션을 사용하여 새 워크북 생성')
+@click.option('--workbook-name',
+              help='특정 워크북의 애플리케이션을 사용하여 새 워크북 생성')
 @click.option('--visible', default=True, type=bool,
               help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: True)')
 @click.option('--format', 'output_format', default='json',
               type=click.Choice(['json', 'text']),
               help='출력 형식 선택')
 @click.version_option(version=get_version(), prog_name="oa excel create-workbook")
-def create_workbook(name, save_path, visible, output_format):
+def create_workbook(name, save_path, use_active, workbook_name, visible, output_format):
     """
     새로운 Excel 워크북을 생성합니다.
 
-    새 워크북을 생성하고 기본 시트를 설정합니다.
-    선택적으로 지정된 경로에 저장할 수 있습니다.
+    항상 새로운 워크북을 생성하며, Excel 애플리케이션 연결 방식을 선택할 수 있습니다:
+    - 기본: 새 Excel 애플리케이션 인스턴스 사용
+    - --use-active: 현재 활성 Excel 애플리케이션 사용
+    - --workbook-name: 특정 워크북의 애플리케이션 사용
     """
     try:
-        # Excel 애플리케이션이 사용 가능한지 확인
-        try:
-            app = xw.App(visible=visible)
-        except Exception as e:
-            raise RuntimeError(f"Excel 애플리케이션을 시작할 수 없습니다: {str(e)}")
+        # Excel 애플리케이션 가져오기
+        if use_active:
+            # 기존 활성 애플리케이션 사용
+            app = get_active_app(visible=visible)
+        elif workbook_name:
+            # 특정 워크북의 애플리케이션 사용
+            target_book = None
+            for book in xw.books:
+                if (book.name == workbook_name or
+                    Path(book.name).name == workbook_name or
+                    Path(book.name).stem == Path(workbook_name).stem):
+                    target_book = book
+                    break
+
+            if target_book is None:
+                raise RuntimeError(f"워크북 '{workbook_name}'을 찾을 수 없습니다")
+
+            app = target_book.app
+        else:
+            # 새 Excel 애플리케이션 생성
+            try:
+                app = xw.App(visible=visible)
+            except Exception as e:
+                raise RuntimeError(f"Excel 애플리케이션을 시작할 수 없습니다: {str(e)}")
 
         # 새 워크북 생성
         try:
             book = app.books.add()
         except Exception as e:
-            app.quit()
+            # 기존 앱을 사용하는 경우에는 종료하지 않음
+            if not use_active and not workbook_name:
+                app.quit()
             raise RuntimeError(f"새 워크북을 생성할 수 없습니다: {str(e)}")
 
         # 워크북 이름 설정 (저장 전까지는 임시 이름)
@@ -50,7 +78,7 @@ def create_workbook(name, save_path, visible, output_format):
         saved_path = None
         if save_path:
             try:
-                save_path = Path(save_path).resolve()
+                save_path = Path(normalize_path(save_path)).resolve()
 
                 # 확장자가 없으면 .xlsx 추가
                 if not save_path.suffix:
@@ -93,9 +121,9 @@ def create_workbook(name, save_path, visible, output_format):
             "command": "create-workbook",
             "version": get_version(),
             "workbook_info": {
-                "name": book.name,
-                "original_name": original_name,
-                "full_name": book.fullname,
+                "name": normalize_path(book.name),
+                "original_name": normalize_path(original_name),
+                "full_name": normalize_path(book.fullname),
                 "saved": book.saved,
                 "saved_path": saved_path,
                 "app_visible": app.visible,
@@ -103,7 +131,12 @@ def create_workbook(name, save_path, visible, output_format):
                 "active_sheet": book.sheets.active.name if book.sheets else None
             },
             "sheets": sheets_info,
-            "message": f"새 워크북이 성공적으로 생성되었습니다: {book.name}"
+            "connection_method": {
+                "use_active": use_active,
+                "workbook_name": bool(workbook_name),
+                "new_application": not use_active and not workbook_name
+            },
+            "message": f"새 워크북이 성공적으로 생성되었습니다: {normalize_path(book.name)}"
         }
 
         # 저장 에러가 있는 경우 경고 추가
@@ -115,6 +148,15 @@ def create_workbook(name, save_path, visible, output_format):
             click.echo(json.dumps(result_data, ensure_ascii=False, indent=2))
         else:
             click.echo(f"✅ 새 워크북 생성 성공: {book.name}")
+
+            # 연결 방식 표시
+            if use_active:
+                click.echo("🔗 기존 활성 Excel 애플리케이션 사용")
+            elif workbook_name:
+                click.echo(f"🔗 '{workbook_name}' 워크북의 Excel 애플리케이션 사용")
+            else:
+                click.echo("🔗 새 Excel 애플리케이션 인스턴스 사용")
+
             if saved_path:
                 click.echo(f"💾 저장 경로: {saved_path}")
             else:
@@ -140,6 +182,8 @@ def create_workbook(name, save_path, visible, output_format):
             "error": str(e),
             "command": "create-workbook",
             "version": get_version(),
+            "use_active": use_active,
+            "workbook_name": workbook_name,
             "suggestion": "Excel이 설치되어 있는지 확인하세요."
         }
 
@@ -157,7 +201,9 @@ def create_workbook(name, save_path, visible, output_format):
             "error_type": "UnexpectedError",
             "error": str(e),
             "command": "create-workbook",
-            "version": get_version()
+            "version": get_version(),
+            "use_active": use_active,
+            "workbook_name": workbook_name
         }
 
         if output_format == 'json':

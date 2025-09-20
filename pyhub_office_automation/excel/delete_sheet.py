@@ -9,12 +9,16 @@ from pathlib import Path
 import click
 import xlwings as xw
 from ..version import get_version
-from .utils import get_workbook, create_error_response, create_success_response
+from .utils import get_workbook, create_error_response, create_success_response, get_or_open_workbook
 
 
 @click.command()
-@click.option('--workbook', required=True,
+@click.option('--workbook',
               help='워크북 파일 경로')
+@click.option('--use-active', is_flag=True,
+              help='현재 활성 워크북 사용')
+@click.option('--workbook-name',
+              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
 @click.option('--name',
               help='삭제할 시트의 이름')
 @click.option('--index', type=int,
@@ -27,12 +31,17 @@ from .utils import get_workbook, create_error_response, create_success_response
               type=click.Choice(['json', 'text']),
               help='출력 형식 선택')
 @click.version_option(version=get_version(), prog_name="oa excel delete-sheet")
-def delete_sheet(workbook, name, index, force, visible, output_format):
+def delete_sheet(workbook, use_active, workbook_name, name, index, force, visible, output_format):
     """
     Excel 워크북에서 시트를 삭제합니다.
 
     시트를 이름 또는 인덱스로 지정할 수 있습니다.
     마지막 시트는 삭제할 수 없으며, 워크북에 최소 1개의 시트가 유지됩니다.
+
+    워크북 접근 방법:
+    - --workbook: 파일 경로로 워크북 열기 (기존 방식)
+    - --use-active: 현재 활성 워크북 사용
+    - --workbook-name: 열린 워크북 이름으로 접근
     """
     try:
         # 옵션 검증
@@ -42,8 +51,13 @@ def delete_sheet(workbook, name, index, force, visible, output_format):
         if not name and index is None:
             raise ValueError("--name 또는 --index 중 하나는 반드시 지정해야 합니다")
 
-        # 워크북 열기
-        book = get_workbook(workbook, visible=visible)
+        # 워크북 연결 (새로운 통합 함수 사용)
+        book = get_or_open_workbook(
+            file_path=workbook,
+            workbook_name=workbook_name,
+            use_active=use_active,
+            visible=visible
+        )
 
         # 최소 시트 수 확인 (워크북에는 최소 1개의 시트가 필요)
         if len(book.sheets) <= 1:
@@ -103,8 +117,8 @@ def delete_sheet(workbook, name, index, force, visible, output_format):
 
         # 삭제 후 워크북 정보 수집
         workbook_info = {
-            "name": book.name,
-            "full_name": book.fullname,
+            "name": normalize_path(book.name),
+            "full_name": normalize_path(book.fullname),
             "sheet_count": len(book.sheets),
             "active_sheet": book.sheets.active.name if book.sheets.active else None,
             "remaining_sheets": [sheet.name for sheet in book.sheets]

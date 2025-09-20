@@ -14,13 +14,18 @@ from ..version import get_version
 from .utils import (
     get_workbook, get_sheet, parse_range, get_range,
     format_output, create_error_response, create_success_response,
-    validate_range_string, load_data_from_file, cleanup_temp_file
+    validate_range_string, load_data_from_file, cleanup_temp_file,
+    get_or_open_workbook, normalize_path
 )
 
 
 @click.command()
-@click.option('--file-path', required=True,
+@click.option('--file-path',
               help='쓸 Excel 파일의 절대 경로')
+@click.option('--use-active', is_flag=True,
+              help='현재 활성 워크북 사용')
+@click.option('--workbook-name',
+              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
 @click.option('--data-file', required=True,
               help='DataFrame 데이터가 포함된 파일 경로 (CSV/JSON)')
 @click.option('--range', 'range_str', default='A1',
@@ -43,7 +48,7 @@ from .utils import (
 @click.option('--replace-data', default=False, type=bool,
               help='기존 데이터를 덮어쓸지 여부 (기본값: False)')
 @click.version_option(version=get_version(), prog_name="oa excel write-table")
-def write_table(file_path, data_file, range_str, sheet, include_headers, table_name,
+def write_table(file_path, use_active, workbook_name, data_file, range_str, sheet, include_headers, table_name,
                 save, output_format, visible, create_sheet, replace_data):
     """
     pandas DataFrame을 Excel 테이블로 씁니다.
@@ -51,14 +56,19 @@ def write_table(file_path, data_file, range_str, sheet, include_headers, table_n
     CSV 또는 JSON 파일의 데이터를 읽어서 Excel에 테이블 형태로 씁니다.
     Windows에서는 Excel Table 객체로 생성할 수 있습니다.
 
+    워크북 접근 방법:
+    - --file-path: 파일 경로로 워크북 열기 (기존 방식)
+    - --use-active: 현재 활성 워크북 사용
+    - --workbook-name: 열린 워크북 이름으로 접근
+
     지원 형식:
     - CSV 파일: 헤더가 포함된 표준 CSV
     - JSON 파일: records 형태의 JSON 배열
 
     예제:
         oa excel write-table --file-path "data.xlsx" --data-file "sales.csv"
-        oa excel write-table --file-path "data.xlsx" --data-file "data.json" --table-name "SalesData"
-        oa excel write-table --file-path "data.xlsx" --data-file "data.csv" --sheet "NewSheet" --create-sheet
+        oa excel write-table --use-active --data-file "data.json" --table-name "SalesData"
+        oa excel write-table --workbook-name "Report.xlsx" --data-file "data.csv" --sheet "NewSheet" --create-sheet
     """
     book = None
 
@@ -91,8 +101,13 @@ def write_table(file_path, data_file, range_str, sheet, include_headers, table_n
         if not validate_range_string(start_cell):
             raise ValueError(f"잘못된 시작 셀 형식입니다: {start_cell}")
 
-        # 워크북 열기 또는 생성
-        book = get_workbook(file_path, visible=visible)
+        # 워크북 연결 (새로운 통합 함수 사용)
+        book = get_or_open_workbook(
+            file_path=file_path,
+            workbook_name=workbook_name,
+            use_active=use_active,
+            visible=visible
+        )
 
         # 시트 가져오기 또는 생성
         try:
@@ -194,8 +209,8 @@ def write_table(file_path, data_file, range_str, sheet, include_headers, table_n
             },
             "sheet": target_sheet.name,
             "file_info": {
-                "path": str(Path(file_path).resolve()),
-                "name": Path(file_path).name,
+                "path": str(Path(normalize_path(file_path)).resolve()) if file_path else (normalize_path(book.fullname) if hasattr(book, 'fullname') else None),
+                "name": Path(normalize_path(file_path)).name if file_path else normalize_path(book.name),
                 "saved": saved
             }
         }
@@ -277,8 +292,8 @@ def write_table(file_path, data_file, range_str, sheet, include_headers, table_n
         sys.exit(1)
 
     finally:
-        # 워크북 정리
-        if book and not visible:
+        # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
+        if book and not visible and file_path:
             try:
                 book.app.quit()
             except:

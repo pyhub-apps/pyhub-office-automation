@@ -9,12 +9,16 @@ from pathlib import Path
 import click
 import xlwings as xw
 from ..version import get_version
-from .utils import get_workbook, create_error_response, create_success_response
+from .utils import get_workbook, create_error_response, create_success_response, get_or_open_workbook
 
 
 @click.command()
-@click.option('--workbook', required=True,
+@click.option('--workbook',
               help='워크북 파일 경로')
+@click.option('--use-active', is_flag=True,
+              help='현재 활성 워크북 사용')
+@click.option('--workbook-name',
+              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
 @click.option('--name',
               help='새 시트의 이름 (지정하지 않으면 자동 생성)')
 @click.option('--before',
@@ -29,16 +33,26 @@ from .utils import get_workbook, create_error_response, create_success_response
               type=click.Choice(['json', 'text']),
               help='출력 형식 선택')
 @click.version_option(version=get_version(), prog_name="oa excel add-sheet")
-def add_sheet(workbook, name, before, after, index, visible, output_format):
+def add_sheet(workbook, use_active, workbook_name, name, before, after, index, visible, output_format):
     """
     Excel 워크북에 새 워크시트를 추가합니다.
 
     시트 이름과 삽입 위치를 지정할 수 있습니다.
     기존 시트들 사이의 특정 위치에 삽입하거나 인덱스로 위치를 지정할 수 있습니다.
+
+    워크북 접근 방법:
+    - --workbook: 파일 경로로 워크북 열기 (기존 방식)
+    - --use-active: 현재 활성 워크북 사용
+    - --workbook-name: 열린 워크북 이름으로 접근
     """
     try:
-        # 워크북 열기
-        book = get_workbook(workbook, visible=visible)
+        # 워크북 연결 (새로운 통합 함수 사용)
+        book = get_or_open_workbook(
+            file_path=workbook,
+            workbook_name=workbook_name,
+            use_active=use_active,
+            visible=visible
+        )
 
         # 위치 지정 옵션 검증
         if sum([bool(before), bool(after), bool(index is not None)]) > 1:
@@ -101,8 +115,8 @@ def add_sheet(workbook, name, before, after, index, visible, output_format):
 
         # 워크북 정보 업데이트
         workbook_info = {
-            "name": book.name,
-            "full_name": book.fullname,
+            "name": normalize_path(book.name),
+            "full_name": normalize_path(book.fullname),
             "sheet_count": len(book.sheets),
             "active_sheet": book.sheets.active.name,
             "all_sheets": [sheet.name for sheet in book.sheets]

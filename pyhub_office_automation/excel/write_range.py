@@ -12,13 +12,18 @@ from ..version import get_version
 from .utils import (
     get_workbook, get_sheet, parse_range, get_range,
     format_output, create_error_response, create_success_response,
-    validate_range_string, load_data_from_file, cleanup_temp_file
+    validate_range_string, load_data_from_file, cleanup_temp_file,
+    get_or_open_workbook, normalize_path
 )
 
 
 @click.command()
-@click.option('--file-path', required=True,
+@click.option('--file-path',
               help='쓸 Excel 파일의 절대 경로')
+@click.option('--use-active', is_flag=True,
+              help='현재 활성 워크북 사용')
+@click.option('--workbook-name',
+              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
 @click.option('--range', 'range_str', required=True,
               help='쓸 시작 셀 위치 (예: "A1", "Sheet1!A1")')
 @click.option('--sheet',
@@ -37,12 +42,17 @@ from .utils import (
 @click.option('--create-sheet', default=False, type=bool,
               help='시트가 없으면 생성할지 여부 (기본값: False)')
 @click.version_option(version=get_version(), prog_name="oa excel write-range")
-def write_range(file_path, range_str, sheet, data_file, data, save, output_format, visible, create_sheet):
+def write_range(file_path, use_active, workbook_name, range_str, sheet, data_file, data, save, output_format, visible, create_sheet):
     """
     Excel 셀 범위에 데이터를 씁니다.
 
     지정된 시작 위치부터 데이터를 쓸 수 있습니다.
     데이터는 파일에서 읽거나 직접 입력할 수 있습니다.
+
+    워크북 접근 방법:
+    - --file-path: 파일 경로로 워크북 열기 (기존 방식)
+    - --use-active: 현재 활성 워크북 사용
+    - --workbook-name: 열린 워크북 이름으로 접근
 
     데이터 형식:
     - 단일 값: "Hello"
@@ -51,8 +61,8 @@ def write_range(file_path, range_str, sheet, data_file, data, save, output_forma
 
     예제:
         oa excel write-range --file-path "data.xlsx" --range "A1" --data '["Name", "Age"]'
-        oa excel write-range --file-path "data.xlsx" --range "A1" --data-file "data.json"
-        oa excel write-range --file-path "data.xlsx" --range "Sheet1!A1" --data-file "data.csv"
+        oa excel write-range --use-active --range "A1" --data-file "data.json"
+        oa excel write-range --workbook-name "Sales.xlsx" --range "Sheet1!A1" --data-file "data.csv"
     """
     book = None
     temp_file_path = None
@@ -80,8 +90,13 @@ def write_range(file_path, range_str, sheet, data_file, data, save, output_forma
             except json.JSONDecodeError as e:
                 raise ValueError(f"데이터 JSON 파싱 오류: {str(e)}")
 
-        # 워크북 열기 또는 생성
-        book = get_workbook(file_path, visible=visible)
+        # 워크북 연결 (새로운 통합 함수 사용)
+        book = get_or_open_workbook(
+            file_path=file_path,
+            workbook_name=workbook_name,
+            use_active=use_active,
+            visible=visible
+        )
 
         # 시트 가져오기 또는 생성
         sheet_name = parsed_sheet or sheet
@@ -153,8 +168,8 @@ def write_range(file_path, range_str, sheet, data_file, data, save, output_forma
             },
             "sheet": target_sheet.name,
             "file_info": {
-                "path": str(Path(file_path).resolve()),
-                "name": Path(file_path).name,
+                "path": str(Path(normalize_path(file_path)).resolve()) if file_path else (normalize_path(book.fullname) if hasattr(book, 'fullname') else None),
+                "name": Path(normalize_path(file_path)).name if file_path else normalize_path(book.name),
                 "saved": saved
             }
         }
@@ -233,8 +248,8 @@ def write_range(file_path, range_str, sheet, data_file, data, save, output_forma
         if temp_file_path:
             cleanup_temp_file(temp_file_path)
 
-        # 워크북 정리
-        if book and not visible:
+        # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
+        if book and not visible and file_path:
             try:
                 book.app.quit()
             except:

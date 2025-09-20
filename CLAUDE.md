@@ -53,6 +53,8 @@ pyhub_office_automation/
 ### Platform-Specific Notes
 - **Windows**: Full functionality with COM-based automation
 - **macOS**: Limited xlwings support (no HWP support)
+  - **한글 경로 처리**: 자동 NFC 정규화로 자소분리 문제 해결
+  - **경로 정규화**: 모든 파일 경로에 대해 자동으로 Unicode NFC 형태로 변환
 - **Docker**: Excel tools disabled
 
 ## Development Commands
@@ -93,12 +95,72 @@ pip install -e .[dev]
 - Formatting: cell formatting, borders, auto-fit columns
 - Advanced: macro execution, chart creation, value finding
 
+### Workbook Connection Methods (Issue #14)
+All Excel commands now support multiple ways to connect to workbooks, eliminating the need to create new Excel instances for each operation:
+
+#### Connection Options
+- **`--file-path`**: Traditional file path (existing behavior)
+- **`--use-active`**: Connect to currently active workbook
+- **`--workbook-name`**: Connect to open workbook by name (e.g., "Sales.xlsx")
+
+#### Usage Examples
+```bash
+# Traditional file path approach
+oa excel read-range --file-path "data.xlsx" --range "A1:C10"
+
+# Use currently active workbook
+oa excel read-range --use-active --range "A1:C10"
+
+# Connect to specific open workbook by name
+oa excel read-range --workbook-name "Sales.xlsx" --range "A1:C10"
+
+# AI Agent workflow - efficient consecutive operations
+oa excel open-workbook --file-path "report.xlsx"
+oa excel add-sheet --use-active --name "Results"
+oa excel write-range --use-active --range "A1" --data '["Name", "Score"]'
+oa excel read-table --use-active --output-file "summary.csv"
+```
+
+#### Benefits for AI Agents
+- **Resource Efficiency**: Reuse existing Excel applications instead of creating new ones
+- **Workflow Continuity**: Seamless multi-step operations on the same workbook
+- **User Experience**: Works naturally with user's existing Excel sessions
+- **Performance**: Faster execution by avoiding application startup overhead
+
+#### Validation
+- Commands validate that exactly one connection method is specified
+- Clear error messages guide users to correct usage patterns
+- Backward compatibility maintained - existing scripts continue to work
+
 ### Reference Documentation
 Comprehensive xlwings patterns and examples are documented in `specs/xlwings.md`, including:
 - Cross-platform considerations (Windows COM vs macOS AppleScript)
 - Asynchronous processing patterns
 - Resource management and COM object cleanup
 - OS-specific limitations and workarounds
+
+### macOS 한글 경로 처리
+macOS에서 한글 파일명/경로 사용 시 자소분리 현상을 자동으로 해결합니다:
+
+#### 문제 상황
+- macOS가 한글을 NFD(자소 분리) 형태로 저장
+- "한글.xlsx" → "ㅎㅏㄴㄱㅡㄹ.xlsx" 형태로 분리되어 파일 인식 실패
+
+#### 해결 방법
+- 모든 파일 경로에 대해 자동으로 NFC(자소 결합) 정규화 적용
+- `normalize_path()` 함수가 모든 Excel 명령어에 통합되어 투명하게 처리
+- 사용자는 별도 설정 없이 한글 파일명 자연스럽게 사용 가능
+
+#### 적용 범위
+- 모든 `--file-path` 옵션
+- 파일 저장 경로 (`--save-path`)
+- 데이터 파일 경로 (`--data-file`, `--output-file`)
+
+```bash
+# macOS에서 한글 파일명 사용 예제
+oa excel read-range --file-path "한글데이터.xlsx" --range "A1:C10"
+oa excel create-workbook --save-path "새워크북.xlsx" --name "테스트"
+```
 
 ## HWP Automation Features (pyhwpx)
 
