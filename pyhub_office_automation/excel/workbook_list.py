@@ -10,7 +10,7 @@ from pathlib import Path
 import click
 import xlwings as xw
 from ..version import get_version
-from .utils import normalize_path, create_success_response, create_error_response
+from .utils import normalize_path, create_success_response, create_error_response, ExecutionTimer
 
 
 @click.command()
@@ -27,34 +27,36 @@ def workbook_list(output_format, detailed):
     기본적으로 워크북 이름만 반환하며, --detailed 옵션으로 상세 정보를 포함할 수 있습니다.
     """
     try:
-        # 현재 열린 워크북들 확인
-        if len(xw.books) == 0:
-            # 열린 워크북이 없는 경우
-            workbooks_data = []
-            has_unsaved = False
-            message = "현재 열려있는 워크북이 없습니다"
-        else:
-            workbooks_data = []
-            has_unsaved = False
+        # 실행 시간 측정 시작
+        with ExecutionTimer() as timer:
+            # 현재 열린 워크북들 확인
+            if len(xw.books) == 0:
+                # 열린 워크북이 없는 경우
+                workbooks_data = []
+                has_unsaved = False
+                message = "현재 열려있는 워크북이 없습니다"
+            else:
+                workbooks_data = []
+                has_unsaved = False
 
-            for book in xw.books:
-                try:
-                    # 안전하게 saved 상태 확인
+                for book in xw.books:
                     try:
-                        saved_status = book.saved
-                    except:
-                        saved_status = True  # 기본값으로 저장됨으로 가정
+                        # 안전하게 saved 상태 확인
+                        try:
+                            saved_status = book.saved
+                        except:
+                            saved_status = True  # 기본값으로 저장됨으로 가정
 
-                    workbook_info = {
-                        "name": normalize_path(book.name),
-                        "saved": saved_status
-                    }
+                        workbook_info = {
+                            "name": normalize_path(book.name),
+                            "saved": saved_status
+                        }
 
-                    # 저장되지 않은 워크북 체크
-                    if not saved_status:
-                        has_unsaved = True
+                        # 저장되지 않은 워크북 체크
+                        if not saved_status:
+                            has_unsaved = True
 
-                    if detailed:
+                        if detailed:
                         # 상세 정보 추가
                         workbook_info.update({
                             "full_name": normalize_path(book.fullname),
@@ -120,11 +122,14 @@ def workbook_list(output_format, detailed):
                 }
             })
 
-        # 성공 응답 생성
+        # 성공 응답 생성 (AI 에이전트 호환성 향상)
         result = create_success_response(
             data=response_data,
             command="workbook-list",
-            message=message
+            message=message,
+            execution_time_ms=timer.execution_time_ms,
+            book=None,  # 특정 워크북을 대상으로 하지 않음
+            workbook_count=len(workbooks_data)
         )
 
         # 출력 형식에 따른 결과 반환

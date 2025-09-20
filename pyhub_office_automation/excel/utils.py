@@ -10,6 +10,8 @@ import tempfile
 import os
 import unicodedata
 import platform
+import time
+import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 import xlwings as xw
@@ -326,14 +328,24 @@ def create_error_response(error: Exception, command: str) -> Dict[str, Any]:
     return response
 
 
-def create_success_response(data: Any, command: str, message: str = None) -> Dict[str, Any]:
+def create_success_response(
+    data: Any,
+    command: str,
+    message: str = None,
+    execution_time_ms: float = None,
+    book: Optional[xw.Book] = None,
+    **stats_kwargs
+) -> Dict[str, Any]:
     """
-    표준 성공 응답을 생성합니다.
+    AI 에이전트 호환성이 향상된 표준 성공 응답을 생성합니다.
 
     Args:
         data: 응답 데이터
         command: 명령어 이름
         message: 성공 메시지
+        execution_time_ms: 실행 시간 (밀리초)
+        book: xlwings Book 객체 (컨텍스트 수집용)
+        **stats_kwargs: 작업 통계 데이터
 
     Returns:
         성공 응답 딕셔너리
@@ -347,6 +359,40 @@ def create_success_response(data: Any, command: str, message: str = None) -> Dic
 
     if message:
         response["message"] = message
+
+    # 메타데이터 추가
+    metadata = {
+        "command_category": COMMAND_CATEGORIES.get(command, "unknown"),
+        "operation_type": OPERATION_TYPES.get(command, "unknown"),
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+
+    if execution_time_ms is not None:
+        metadata["execution_time_ms"] = execution_time_ms
+
+    response["metadata"] = metadata
+
+    # 작업 통계 추가
+    if stats_kwargs or command:
+        operation_stats = calculate_operation_stats(command, **stats_kwargs)
+        response["operation_stats"] = operation_stats
+
+    # 실행 컨텍스트 추가
+    try:
+        context = get_execution_context(book)
+        response["current_context"] = context
+
+        # 후속 명령어 추천
+        suggestions = suggest_next_commands(command, context, **stats_kwargs)
+        if suggestions:
+            response["suggested_next_commands"] = suggestions
+
+    except Exception:
+        # 컨텍스트 수집 실패 시 기본 정보만 포함
+        response["current_context"] = {
+            "total_open_workbooks": len(xw.books) if xw.books else 0,
+            "collection_failed": True
+        }
 
     return response
 
@@ -489,3 +535,304 @@ def get_or_open_workbook(
             raise RuntimeError(f"파일 '{file_path}'를 열 수 없습니다: {str(e)}")
         else:
             raise
+
+
+# ========== AI 에이전트 호환성 향상 기능 ==========
+
+# 명령어별 추천 매핑
+COMMAND_SUGGESTIONS = {
+    "workbook-open": [
+        {"command": "workbook-info", "reason": "워크북의 상세 정보를 확인합니다"},
+        {"command": "workbook-list", "reason": "다른 열린 워크북들을 확인합니다"},
+        {"command": "range-read", "reason": "워크북의 데이터를 읽습니다"}
+    ],
+    "workbook-list": [
+        {"command": "workbook-info", "reason": "특정 워크북의 상세 정보를 확인합니다"},
+        {"command": "workbook-open", "reason": "새 워크북을 엽니다"}
+    ],
+    "workbook-info": [
+        {"command": "range-read", "reason": "시트의 데이터를 확인합니다"},
+        {"command": "sheet-activate", "reason": "특정 시트로 이동합니다"}
+    ],
+    "range-read": [
+        {"command": "range-write", "reason": "데이터를 수정하거나 추가합니다"},
+        {"command": "table-read", "reason": "테이블 형태로 더 많은 데이터를 읽습니다"}
+    ],
+    "range-write": [
+        {"command": "range-read", "reason": "작성한 데이터를 확인합니다"},
+        {"command": "workbook-save", "reason": "변경사항을 저장합니다"}
+    ],
+    "table-read": [
+        {"command": "table-write", "reason": "테이블 데이터를 수정합니다"},
+        {"command": "pivot-create", "reason": "피벗 테이블을 생성합니다"}
+    ],
+    "table-write": [
+        {"command": "table-read", "reason": "작성한 테이블을 확인합니다"},
+        {"command": "chart-add", "reason": "차트를 생성합니다"}
+    ],
+    "sheet-add": [
+        {"command": "sheet-activate", "reason": "새 시트로 이동합니다"},
+        {"command": "range-write", "reason": "새 시트에 데이터를 입력합니다"},
+        {"command": "sheet-rename", "reason": "시트 이름을 변경합니다"}
+    ],
+    "sheet-activate": [
+        {"command": "range-read", "reason": "활성 시트의 데이터를 확인합니다"},
+        {"command": "sheet-add", "reason": "새 시트를 추가합니다"}
+    ],
+    "sheet-rename": [
+        {"command": "sheet-activate", "reason": "이름이 변경된 시트로 이동합니다"},
+        {"command": "workbook-info", "reason": "전체 시트 목록을 확인합니다"}
+    ],
+    "sheet-delete": [
+        {"command": "workbook-info", "reason": "남은 시트들을 확인합니다"},
+        {"command": "sheet-add", "reason": "새 시트를 추가합니다"}
+    ],
+    "pivot-create": [
+        {"command": "pivot-configure", "reason": "피벗 테이블을 설정합니다"},
+        {"command": "chart-pivot-create", "reason": "피벗 차트를 생성합니다"}
+    ],
+    "chart-add": [
+        {"command": "chart-configure", "reason": "차트를 설정합니다"},
+        {"command": "chart-position", "reason": "차트 위치를 조정합니다"}
+    ]
+}
+
+# 명령어 카테고리 정의
+COMMAND_CATEGORIES = {
+    "workbook-open": "workbook",
+    "workbook-list": "workbook",
+    "workbook-info": "workbook",
+    "workbook-create": "workbook",
+    "range-read": "data",
+    "range-write": "data",
+    "table-read": "data",
+    "table-write": "data",
+    "sheet-add": "sheet",
+    "sheet-activate": "sheet",
+    "sheet-rename": "sheet",
+    "sheet-delete": "sheet",
+    "pivot-create": "pivot",
+    "pivot-configure": "pivot",
+    "pivot-list": "pivot",
+    "pivot-refresh": "pivot",
+    "pivot-delete": "pivot",
+    "chart-add": "chart",
+    "chart-configure": "chart",
+    "chart-list": "chart",
+    "chart-position": "chart",
+    "chart-pivot-create": "chart",
+    "chart-delete": "chart",
+    "chart-export": "chart"
+}
+
+# 작업 타입 정의
+OPERATION_TYPES = {
+    "workbook-open": "read",
+    "workbook-list": "read",
+    "workbook-info": "read",
+    "workbook-create": "create",
+    "range-read": "read",
+    "range-write": "write",
+    "table-read": "read",
+    "table-write": "write",
+    "sheet-add": "create",
+    "sheet-activate": "modify",
+    "sheet-rename": "modify",
+    "sheet-delete": "delete",
+    "pivot-create": "create",
+    "pivot-configure": "modify",
+    "pivot-list": "read",
+    "pivot-refresh": "modify",
+    "pivot-delete": "delete",
+    "chart-add": "create",
+    "chart-configure": "modify",
+    "chart-list": "read",
+    "chart-position": "modify",
+    "chart-pivot-create": "create",
+    "chart-delete": "delete",
+    "chart-export": "read"
+}
+
+
+def get_execution_context(book: Optional[xw.Book] = None) -> Dict[str, Any]:
+    """
+    현재 Excel 실행 컨텍스트 정보를 수집합니다.
+
+    Args:
+        book: xlwings Book 객체 (None이면 활성 워크북 사용)
+
+    Returns:
+        컨텍스트 정보 딕셔너리
+    """
+    context = {
+        "total_open_workbooks": len(xw.books) if xw.books else 0,
+        "excel_app_visible": None,
+        "current_workbook": None
+    }
+
+    try:
+        if book is None and len(xw.books) > 0:
+            book = xw.books.active
+
+        if book:
+            context.update({
+                "current_workbook": {
+                    "name": normalize_path(book.name),
+                    "full_name": normalize_path(book.fullname),
+                    "saved": getattr(book, 'saved', True),
+                    "total_sheets": len(book.sheets),
+                    "active_sheet": book.sheets.active.name if book.sheets else None,
+                    "sheet_names": [sheet.name for sheet in book.sheets]
+                },
+                "excel_app_visible": book.app.visible if hasattr(book, 'app') else None
+            })
+
+            # 저장되지 않은 워크북 체크
+            unsaved_workbooks = []
+            for wb in xw.books:
+                try:
+                    if not wb.saved:
+                        unsaved_workbooks.append(normalize_path(wb.name))
+                except:
+                    pass
+
+            if unsaved_workbooks:
+                context["unsaved_workbooks"] = unsaved_workbooks
+
+    except Exception:
+        # 컨텍스트 수집 실패 시 기본값 유지
+        pass
+
+    return context
+
+
+def calculate_operation_stats(command: str, **kwargs) -> Dict[str, Any]:
+    """
+    작업별 통계 정보를 계산합니다.
+
+    Args:
+        command: 실행된 명령어
+        **kwargs: 명령어별 통계 데이터
+
+    Returns:
+        작업 통계 딕셔너리
+    """
+    stats = {
+        "command": command,
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+
+    # 명령어별 특화 통계
+    if command in ["range-read", "range-write"]:
+        if "range_obj" in kwargs:
+            range_obj = kwargs["range_obj"]
+            try:
+                stats.update({
+                    "cells_count": range_obj.count if hasattr(range_obj, 'count') else 1,
+                    "rows_count": range_obj.rows.count if hasattr(range_obj, 'rows') else 1,
+                    "columns_count": range_obj.columns.count if hasattr(range_obj, 'columns') else 1,
+                    "range_address": range_obj.address if hasattr(range_obj, 'address') else None
+                })
+            except:
+                pass
+
+        if "data_size" in kwargs:
+            stats["data_size_bytes"] = kwargs["data_size"]
+
+    elif command in ["table-read", "table-write"]:
+        if "rows_count" in kwargs:
+            stats["rows_processed"] = kwargs["rows_count"]
+        if "columns_count" in kwargs:
+            stats["columns_processed"] = kwargs["columns_count"]
+
+    elif command in ["sheet-add", "sheet-delete"]:
+        if "sheet_name" in kwargs:
+            stats["sheet_name"] = kwargs["sheet_name"]
+        if "total_sheets" in kwargs:
+            stats["total_sheets_after"] = kwargs["total_sheets"]
+
+    elif command in ["workbook-open", "workbook-create"]:
+        if "sheet_count" in kwargs:
+            stats["sheets_in_workbook"] = kwargs["sheet_count"]
+        if "file_size" in kwargs:
+            stats["file_size_bytes"] = kwargs["file_size"]
+
+    return stats
+
+
+def suggest_next_commands(command: str, context: Dict[str, Any], **kwargs) -> List[Dict[str, str]]:
+    """
+    현재 명령어와 컨텍스트를 기반으로 후속 명령어를 추천합니다.
+
+    Args:
+        command: 실행된 명령어
+        context: 현재 실행 컨텍스트
+        **kwargs: 추가 조건 데이터
+
+    Returns:
+        추천 명령어 리스트
+    """
+    suggestions = []
+
+    # 기본 추천 명령어
+    if command in COMMAND_SUGGESTIONS:
+        suggestions.extend(COMMAND_SUGGESTIONS[command])
+
+    # 컨텍스트 기반 동적 추천
+    if context.get("current_workbook"):
+        workbook_info = context["current_workbook"]
+
+        # 저장되지 않은 변경사항이 있는 경우
+        if not workbook_info.get("saved", True):
+            suggestions.insert(0, {
+                "command": "workbook-save",
+                "reason": "워크북에 저장되지 않은 변경사항이 있습니다"
+            })
+
+        # 시트가 많은 경우 시트 관리 명령어 추천
+        if workbook_info.get("total_sheets", 0) > 5:
+            suggestions.append({
+                "command": "workbook-info",
+                "reason": "많은 시트가 있으므로 전체 구조를 확인하는 것이 좋습니다"
+            })
+
+    # 저장되지 않은 다른 워크북이 있는 경우
+    if context.get("unsaved_workbooks"):
+        suggestions.append({
+            "command": "workbook-list",
+            "reason": f"저장되지 않은 워크북이 {len(context['unsaved_workbooks'])}개 있습니다"
+        })
+
+    # 중복 제거 및 최대 5개까지만 반환
+    seen_commands = set()
+    unique_suggestions = []
+    for suggestion in suggestions:
+        if suggestion["command"] not in seen_commands:
+            seen_commands.add(suggestion["command"])
+            unique_suggestions.append(suggestion)
+            if len(unique_suggestions) >= 5:
+                break
+
+    return unique_suggestions
+
+
+class ExecutionTimer:
+    """명령어 실행 시간을 측정하는 컨텍스트 매니저"""
+
+    def __init__(self):
+        self.start_time = None
+        self.end_time = None
+
+    def __enter__(self):
+        self.start_time = time.time()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.end_time = time.time()
+
+    @property
+    def execution_time_ms(self) -> float:
+        """실행 시간을 밀리초로 반환"""
+        if self.start_time and self.end_time:
+            return round((self.end_time - self.start_time) * 1000, 2)
+        return 0.0

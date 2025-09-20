@@ -13,7 +13,7 @@ from .utils import (
     get_workbook, get_sheet, parse_range, get_range,
     format_output, create_error_response, create_success_response,
     validate_range_string, load_data_from_file, cleanup_temp_file,
-    get_or_open_workbook, normalize_path
+    get_or_open_workbook, normalize_path, ExecutionTimer
 )
 
 
@@ -90,72 +90,75 @@ def write_range(file_path, use_active, workbook_name, range_str, sheet, data_fil
             except json.JSONDecodeError as e:
                 raise ValueError(f"데이터 JSON 파싱 오류: {str(e)}")
 
-        # 워크북 연결 (새로운 통합 함수 사용)
-        book = get_or_open_workbook(
-            file_path=file_path,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+        # 실행 시간 측정 시작
+        with ExecutionTimer() as timer:
+            # 워크북 연결 (새로운 통합 함수 사용)
+            book = get_or_open_workbook(
+                file_path=file_path,
+                workbook_name=workbook_name,
+                use_active=use_active,
+                visible=visible
+            )
 
-        # 시트 가져오기 또는 생성
-        sheet_name = parsed_sheet or sheet
-        try:
-            target_sheet = get_sheet(book, sheet_name)
-        except ValueError:
-            if create_sheet and sheet_name:
-                # 시트 생성
-                target_sheet = book.sheets.add(name=sheet_name)
-            else:
-                raise
-
-        # 시작 위치 설정
-        start_range = get_range(target_sheet, start_cell)
-
-        # 데이터 쓰기
-        try:
-            start_range.value = write_data
-        except Exception as e:
-            raise RuntimeError(f"데이터 쓰기 실패: {str(e)}")
-
-        # 쓰여진 범위 계산
-        if isinstance(write_data, list):
-            if len(write_data) > 0 and isinstance(write_data[0], list):
-                # 2차원 데이터
-                rows = len(write_data)
-                cols = len(write_data[0]) if write_data[0] else 1
-            else:
-                # 1차원 데이터 (가로로 배치)
-                rows = 1
-                cols = len(write_data)
-        else:
-            # 단일 값
-            rows = 1
-            cols = 1
-
-        # 최종 범위 계산
-        try:
-            if rows == 1 and cols == 1:
-                final_range = start_range
-            else:
-                end_cell = start_range.offset(rows - 1, cols - 1)
-                final_range = target_sheet.range(start_range, end_cell)
-
-            written_address = final_range.address
-        except:
-            written_address = start_range.address
-
-        # 파일 저장
-        if save:
+            # 시트 가져오기 또는 생성
+            sheet_name = parsed_sheet or sheet
             try:
-                book.save()
-                saved = True
+                target_sheet = get_sheet(book, sheet_name)
+            except ValueError:
+                if create_sheet and sheet_name:
+                    # 시트 생성
+                    target_sheet = book.sheets.add(name=sheet_name)
+                else:
+                    raise
+
+            # 시작 위치 설정
+            start_range = get_range(target_sheet, start_cell)
+
+            # 데이터 쓰기
+            try:
+                start_range.value = write_data
             except Exception as e:
+                raise RuntimeError(f"데이터 쓰기 실패: {str(e)}")
+
+            # 쓰여진 범위 계산
+            if isinstance(write_data, list):
+                if len(write_data) > 0 and isinstance(write_data[0], list):
+                    # 2차원 데이터
+                    rows = len(write_data)
+                    cols = len(write_data[0]) if write_data[0] else 1
+                else:
+                    # 1차원 데이터 (가로로 배치)
+                    rows = 1
+                    cols = len(write_data)
+            else:
+                # 단일 값
+                rows = 1
+                cols = 1
+
+            # 최종 범위 계산
+            try:
+                if rows == 1 and cols == 1:
+                    final_range = start_range
+                else:
+                    end_cell = start_range.offset(rows - 1, cols - 1)
+                    final_range = target_sheet.range(start_range, end_cell)
+
+                written_address = final_range.address
+            except:
+                written_address = start_range.address
+
+            # 저장 옵션 처리
+            if save and hasattr(book, 'save'):
+                try:
+                    book.save()
+                    saved = True
+                except Exception as e:
+                    # 저장 실패는 경고로 처리하고 계속 진행
+                    saved = False
+                    save_error = str(e)
+            else:
                 saved = False
-                save_error = str(e)
-        else:
-            saved = False
-            save_error = None
+                save_error = None
 
         # 응답 데이터 구성
         data_content = {
@@ -177,7 +180,10 @@ def write_range(file_path, use_active, workbook_name, range_str, sheet, data_fil
         if save_error:
             data_content["save_warning"] = f"저장 실패: {save_error}"
 
-        # 성공 응답 생성
+        # 데이터 크기 계산 (통계용)
+        data_size = len(str(write_data).encode('utf-8'))
+
+        # 성공 응답 생성 (AI 에이전트 호환성 향상)
         message = f"데이터를 '{written_address}' 범위에 성공적으로 작성했습니다"
         if saved:
             message += " (파일 저장됨)"
@@ -186,8 +192,14 @@ def write_range(file_path, use_active, workbook_name, range_str, sheet, data_fil
 
         response = create_success_response(
             data=data_content,
-            command="write-range",
-            message=message
+            command="range-write",
+            message=message,
+            execution_time_ms=timer.execution_time_ms,
+            book=book,
+            range_obj=final_range if 'final_range' in locals() else start_range,
+            data_size=data_size,
+            rows_count=rows,
+            columns_count=cols
         )
 
         # 출력 형식에 따른 결과 반환

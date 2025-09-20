@@ -12,7 +12,8 @@ from ..version import get_version
 from .utils import (
     get_workbook, get_sheet, parse_range, get_range,
     format_output, create_error_response, create_success_response,
-    validate_range_string, get_or_open_workbook, normalize_path
+    validate_range_string, get_or_open_workbook, normalize_path,
+    ExecutionTimer
 )
 
 
@@ -57,33 +58,35 @@ def read_range(file_path, use_active, workbook_name, range_str, sheet, expand, i
     """
     book = None
     try:
-        # 범위 문자열 유효성 검증
-        if not validate_range_string(range_str):
-            raise ValueError(f"잘못된 범위 형식입니다: {range_str}")
+        # 실행 시간 측정 시작
+        with ExecutionTimer() as timer:
+            # 범위 문자열 유효성 검증
+            if not validate_range_string(range_str):
+                raise ValueError(f"잘못된 범위 형식입니다: {range_str}")
 
-        # 워크북 연결 (새로운 통합 함수 사용)
-        book = get_or_open_workbook(
-            file_path=file_path,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+            # 워크북 연결 (새로운 통합 함수 사용)
+            book = get_or_open_workbook(
+                file_path=file_path,
+                workbook_name=workbook_name,
+                use_active=use_active,
+                visible=visible
+            )
 
-        # 시트 및 범위 파싱
-        parsed_sheet, parsed_range = parse_range(range_str)
-        sheet_name = parsed_sheet or sheet
+            # 시트 및 범위 파싱
+            parsed_sheet, parsed_range = parse_range(range_str)
+            sheet_name = parsed_sheet or sheet
 
-        # 시트 가져오기
-        target_sheet = get_sheet(book, sheet_name)
+            # 시트 가져오기
+            target_sheet = get_sheet(book, sheet_name)
 
-        # 범위 가져오기
-        range_obj = get_range(target_sheet, parsed_range, expand)
+            # 범위 가져오기
+            range_obj = get_range(target_sheet, parsed_range, expand)
 
-        # 데이터 읽기
-        if include_formulas:
-            # 공식과 값을 모두 읽기
-            values = range_obj.value
-            formulas = []
+            # 데이터 읽기
+            if include_formulas:
+                # 공식과 값을 모두 읽기
+                values = range_obj.value
+                formulas = []
 
             try:
                 if range_obj.count == 1:
@@ -154,11 +157,22 @@ def read_range(file_path, use_active, workbook_name, range_str, sheet, expand, i
                 "sheet_name": target_sheet.name
             }
 
-        # 성공 응답 생성
+        # 데이터 크기 계산 (통계용)
+        data_size = 0
+        if isinstance(values, list):
+            data_size = len(str(values).encode('utf-8'))
+        else:
+            data_size = len(str(values).encode('utf-8'))
+
+        # 성공 응답 생성 (AI 에이전트 호환성 향상)
         response = create_success_response(
             data=data_content,
-            command="read-range",
-            message=f"범위 '{range_obj.address}' 데이터를 성공적으로 읽었습니다"
+            command="range-read",
+            message=f"범위 '{range_obj.address}' 데이터를 성공적으로 읽었습니다",
+            execution_time_ms=timer.execution_time_ms,
+            book=book,
+            range_obj=range_obj,
+            data_size=data_size
         )
 
         # 출력 형식에 따른 결과 반환

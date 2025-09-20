@@ -9,7 +9,7 @@ from pathlib import Path
 import click
 import xlwings as xw
 from ..version import get_version
-from .utils import get_workbook, create_error_response, create_success_response, get_or_open_workbook
+from .utils import get_workbook, create_error_response, create_success_response, get_or_open_workbook, ExecutionTimer
 
 
 @click.command()
@@ -46,13 +46,15 @@ def add_sheet(workbook, use_active, workbook_name, name, before, after, index, v
     - --workbook-name: 열린 워크북 이름으로 접근
     """
     try:
-        # 워크북 연결 (새로운 통합 함수 사용)
-        book = get_or_open_workbook(
-            file_path=workbook,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+        # 실행 시간 측정 시작
+        with ExecutionTimer() as timer:
+            # 워크북 연결 (새로운 통합 함수 사용)
+            book = get_or_open_workbook(
+                file_path=workbook,
+                workbook_name=workbook_name,
+                use_active=use_active,
+                visible=visible
+            )
 
         # 위치 지정 옵션 검증
         if sum([bool(before), bool(after), bool(index is not None)]) > 1:
@@ -122,14 +124,18 @@ def add_sheet(workbook, use_active, workbook_name, name, before, after, index, v
             "all_sheets": [sheet.name for sheet in book.sheets]
         }
 
-        # 성공 응답 생성
+        # 성공 응답 생성 (AI 에이전트 호환성 향상)
         result_data = create_success_response(
             data={
                 "new_sheet": sheet_info,
                 "workbook": workbook_info
             },
-            command="add-sheet",
-            message=f"시트가 성공적으로 추가되었습니다: '{new_sheet.name}'"
+            command="sheet-add",
+            message=f"시트가 성공적으로 추가되었습니다: '{new_sheet.name}'",
+            execution_time_ms=timer.execution_time_ms,
+            book=book,
+            sheet_name=new_sheet.name,
+            total_sheets=len(book.sheets)
         )
 
         # 워크북 저장 (기존 파일 업데이트)

@@ -9,7 +9,7 @@ from pathlib import Path
 import click
 import xlwings as xw
 from ..version import get_version
-from .utils import get_or_open_workbook, normalize_path
+from .utils import get_or_open_workbook, normalize_path, ExecutionTimer, create_success_response
 
 
 @click.command()
@@ -50,20 +50,22 @@ def open_workbook(file_path, use_active, workbook_name, visible, output_format):
             if not file_path.suffix.lower() in ['.xlsx', '.xls', '.xlsm']:
                 raise ValueError(f"지원되지 않는 파일 형식입니다: {file_path.suffix}")
 
-        # 워크북 가져오기
-        book = get_or_open_workbook(
-            file_path=str(file_path) if file_path else None,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+        # 실행 시간 측정 시작
+        with ExecutionTimer() as timer:
+            # 워크북 가져오기
+            book = get_or_open_workbook(
+                file_path=str(file_path) if file_path else None,
+                workbook_name=workbook_name,
+                use_active=use_active,
+                visible=visible
+            )
 
-        # 앱 객체 가져오기
-        app = book.app
+            # 앱 객체 가져오기
+            app = book.app
 
-        # 시트 정보 수집
-        sheets_info = []
-        for sheet in book.sheets:
+            # 시트 정보 수집
+            sheets_info = []
+            for sheet in book.sheets:
             try:
                 # 시트의 사용된 범위 정보
                 used_range = sheet.used_range
@@ -95,11 +97,8 @@ def open_workbook(file_path, use_active, workbook_name, visible, output_format):
                     "error": f"시트 정보 수집 실패: {str(e)}"
                 })
 
-        # 성공 결과 데이터
-        result_data = {
-            "success": True,
-            "command": "open-workbook",
-            "version": get_version(),
+        # 응답 데이터 구성
+        data_content = {
             "workbook_info": {
                 "name": normalize_path(book.name),
                 "full_name": normalize_path(book.fullname),
@@ -118,17 +117,36 @@ def open_workbook(file_path, use_active, workbook_name, visible, output_format):
 
         # 파일 정보 추가 (파일 경로가 지정된 경우에만)
         if file_path:
-            result_data["file_info"] = {
+            data_content["file_info"] = {
                 "path": str(file_path),
                 "name": file_path.name,
                 "size_bytes": file_path.stat().st_size,
                 "exists": True
             }
-            result_data["message"] = f"워크북이 성공적으로 열렸습니다: {file_path.name}"
+            message = f"워크북이 성공적으로 열렸습니다: {file_path.name}"
         elif use_active:
-            result_data["message"] = f"활성 워크북 정보를 가져왔습니다: {normalize_path(book.name)}"
+            message = f"활성 워크북 정보를 가져왔습니다: {normalize_path(book.name)}"
         elif workbook_name:
-            result_data["message"] = f"워크북을 찾았습니다: {normalize_path(book.name)}"
+            message = f"워크북을 찾았습니다: {normalize_path(book.name)}"
+
+        # 파일 크기 계산 (통계용)
+        file_size = 0
+        if file_path:
+            try:
+                file_size = file_path.stat().st_size
+            except:
+                pass
+
+        # 성공 응답 생성 (AI 에이전트 호환성 향상)
+        result_data = create_success_response(
+            data=data_content,
+            command="workbook-open",
+            message=message,
+            execution_time_ms=timer.execution_time_ms,
+            book=book,
+            sheet_count=len(book.sheets),
+            file_size=file_size
+        )
 
         # 출력 형식에 따른 결과 반환
         if output_format == 'json':
