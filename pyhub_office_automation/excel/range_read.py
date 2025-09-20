@@ -50,10 +50,10 @@ def read_range(file_path, use_active, workbook_name, range_str, sheet, expand, i
     - --workbook-name: 열린 워크북 이름으로 접근
 
     예제:
-        oa excel read-range --file-path "data.xlsx" --range "A1:C10"
-        oa excel read-range --use-active --range "A1:C10"
-        oa excel read-range --workbook-name "Sales.xlsx" --range "Sheet1!A1:C10" --format csv
-        oa excel read-range --file-path "data.xlsx" --range "A1" --expand table
+        oa excel range-read --file-path "data.xlsx" --range "A1:C10"
+        oa excel range-read --use-active --range "A1:C10"
+        oa excel range-read --workbook-name "Sales.xlsx" --range "Sheet1!A1:C10" --format csv
+        oa excel range-read --file-path "data.xlsx" --range "A1" --expand table
     """
     book = None
     try:

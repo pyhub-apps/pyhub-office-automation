@@ -88,6 +88,27 @@ pip install -e .[dev]
 
 ## Excel Automation Features (xlwings)
 
+### Command Structure (Updated: Issue #15)
+Excel commands are organized by category for better usability:
+
+**Sheet Management (4 commands)**
+- `sheet-activate` - Activate a specific sheet
+- `sheet-add` - Add new sheet to workbook
+- `sheet-delete` - Delete sheet from workbook
+- `sheet-rename` - Rename existing sheet
+
+**Workbook Operations (2 commands)**
+- `workbook-create` - Create new Excel workbook
+- `workbook-open` - Open existing workbook or connect to active one
+
+**Range Operations (2 commands)**
+- `range-read` - Read data from cell ranges
+- `range-write` - Write data to cell ranges
+
+**Table Operations (2 commands)**
+- `table-read` - Read table data into pandas DataFrame
+- `table-write` - Write pandas DataFrame as Excel table
+
 ### Core Operations
 - File operations: open, save, close, create workbooks
 - Sheet management: add, delete, rename, activate sheets
@@ -106,19 +127,19 @@ All Excel commands now support multiple ways to connect to workbooks, eliminatin
 #### Usage Examples
 ```bash
 # Traditional file path approach
-oa excel read-range --file-path "data.xlsx" --range "A1:C10"
+oa excel range-read --file-path "data.xlsx" --range "A1:C10"
 
 # Use currently active workbook
-oa excel read-range --use-active --range "A1:C10"
+oa excel range-read --use-active --range "A1:C10"
 
 # Connect to specific open workbook by name
-oa excel read-range --workbook-name "Sales.xlsx" --range "A1:C10"
+oa excel range-read --workbook-name "Sales.xlsx" --range "A1:C10"
 
 # AI Agent workflow - efficient consecutive operations
-oa excel open-workbook --file-path "report.xlsx"
-oa excel add-sheet --use-active --name "Results"
-oa excel write-range --use-active --range "A1" --data '["Name", "Score"]'
-oa excel read-table --use-active --output-file "summary.csv"
+oa excel workbook-open --file-path "report.xlsx"
+oa excel sheet-add --use-active --name "Results"
+oa excel range-write --use-active --range "A1" --data '["Name", "Score"]'
+oa excel table-read --use-active --output-file "summary.csv"
 ```
 
 #### Benefits for AI Agents
@@ -158,8 +179,8 @@ macOS에서 한글 파일명/경로 사용 시 자소분리 현상을 자동으�
 
 ```bash
 # macOS에서 한글 파일명 사용 예제
-oa excel read-range --file-path "한글데이터.xlsx" --range "A1:C10"
-oa excel create-workbook --save-path "새워크북.xlsx" --name "테스트"
+oa excel range-read --file-path "한글데이터.xlsx" --range "A1:C10"
+oa excel workbook-create --save-path "새워크북.xlsx" --name "테스트"
 ```
 
 ## HWP Automation Features (pyhwpx)
