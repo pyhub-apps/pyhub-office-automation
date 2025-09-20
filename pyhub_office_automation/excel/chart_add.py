@@ -1,14 +1,15 @@
 """
-차트 생성 명령어
+차트 생성 명령어 (Typer 버전)
 xlwings를 활용한 Excel 차트 생성 기능
 """
 
 import json
 import platform
 from pathlib import Path
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet, parse_range, get_range,
     create_error_response, create_success_response,
@@ -86,50 +87,24 @@ def get_chart_type_constant(chart_type: str):
         return CHART_TYPE_MAP[chart_type_lower]
 
 
-@click.command()
-@click.option('--file-path',
-              help='차트를 생성할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--data-range', required=True,
-              help='차트 데이터 범위 (예: "A1:C10" 또는 "Sheet1!A1:C10")')
-@click.option('--chart-type', default='column',
-              type=click.Choice(['column', 'column_clustered', 'column_stacked', 'column_stacked_100',
-                                'bar', 'bar_clustered', 'bar_stacked', 'bar_stacked_100',
-                                'line', 'line_markers', 'pie', 'doughnut', 'area', 'area_stacked',
-                                'area_stacked_100', 'scatter', 'scatter_lines', 'scatter_smooth',
-                                'bubble', 'combo']),
-              help='차트 유형 (기본값: column)')
-@click.option('--title',
-              help='차트 제목')
-@click.option('--position', default='E1',
-              help='차트 생성 위치 (셀 주소, 기본값: E1)')
-@click.option('--width', type=int, default=400,
-              help='차트 너비 (픽셀, 기본값: 400)')
-@click.option('--height', type=int, default=300,
-              help='차트 높이 (픽셀, 기본값: 300)')
-@click.option('--sheet',
-              help='차트를 생성할 시트 이름 (지정하지 않으면 데이터 범위의 시트)')
-@click.option('--style', type=int,
-              help='차트 스타일 번호 (1-48)')
-@click.option('--legend-position',
-              type=click.Choice(['top', 'bottom', 'left', 'right', 'none']),
-              help='범례 위치')
-@click.option('--show-data-labels', is_flag=True,
-              help='데이터 레이블 표시')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='생성 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel chart-add")
-def chart_add(file_path, use_active, workbook_name, data_range, chart_type, title,
-              position, width, height, sheet, style, legend_position,
-              show_data_labels, output_format, visible, save):
+def chart_add(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 생성할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    data_range: str = typer.Option(..., "--data-range", help="차트 데이터 범위 (예: \"A1:C10\" 또는 \"Sheet1!A1:C10\")"),
+    chart_type: str = typer.Option("column", "--chart-type", help="차트 유형 (기본값: column)"),
+    title: Optional[str] = typer.Option(None, "--title", help="차트 제목"),
+    position: str = typer.Option("E1", "--position", help="차트 생성 위치 (셀 주소, 기본값: E1)"),
+    width: int = typer.Option(400, "--width", help="차트 너비 (픽셀, 기본값: 400)"),
+    height: int = typer.Option(300, "--height", help="차트 높이 (픽셀, 기본값: 300)"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="차트를 생성할 시트 이름 (지정하지 않으면 데이터 범위의 시트)"),
+    style: Optional[int] = typer.Option(None, "--style", help="차트 스타일 번호 (1-48)"),
+    legend_position: Optional[str] = typer.Option(None, "--legend-position", help="범례 위치 (top/bottom/left/right/none)"),
+    show_data_labels: bool = typer.Option(False, "--show-data-labels", help="데이터 레이블 표시"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)")
+):
     """
     지정된 데이터 범위에서 Excel 차트를 생성합니다.
 
@@ -203,6 +178,23 @@ def chart_add(file_path, use_active, workbook_name, data_range, chart_type, titl
     book = None
 
     try:
+        # chart_type 검증
+        valid_chart_types = ['column', 'column_clustered', 'column_stacked', 'column_stacked_100',
+                           'bar', 'bar_clustered', 'bar_stacked', 'bar_stacked_100',
+                           'line', 'line_markers', 'pie', 'doughnut', 'area', 'area_stacked',
+                           'area_stacked_100', 'scatter', 'scatter_lines', 'scatter_smooth',
+                           'bubble', 'combo']
+        if chart_type not in valid_chart_types:
+            raise ValueError(f"지원되지 않는 차트 타입: {chart_type}. 사용 가능한 타입: {', '.join(valid_chart_types)}")
+
+        # legend_position 검증
+        if legend_position and legend_position not in ['top', 'bottom', 'left', 'right', 'none']:
+            raise ValueError(f"잘못된 범례 위치: {legend_position}. 사용 가능한 위치: top, bottom, left, right, none")
+
+        # output_format 검증
+        if output_format not in ['json', 'text']:
+            raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+
         # 데이터 범위 파싱 및 검증
         data_sheet_name, data_range_part = parse_range(data_range)
         if not validate_range_string(data_range_part):

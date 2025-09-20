@@ -7,9 +7,10 @@ import json
 import platform
 import os
 from pathlib import Path
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet,
     create_error_response, create_success_response,
@@ -134,43 +135,23 @@ def get_chart_export_info(chart):
         return {"name": getattr(chart, 'name', 'unknown'), "info_extraction_failed": True}
 
 
-@click.command()
-@click.option('--file-path',
-              help='차트가 있는 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='차트가 있는 시트 이름 (지정하지 않으면 활성 시트)')
-@click.option('--chart-name',
-              help='내보낼 차트의 이름')
-@click.option('--chart-index', type=int,
-              help='내보낼 차트의 인덱스 (0부터 시작)')
-@click.option('--output-path', required=True,
-              help='이미지 파일을 저장할 경로 (확장자 포함 또는 자동 추가)')
-@click.option('--image-format', default='png',
-              type=click.Choice(['png', 'jpg', 'jpeg', 'gif', 'bmp']),
-              help='이미지 형식 (기본값: png)')
-@click.option('--width', type=int,
-              help='내보낼 이미지의 너비 (픽셀, 지정하지 않으면 차트 원본 크기)')
-@click.option('--height', type=int,
-              help='내보낼 이미지의 높이 (픽셀, 지정하지 않으면 차트 원본 크기)')
-@click.option('--dpi', type=int, default=300,
-              help='이미지 해상도 (DPI, 기본값: 300)')
-@click.option('--transparent-bg', is_flag=True,
-              help='투명 배경으로 내보내기 (PNG 형식에서만 지원)')
-@click.option('--overwrite', is_flag=True,
-              help='기존 파일이 있으면 덮어쓰기')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.version_option(version=get_version(), prog_name="oa excel chart-export")
-def chart_export(file_path, use_active, workbook_name, sheet, chart_name, chart_index,
-                output_path, image_format, width, height, dpi, transparent_bg,
-                overwrite, output_format, visible):
+def chart_export(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="차트가 있는 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
+    chart_name: Optional[str] = typer.Option(None, "--chart-name", help="내보낼 차트의 이름"),
+    chart_index: Optional[int] = typer.Option(None, "--chart-index", help="내보낼 차트의 인덱스 (0부터 시작)"),
+    output_path: str = typer.Option(..., "--output-path", help="이미지 파일을 저장할 경로 (확장자 포함 또는 자동 추가)"),
+    image_format: str = typer.Option("png", "--image-format", help="이미지 형식 (png/jpg/jpeg/gif/bmp, 기본값: png)"),
+    width: Optional[int] = typer.Option(None, "--width", help="내보낼 이미지의 너비 (픽셀, 지정하지 않으면 차트 원본 크기)"),
+    height: Optional[int] = typer.Option(None, "--height", help="내보낼 이미지의 높이 (픽셀, 지정하지 않으면 차트 원본 크기)"),
+    dpi: int = typer.Option(300, "--dpi", help="이미지 해상도 (DPI, 기본값: 300)"),
+    transparent_bg: bool = typer.Option(False, "--transparent-bg", help="투명 배경으로 내보내기 (PNG 형식에서만 지원)"),
+    overwrite: bool = typer.Option(False, "--overwrite", help="기존 파일이 있으면 덮어쓰기"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)")
+):
     """
     Excel 차트를 이미지 파일로 내보냅니다.
 
@@ -299,6 +280,13 @@ def chart_export(file_path, use_active, workbook_name, sheet, chart_name, chart_
     • 날짜 포함: "dashboard_20241201.png"
     • 백업 고려: 중요한 차트는 여러 형식으로 저장
     """
+    # 입력 값 검증
+    if image_format not in ['png', 'jpg', 'jpeg', 'gif', 'bmp']:
+        raise ValueError(f"잘못된 이미지 형식: {image_format}. 사용 가능한 형식: png, jpg, jpeg, gif, bmp")
+
+    if output_format not in ['json', 'text']:
+        raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+
     book = None
 
     try:

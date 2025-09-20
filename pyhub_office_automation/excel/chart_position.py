@@ -6,9 +6,10 @@
 import json
 import platform
 from pathlib import Path
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet,
     create_error_response, create_success_response,
@@ -100,47 +101,25 @@ def calculate_relative_position(base_position, relative_direction, offset=10):
     return directions[relative_direction]
 
 
-@click.command()
-@click.option('--file-path',
-              help='차트가 있는 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='차트가 있는 시트 이름 (지정하지 않으면 활성 시트)')
-@click.option('--chart-name',
-              help='조정할 차트의 이름')
-@click.option('--chart-index', type=int,
-              help='조정할 차트의 인덱스 (0부터 시작)')
-@click.option('--left', type=float,
-              help='차트의 왼쪽 위치 (픽셀)')
-@click.option('--top', type=float,
-              help='차트의 위쪽 위치 (픽셀)')
-@click.option('--width', type=float,
-              help='차트의 너비 (픽셀)')
-@click.option('--height', type=float,
-              help='차트의 높이 (픽셀)')
-@click.option('--anchor-cell',
-              help='차트를 고정할 셀 주소 (예: "E5")')
-@click.option('--relative-to',
-              help='상대 위치 기준이 될 도형 이름')
-@click.option('--relative-direction',
-              type=click.Choice(['right', 'left', 'below', 'above', 'center']),
-              help='상대 위치 방향 (--relative-to와 함께 사용)')
-@click.option('--offset', type=int, default=10,
-              help='상대 위치 설정 시 간격 (픽셀, 기본값: 10)')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='조정 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel chart-position")
-def chart_position(file_path, use_active, workbook_name, sheet, chart_name, chart_index,
-                  left, top, width, height, anchor_cell, relative_to, relative_direction,
-                  offset, output_format, visible, save):
+def chart_position(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="차트가 있는 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
+    chart_name: Optional[str] = typer.Option(None, "--chart-name", help="조정할 차트의 이름"),
+    chart_index: Optional[int] = typer.Option(None, "--chart-index", help="조정할 차트의 인덱스 (0부터 시작)"),
+    left: Optional[float] = typer.Option(None, "--left", help="차트의 왼쪽 위치 (픽셀)"),
+    top: Optional[float] = typer.Option(None, "--top", help="차트의 위쪽 위치 (픽셀)"),
+    width: Optional[float] = typer.Option(None, "--width", help="차트의 너비 (픽셀)"),
+    height: Optional[float] = typer.Option(None, "--height", help="차트의 높이 (픽셀)"),
+    anchor_cell: Optional[str] = typer.Option(None, "--anchor-cell", help="차트를 고정할 셀 주소 (예: \"E5\")"),
+    relative_to: Optional[str] = typer.Option(None, "--relative-to", help="상대 위치 기준이 될 도형 이름"),
+    relative_direction: Optional[str] = typer.Option(None, "--relative-direction", help="상대 위치 방향 (right/left/below/above/center, --relative-to와 함께 사용)"),
+    offset: int = typer.Option(10, "--offset", help="상대 위치 설정 시 간격 (픽셀, 기본값: 10)"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="조정 후 파일 저장 여부 (기본값: True)")
+):
     """
     차트의 위치와 크기를 정밀하게 조정합니다.
 
@@ -240,6 +219,13 @@ def chart_position(file_path, use_active, workbook_name, sheet, chart_name, char
     • --save false로 미리보기 후 최종 적용
     • 여러 차트 일괄 조정 시 스크립트나 반복 명령 활용
     """
+    # 입력 값 검증
+    if relative_direction and relative_direction not in ['right', 'left', 'below', 'above', 'center']:
+        raise ValueError(f"잘못된 상대 위치 방향: {relative_direction}. 사용 가능한 방향: right, left, below, above, center")
+
+    if output_format not in ['json', 'text']:
+        raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+
     book = None
 
     try:

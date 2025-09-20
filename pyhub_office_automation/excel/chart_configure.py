@@ -6,9 +6,10 @@
 import json
 import platform
 from pathlib import Path
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet,
     create_error_response, create_success_response,
@@ -198,54 +199,27 @@ def set_chart_colors(chart, color_scheme):
         return False
 
 
-@click.command()
-@click.option('--file-path',
-              help='차트가 있는 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='차트가 있는 시트 이름 (지정하지 않으면 활성 시트)')
-@click.option('--chart-name',
-              help='설정할 차트의 이름')
-@click.option('--chart-index', type=int,
-              help='설정할 차트의 인덱스 (0부터 시작)')
-@click.option('--title',
-              help='차트 제목 설정')
-@click.option('--style', type=int,
-              help='차트 스타일 번호 (1-48, Windows 전용)')
-@click.option('--legend-position',
-              type=click.Choice(['top', 'bottom', 'left', 'right', 'none']),
-              help='범례 위치')
-@click.option('--x-axis-title',
-              help='X축 제목')
-@click.option('--y-axis-title',
-              help='Y축 제목')
-@click.option('--show-data-labels', is_flag=True,
-              help='데이터 레이블 표시')
-@click.option('--hide-data-labels', is_flag=True,
-              help='데이터 레이블 숨기기')
-@click.option('--data-label-position',
-              type=click.Choice(['center', 'above', 'below', 'left', 'right', 'outside', 'inside']),
-              help='데이터 레이블 위치 (Windows 전용)')
-@click.option('--color-scheme',
-              type=click.Choice(['colorful', 'monochromatic', 'office', 'grayscale']),
-              help='색상 테마 (Windows 전용)')
-@click.option('--transparent-bg', is_flag=True,
-              help='차트 배경을 투명하게 설정')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='설정 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel chart-configure")
-def chart_configure(file_path, use_active, workbook_name, sheet, chart_name, chart_index,
-                   title, style, legend_position, x_axis_title, y_axis_title,
-                   show_data_labels, hide_data_labels, data_label_position,
-                   color_scheme, transparent_bg, output_format, visible, save):
+def chart_configure(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="차트가 있는 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
+    chart_name: Optional[str] = typer.Option(None, "--chart-name", help="설정할 차트의 이름"),
+    chart_index: Optional[int] = typer.Option(None, "--chart-index", help="설정할 차트의 인덱스 (0부터 시작)"),
+    title: Optional[str] = typer.Option(None, "--title", help="차트 제목 설정"),
+    style: Optional[int] = typer.Option(None, "--style", help="차트 스타일 번호 (1-48, Windows 전용)"),
+    legend_position: Optional[str] = typer.Option(None, "--legend-position", help="범례 위치 (top/bottom/left/right/none)"),
+    x_axis_title: Optional[str] = typer.Option(None, "--x-axis-title", help="X축 제목"),
+    y_axis_title: Optional[str] = typer.Option(None, "--y-axis-title", help="Y축 제목"),
+    show_data_labels: bool = typer.Option(False, "--show-data-labels", help="데이터 레이블 표시"),
+    hide_data_labels: bool = typer.Option(False, "--hide-data-labels", help="데이터 레이블 숨기기"),
+    data_label_position: Optional[str] = typer.Option(None, "--data-label-position", help="데이터 레이블 위치 (center/above/below/left/right/outside/inside, Windows 전용)"),
+    color_scheme: Optional[str] = typer.Option(None, "--color-scheme", help="색상 테마 (colorful/monochromatic/office/grayscale, Windows 전용)"),
+    transparent_bg: bool = typer.Option(False, "--transparent-bg", help="차트 배경을 투명하게 설정"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="설정 후 파일 저장 여부 (기본값: True)")
+):
     """
     기존 차트의 스타일과 속성을 설정합니다.
 
@@ -336,6 +310,19 @@ def chart_configure(file_path, use_active, workbook_name, sheet, chart_name, cha
     • 한 번에 여러 속성을 동시에 설정 가능
     • 설정 변경 후 --save false로 미리보기 가능
     """
+    # 입력 값 검증
+    if legend_position and legend_position not in ['top', 'bottom', 'left', 'right', 'none']:
+        raise ValueError(f"잘못된 범례 위치: {legend_position}. 사용 가능한 위치: top, bottom, left, right, none")
+
+    if data_label_position and data_label_position not in ['center', 'above', 'below', 'left', 'right', 'outside', 'inside']:
+        raise ValueError(f"잘못된 데이터 레이블 위치: {data_label_position}. 사용 가능한 위치: center, above, below, left, right, outside, inside")
+
+    if color_scheme and color_scheme not in ['colorful', 'monochromatic', 'office', 'grayscale']:
+        raise ValueError(f"잘못된 색상 테마: {color_scheme}. 사용 가능한 테마: colorful, monochromatic, office, grayscale")
+
+    if output_format not in ['json', 'text']:
+        raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+
     book = None
 
     try:

@@ -6,9 +6,10 @@
 import json
 import platform
 from pathlib import Path
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet,
     create_error_response, create_success_response,
@@ -86,33 +87,19 @@ def get_chart_info_before_deletion(chart):
         return {"name": getattr(chart, 'name', 'unknown'), "info_extraction_failed": True}
 
 
-@click.command()
-@click.option('--file-path',
-              help='차트를 삭제할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='차트가 있는 시트 이름 (지정하지 않으면 활성 시트)')
-@click.option('--chart-name',
-              help='삭제할 차트의 이름')
-@click.option('--chart-index', type=int,
-              help='삭제할 차트의 인덱스 (0부터 시작)')
-@click.option('--all-charts', is_flag=True,
-              help='시트의 모든 차트 삭제 (주의: 되돌릴 수 없음)')
-@click.option('--confirm', is_flag=True,
-              help='삭제 확인 (--all-charts 사용 시 필수)')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='삭제 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel chart-delete")
-def chart_delete(file_path, use_active, workbook_name, sheet, chart_name, chart_index,
-                all_charts, confirm, output_format, visible, save):
+def chart_delete(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 삭제할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
+    chart_name: Optional[str] = typer.Option(None, "--chart-name", help="삭제할 차트의 이름"),
+    chart_index: Optional[int] = typer.Option(None, "--chart-index", help="삭제할 차트의 인덱스 (0부터 시작)"),
+    all_charts: bool = typer.Option(False, "--all-charts", help="시트의 모든 차트 삭제 (주의: 되돌릴 수 없음)"),
+    confirm: bool = typer.Option(False, "--confirm", help="삭제 확인 (--all-charts 사용 시 필수)"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="삭제 후 파일 저장 여부 (기본값: True)")
+):
     """
     워크시트에서 특정 차트를 삭제합니다.
 
@@ -195,6 +182,10 @@ def chart_delete(file_path, use_active, workbook_name, sheet, chart_name, chart_
     ⚠️ 중요한 차트는 사전에 백업 및 내보내기 권장
     ⚠️ --all-charts 옵션은 전체 대시보드에 영향을 줄 수 있음
     """
+    # 입력 값 검증
+    if output_format not in ['json', 'text']:
+        raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+
     book = None
 
     try:

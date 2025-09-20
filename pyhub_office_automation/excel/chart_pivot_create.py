@@ -6,9 +6,10 @@
 import json
 import platform
 from pathlib import Path
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet,
     create_error_response, create_success_response,
@@ -106,48 +107,24 @@ def get_pivot_chart_type_constant(chart_type: str):
         return pivot_chart_types[chart_type_lower]
 
 
-@click.command()
-@click.option('--file-path',
-              help='피벗차트를 생성할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--pivot-name', required=True,
-              help='차트를 생성할 피벗테이블 이름')
-@click.option('--chart-type', default='column',
-              type=click.Choice(['column', 'column_clustered', 'column_stacked', 'column_stacked_100',
-                                'bar', 'bar_clustered', 'bar_stacked', 'bar_stacked_100',
-                                'pie', 'doughnut', 'line', 'line_markers', 'area', 'area_stacked']),
-              help='피벗차트 유형 (기본값: column)')
-@click.option('--title',
-              help='피벗차트 제목')
-@click.option('--position', default='H1',
-              help='피벗차트 생성 위치 (셀 주소, 기본값: H1)')
-@click.option('--width', type=int, default=400,
-              help='피벗차트 너비 (픽셀, 기본값: 400)')
-@click.option('--height', type=int, default=300,
-              help='피벗차트 높이 (픽셀, 기본값: 300)')
-@click.option('--sheet',
-              help='피벗차트를 생성할 시트 이름 (지정하지 않으면 피벗테이블과 같은 시트)')
-@click.option('--style', type=int,
-              help='피벗차트 스타일 번호 (1-48)')
-@click.option('--legend-position',
-              type=click.Choice(['top', 'bottom', 'left', 'right', 'none']),
-              help='범례 위치')
-@click.option('--show-data-labels', is_flag=True,
-              help='데이터 레이블 표시')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='생성 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel chart-pivot-create")
-def chart_pivot_create(file_path, use_active, workbook_name, pivot_name, chart_type, title,
-                      position, width, height, sheet, style, legend_position,
-                      show_data_labels, output_format, visible, save):
+def chart_pivot_create(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="피벗차트를 생성할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    pivot_name: str = typer.Option(..., "--pivot-name", help="차트를 생성할 피벗테이블 이름"),
+    chart_type: str = typer.Option("column", "--chart-type", help="피벗차트 유형 (column/column_clustered/column_stacked/column_stacked_100/bar/bar_clustered/bar_stacked/bar_stacked_100/pie/doughnut/line/line_markers/area/area_stacked, 기본값: column)"),
+    title: Optional[str] = typer.Option(None, "--title", help="피벗차트 제목"),
+    position: str = typer.Option("H1", "--position", help="피벗차트 생성 위치 (셀 주소, 기본값: H1)"),
+    width: int = typer.Option(400, "--width", help="피벗차트 너비 (픽셀, 기본값: 400)"),
+    height: int = typer.Option(300, "--height", help="피벗차트 높이 (픽셀, 기본값: 300)"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="피벗차트를 생성할 시트 이름 (지정하지 않으면 피벗테이블과 같은 시트)"),
+    style: Optional[int] = typer.Option(None, "--style", help="피벗차트 스타일 번호 (1-48)"),
+    legend_position: Optional[str] = typer.Option(None, "--legend-position", help="범례 위치 (top/bottom/left/right/none)"),
+    show_data_labels: bool = typer.Option(False, "--show-data-labels", help="데이터 레이블 표시"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)")
+):
     """
     피벗테이블을 기반으로 동적 피벗차트를 생성합니다. (Windows 전용)
 
@@ -224,6 +201,19 @@ def chart_pivot_create(file_path, use_active, workbook_name, pivot_name, chart_t
     • 여러 피벗차트를 하나의 피벗테이블에서 생성하여 다각도 분석
     • 정기 보고서는 피벗차트로 구성하여 자동 업데이트 활용
     """
+    # 입력 값 검증
+    valid_chart_types = ['column', 'column_clustered', 'column_stacked', 'column_stacked_100',
+                        'bar', 'bar_clustered', 'bar_stacked', 'bar_stacked_100',
+                        'pie', 'doughnut', 'line', 'line_markers', 'area', 'area_stacked']
+    if chart_type not in valid_chart_types:
+        raise ValueError(f"잘못된 차트 유형: {chart_type}. 사용 가능한 유형: {', '.join(valid_chart_types)}")
+
+    if legend_position and legend_position not in ['top', 'bottom', 'left', 'right', 'none']:
+        raise ValueError(f"잘못된 범례 위치: {legend_position}. 사용 가능한 위치: top, bottom, left, right, none")
+
+    if output_format not in ['json', 'text']:
+        raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+
     book = None
 
     try:

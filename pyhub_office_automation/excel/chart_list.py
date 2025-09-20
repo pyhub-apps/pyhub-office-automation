@@ -6,9 +6,10 @@
 import json
 import platform
 from pathlib import Path
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet,
     create_error_response, create_success_response,
@@ -103,24 +104,15 @@ def get_chart_data_source(chart_obj):
         return None
 
 
-@click.command()
-@click.option('--file-path',
-              help='차트를 조회할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='특정 시트의 차트만 조회 (지정하지 않으면 모든 시트)')
-@click.option('--detailed', is_flag=True,
-              help='차트의 상세 정보 포함')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.version_option(version=get_version(), prog_name="oa excel chart-list")
-def chart_list(file_path, use_active, workbook_name, sheet, detailed, output_format, visible):
+def chart_list(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 조회할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="특정 시트의 차트만 조회 (지정하지 않으면 모든 시트)"),
+    detailed: bool = typer.Option(False, "--detailed", help="차트의 상세 정보 포함"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)")
+):
     """
     워크시트의 모든 차트 정보를 조회합니다.
 
@@ -179,6 +171,10 @@ def chart_list(file_path, use_active, workbook_name, sheet, detailed, output_for
     • Windows: 모든 정보 제공 (차트 타입, 데이터 소스 등)
     • macOS: 기본 정보만 제공 (이름, 위치, 크기)
     """
+    # 입력 값 검증
+    if output_format not in ['json', 'text']:
+        raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+
     book = None
 
     try:

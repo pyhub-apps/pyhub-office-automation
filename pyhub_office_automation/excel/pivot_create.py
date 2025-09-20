@@ -7,9 +7,10 @@ import json
 import sys
 import platform
 from pathlib import Path
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_workbook, get_sheet, parse_range, get_range,
     format_output, create_error_response, create_success_response,
@@ -17,31 +18,18 @@ from .utils import (
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='피벗테이블을 생성할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--source-range', required=True,
-              help='소스 데이터 범위 (예: "A1:D100" 또는 "Data!A1:D100")')
-@click.option('--dest-range', default='F1',
-              help='피벗테이블을 생성할 위치 (기본값: "F1")')
-@click.option('--dest-sheet',
-              help='피벗테이블을 생성할 시트 이름 (지정하지 않으면 현재 시트)')
-@click.option('--pivot-name',
-              help='피벗테이블 이름 (지정하지 않으면 자동 생성)')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='생성 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel pivot-create")
-def pivot_create(file_path, use_active, workbook_name, source_range, dest_range,
-                dest_sheet, pivot_name, output_format, visible, save):
+def pivot_create(
+    file_path: Optional[str] = typer.Option(None, help='피벗테이블을 생성할 Excel 파일의 절대 경로'),
+    use_active: bool = typer.Option(False, help='현재 활성 워크북 사용'),
+    workbook_name: Optional[str] = typer.Option(None, help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
+    source_range: str = typer.Option(..., help='소스 데이터 범위 (예: "A1:D100" 또는 "Data!A1:D100")'),
+    dest_range: str = typer.Option('F1', help='피벗테이블을 생성할 위치 (기본값: "F1")'),
+    dest_sheet: Optional[str] = typer.Option(None, help='피벗테이블을 생성할 시트 이름 (지정하지 않으면 현재 시트)'),
+    pivot_name: Optional[str] = typer.Option(None, help='피벗테이블 이름 (지정하지 않으면 자동 생성)'),
+    output_format: str = typer.Option('json', help='출력 형식 선택'),
+    visible: bool = typer.Option(False, help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)'),
+    save: bool = typer.Option(True, help='생성 후 파일 저장 여부 (기본값: True)')
+):
     """
     소스 데이터에서 피벗테이블을 생성합니다.
 
@@ -199,53 +187,57 @@ def pivot_create(file_path, use_active, workbook_name, source_range, dest_range,
             message=message
         )
 
+        # 출력 형식 검증
+        if output_format not in ['json', 'text']:
+            raise typer.BadParameter(f"Invalid output format: {output_format}. Must be 'json' or 'text'")
+
         # 출력 형식에 따른 결과 반환
         if output_format == 'json':
-            click.echo(json.dumps(response, ensure_ascii=False, indent=2))
+            typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
         else:  # text 형식
-            click.echo(f"✅ 피벗테이블 생성 성공")
-            click.echo(f"📋 피벗테이블 이름: {pivot_name}")
-            click.echo(f"📄 파일: {data_content['file_info']['name']}")
-            click.echo(f"📊 소스 데이터: {source_sheet.name}!{source_data_range.address}")
-            click.echo(f"📍 생성 위치: {target_sheet.name}!{dest_cell.address}")
-            click.echo(f"📈 데이터 크기: {pivot_info['data_rows']}행 × {pivot_info['field_count']}열")
+            typer.echo(f"✅ 피벗테이블 생성 성공")
+            typer.echo(f"📋 피벗테이블 이름: {pivot_name}")
+            typer.echo(f"📄 파일: {data_content['file_info']['name']}")
+            typer.echo(f"📊 소스 데이터: {source_sheet.name}!{source_data_range.address}")
+            typer.echo(f"📍 생성 위치: {target_sheet.name}!{dest_cell.address}")
+            typer.echo(f"📈 데이터 크기: {pivot_info['data_rows']}행 × {pivot_info['field_count']}열")
 
             if save_success:
-                click.echo("💾 파일이 저장되었습니다")
+                typer.echo("💾 파일이 저장되었습니다")
             elif save:
-                click.echo(f"⚠️ 저장 실패: {save_error}")
+                typer.echo(f"⚠️ 저장 실패: {save_error}")
             else:
-                click.echo("📝 파일이 저장되지 않았습니다 (--save=False)")
+                typer.echo("📝 파일이 저장되지 않았습니다 (--save=False)")
 
-            click.echo("\n💡 피벗테이블 필드 설정을 위해 'oa excel pivot-configure' 명령어를 사용하세요")
+            typer.echo("\n💡 피벗테이블 필드 설정을 위해 'oa excel pivot-configure' 명령어를 사용하세요")
 
     except ValueError as e:
         error_response = create_error_response(e, "pivot-create")
         if output_format == 'json':
-            click.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
+            typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ {str(e)}", err=True)
-        sys.exit(1)
+            typer.echo(f"❌ {str(e)}", err=True)
+        raise typer.Exit(1)
 
     except RuntimeError as e:
         error_response = create_error_response(e, "pivot-create")
         if output_format == 'json':
-            click.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
+            typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ {str(e)}", err=True)
+            typer.echo(f"❌ {str(e)}", err=True)
             if "Windows" in str(e):
-                click.echo("💡 피벗테이블 생성은 Windows에서만 지원됩니다. macOS에서는 Excel의 수동 기능을 사용해주세요.", err=True)
+                typer.echo("💡 피벗테이블 생성은 Windows에서만 지원됩니다. macOS에서는 Excel의 수동 기능을 사용해주세요.", err=True)
             else:
-                click.echo("💡 Excel이 설치되어 있는지 확인하고, xlwings 최신 버전을 사용하는지 확인하세요.", err=True)
-        sys.exit(1)
+                typer.echo("💡 Excel이 설치되어 있는지 확인하고, xlwings 최신 버전을 사용하는지 확인하세요.", err=True)
+        raise typer.Exit(1)
 
     except Exception as e:
         error_response = create_error_response(e, "pivot-create")
         if output_format == 'json':
-            click.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
+            typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)
-        sys.exit(1)
+            typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)
+        raise typer.Exit(1)
 
     finally:
         # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
@@ -257,4 +249,4 @@ def pivot_create(file_path, use_active, workbook_name, source_range, dest_range,
 
 
 if __name__ == '__main__':
-    pivot_create()
+    typer.run(pivot_create)

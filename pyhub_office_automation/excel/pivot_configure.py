@@ -7,9 +7,10 @@ import json
 import sys
 import platform
 from pathlib import Path
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_workbook, get_sheet,
     format_output, create_error_response, create_success_response,
@@ -17,40 +18,22 @@ from .utils import (
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='피벗테이블이 있는 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--pivot-name', required=True,
-              help='구성할 피벗테이블 이름')
-@click.option('--sheet',
-              help='피벗테이블이 있는 시트 이름 (지정하지 않으면 자동 검색)')
-@click.option('--config-file',
-              help='피벗테이블 구성 JSON 파일 경로')
-@click.option('--row-fields',
-              help='행 필드 목록 (콤마로 구분, 예: "Region,Product")')
-@click.option('--column-fields',
-              help='열 필드 목록 (콤마로 구분, 예: "Year,Quarter")')
-@click.option('--value-fields',
-              help='값 필드 설정 JSON 문자열 (예: \'[{"field":"Sales","function":"Sum"}]\')')
-@click.option('--filter-fields',
-              help='필터 필드 목록 (콤마로 구분, 예: "Category,Status")')
-@click.option('--clear-existing', default=False, type=bool,
-              help='기존 필드 설정을 모두 지우고 새로 설정 (기본값: False)')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='구성 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel pivot-configure")
-def pivot_configure(file_path, use_active, workbook_name, pivot_name, sheet, config_file,
-                   row_fields, column_fields, value_fields, filter_fields, clear_existing,
-                   output_format, visible, save):
+def pivot_configure(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="피벗테이블이 있는 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    pivot_name: str = typer.Option(..., "--pivot-name", help="구성할 피벗테이블 이름"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="피벗테이블이 있는 시트 이름 (지정하지 않으면 자동 검색)"),
+    config_file: Optional[str] = typer.Option(None, "--config-file", help="피벗테이블 구성 JSON 파일 경로"),
+    row_fields: Optional[str] = typer.Option(None, "--row-fields", help="행 필드 목록 (콤마로 구분, 예: \"Region,Product\")"),
+    column_fields: Optional[str] = typer.Option(None, "--column-fields", help="열 필드 목록 (콤마로 구분, 예: \"Year,Quarter\")"),
+    value_fields: Optional[str] = typer.Option(None, "--value-fields", help="값 필드 설정 JSON 문자열 (예: '[{\"field\":\"Sales\",\"function\":\"Sum\"}]')"),
+    filter_fields: Optional[str] = typer.Option(None, "--filter-fields", help="필터 필드 목록 (콤마로 구분, 예: \"Category,Status\")"),
+    clear_existing: bool = typer.Option(False, "--clear-existing", help="기존 필드 설정을 모두 지우고 새로 설정 (기본값: False)"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="구성 후 파일 저장 여부 (기본값: True)")
+):
     """
     피벗테이블의 필드 배치와 집계 함수를 구성합니다.
 
@@ -80,6 +63,10 @@ def pivot_configure(file_path, use_active, workbook_name, pivot_name, sheet, con
 
     집계 함수 옵션: Sum, Count, Average, Max, Min, Product, CountNums, StdDev, StdDevp, Var, Varp
     """
+    # 입력 값 검증
+    if output_format not in ['json', 'text']:
+        raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+
     book = None
 
     try:
