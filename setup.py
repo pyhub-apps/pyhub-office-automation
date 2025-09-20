@@ -74,11 +74,7 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     python_requires=">=3.13",
-    install_requires=[
-        "click>=8.0.0",
-        "pandas>=2.0.0",
-        "xlwings>=0.30.0",
-    ],
+    install_requires=install_requires,
     extras_require=extras_require,
     entry_points={
         "console_scripts": [
