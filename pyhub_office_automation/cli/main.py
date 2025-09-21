@@ -4,8 +4,23 @@ PyInstaller 호환성을 위한 정적 명령어 등록
 """
 
 import json
+import os
 import sys
 from typing import Optional
+
+# Windows 환경에서 UTF-8 인코딩 강제 설정
+if sys.platform == "win32":
+    # 환경 변수 설정
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    os.environ.setdefault("PYTHONUTF8", "1")
+
+    # stdout/stderr 인코딩 설정
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+            sys.stderr.reconfigure(encoding="utf-8")
+        except Exception:
+            pass  # 설정 실패해도 계속 진행
 
 import typer
 from rich.console import Console
@@ -88,8 +103,13 @@ def version():
 excel_app = typer.Typer(help="Excel 자동화 명령어들", no_args_is_help=True)
 hwp_app = typer.Typer(help="HWP 자동화 명령어들 (Windows 전용)", no_args_is_help=True)
 
-# Rich 콘솔
-console = Console()
+# Rich 콘솔 - UTF-8 인코딩 안전성 확보
+try:
+    # Windows 환경에서 UTF-8 출력 보장
+    console = Console(force_terminal=True, force_jupyter=False, legacy_windows=False, width=None)  # 자동 감지
+except Exception:
+    # fallback to basic console
+    console = Console(legacy_windows=True)
 
 # Excel 명령어 등록 (단계적 테스트)
 # Range Commands

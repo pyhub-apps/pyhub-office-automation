@@ -9,7 +9,18 @@ jobs:
   build-windows-exe:
     runs-on: windows-latest
 
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: 1
+
     steps:
+    - name: Configure PowerShell UTF-8 encoding
+      shell: pwsh
+      run: |
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+        $OutputEncoding = [System.Text.Encoding]::UTF8
+        echo "PowerShell UTF-8 encoding configured"
     - name: Checkout code
       uses: actions/checkout@v4
 
