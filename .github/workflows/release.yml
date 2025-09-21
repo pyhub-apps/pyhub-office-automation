@@ -68,11 +68,11 @@ jobs:
           # version.txt 파일 생성 (한글)
           $gitTag = "${{ github.ref_name }}"
           $versionContent = @"
-pyhub-office-automation
-버전: $version
-빌드 시간: $buildDate
-Git 태그: $gitTag
-"@
+          pyhub-office-automation
+          버전: $version
+          빌드 시간: $buildDate
+          Git 태그: $gitTag
+          "@
           $versionContent | Out-File -FilePath "dist/version.txt" -Encoding UTF8
           Write-Host "📝 Created version.txt with version: $version"
 
