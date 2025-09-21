@@ -188,12 +188,45 @@ Excel commands are organized by category for better usability:
 - `table-read` - Read table data into pandas DataFrame
 - `table-write` - Write pandas DataFrame as Excel table
 
+**Chart Operations (7 commands)**
+- `chart-add` - Create static chart from data range
+- `chart-pivot-create` - Create dynamic pivot chart (Windows only)
+- `chart-list` - List all charts in worksheet
+- `chart-configure` - Modify chart properties
+- `chart-position` - Reposition existing chart
+- `chart-export` - Export chart as image
+- `chart-delete` - Remove chart from worksheet
+
 ### Core Operations
 - File operations: open, save, close, create workbooks
 - Sheet management: add, delete, rename, activate sheets
 - Data operations: read/write ranges, table handling with pandas
+- Chart operations: static charts, dynamic pivot charts, chart management
 - Formatting: cell formatting, borders, auto-fit columns
-- Advanced: macro execution, chart creation, value finding
+- Advanced: macro execution, pivot tables, value finding
+
+### Chart Selection Guide for AI Agents
+
+**Use `chart-add` for:**
+- Simple data visualization from fixed ranges
+- One-time charts and basic reports
+- Cross-platform compatibility (Windows/macOS)
+- Quick chart generation without pivot tables
+- Static presentations and documentation
+
+**Use `chart-pivot-create` for:**
+- Dynamic data analysis with filtering
+- Dashboard creation with interactive elements
+- Large datasets requiring pivot table aggregation
+- Charts that update automatically with data changes
+- Windows-only environments with advanced features
+
+**Decision Logic:**
+1. **Data Size**: Large datasets (>1000 rows) → `chart-pivot-create`
+2. **Interactivity**: Need filtering/drilling → `chart-pivot-create`
+3. **Platform**: macOS environment → `chart-add` only
+4. **Complexity**: Simple visualization → `chart-add`
+5. **Existing Pivot**: Pivot table already exists → `chart-pivot-create`
 
 ### Workbook Connection Methods (Issue #14)
 All Excel commands now support multiple ways to connect to workbooks, eliminating the need to create new Excel instances for each operation:

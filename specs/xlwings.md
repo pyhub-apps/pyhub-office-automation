@@ -600,6 +600,96 @@ print(result)
 ```
 
 ### 2.3 차트 작업
+
+#### 2.3.1 정적 차트 생성 (chart-add 방식)
+```python
+# 기본 차트 생성
+def create_static_chart(sheet, data_range, chart_type="column", position=(300, 50), size=(400, 300)):
+    """정적 차트 생성 (고정된 데이터 범위)"""
+    # 1. 차트 객체 생성
+    chart = sheet.charts.add(left=position[0], top=position[1], width=size[0], height=size[1])
+
+    # 2. 데이터 범위 설정
+    chart.set_source_data(sheet.range(data_range))
+
+    # 3. 차트 타입 설정
+    chart_type_map = {
+        "column": 51,    # xlColumnClustered
+        "bar": 57,       # xlBarClustered
+        "line": 4,       # xlLine
+        "pie": 5,        # xlPie
+        "scatter": -4169 # xlXYScatter
+    }
+
+    if platform.system() == "Windows":
+        chart.api.ChartType = chart_type_map.get(chart_type, 51)
+    else:
+        chart.chart_type = chart_type_map.get(chart_type, 51)
+
+    return chart
+
+# 사용 예제
+chart = create_static_chart(
+    sheet=sheet,
+    data_range="A1:C10",
+    chart_type="column",
+    position=(300, 50),
+    size=(400, 300)
+)
+```
+
+#### 2.3.2 피벗차트 생성 (chart-pivot-create 방식, Windows 전용)
+```python
+import platform
+
+def create_pivot_chart(sheet, pivot_table, chart_type="column", position=(400, 50), size=(400, 300)):
+    """피벗테이블 기반 동적 차트 생성 (Windows 전용)"""
+    if platform.system() != "Windows":
+        raise RuntimeError("피벗차트 생성은 Windows에서만 지원됩니다")
+
+    # 1. 차트 객체 생성 (COM API 사용)
+    chart_objects = sheet.api.ChartObjects()
+    chart_object = chart_objects.Add(position[0], position[1], size[0], size[1])
+    chart = chart_object.Chart
+
+    # 2. 피벗테이블을 소스로 설정
+    chart.SetSourceData(pivot_table.TableRange1)
+
+    # 3. 차트 타입 설정
+    chart_type_map = {
+        "column": 51,    # xlColumnClustered
+        "bar": 57,       # xlBarClustered
+        "line": 4,       # xlLine
+        "pie": 5,        # xlPie
+        "area": 1        # xlArea
+    }
+    chart.ChartType = chart_type_map.get(chart_type, 51)
+
+    # 4. 피벗차트로 변경 (동적 연결)
+    chart.PivotLayout.PivotTable = pivot_table
+
+    return chart_object
+
+# 피벗테이블 찾기 함수
+def find_pivot_table(sheet, pivot_name):
+    """시트에서 피벗테이블 찾기"""
+    for pivot_table in sheet.api.PivotTables():
+        if pivot_table.Name == pivot_name:
+            return pivot_table
+    raise ValueError(f"피벗테이블 '{pivot_name}'을 찾을 수 없습니다")
+
+# 사용 예제
+pivot_table = find_pivot_table(sheet, "PivotTable1")
+pivot_chart = create_pivot_chart(
+    sheet=sheet,
+    pivot_table=pivot_table,
+    chart_type="column",
+    position=(400, 50),
+    size=(400, 300)
+)
+```
+
+#### 2.3.3 차트 정보 조회 및 관리
 ```python
 # 차트 정보 조회
 charts_info = []
@@ -613,6 +703,86 @@ for i, chart in enumerate(sheet.charts):
         "index": i,
     }
     charts_info.append(chart_info)
+
+# 차트 위치 이동
+def move_chart(sheet, chart_name, new_position):
+    """차트 위치 이동"""
+    for chart in sheet.charts:
+        if chart.name == chart_name:
+            chart.left = new_position[0]
+            chart.top = new_position[1]
+            return True
+    return False
+
+# 차트 삭제
+def delete_chart(sheet, chart_name):
+    """차트 삭제"""
+    for chart in sheet.charts:
+        if chart.name == chart_name:
+            chart.delete()
+            return True
+    return False
+```
+
+#### 2.3.4 차트 종류별 사용 가이드
+
+**정적 차트 (chart-add) 사용 시나리오**:
+- 고정된 데이터 범위 시각화
+- 간단한 보고서용 차트
+- 일회성 분석 결과 표시
+- 크로스 플랫폼 호환성 필요
+
+**피벗차트 (chart-pivot-create) 사용 시나리오**:
+- 대용량 데이터 동적 분석
+- 대시보드용 인터랙티브 차트
+- 피벗테이블 필터 변경 시 자동 업데이트 필요
+- Windows 환경에서 고급 기능 활용
+
+#### 2.3.5 차트 스타일링 및 고급 설정
+```python
+# 차트 제목 설정
+def set_chart_title(chart, title):
+    """차트 제목 설정"""
+    try:
+        if platform.system() == "Windows":
+            chart.api.HasTitle = True
+            chart.api.ChartTitle.Text = title
+        else:
+            # macOS에서는 제한적
+            pass
+    except:
+        pass
+
+# 범례 설정
+def set_chart_legend(chart, position="bottom"):
+    """범례 위치 설정"""
+    try:
+        if platform.system() == "Windows":
+            from xlwings.constants import LegendPosition
+            legend_map = {
+                "top": LegendPosition.xlLegendPositionTop,
+                "bottom": LegendPosition.xlLegendPositionBottom,
+                "left": LegendPosition.xlLegendPositionLeft,
+                "right": LegendPosition.xlLegendPositionRight,
+                "none": None
+            }
+
+            if position == "none":
+                chart.api.HasLegend = False
+            else:
+                chart.api.HasLegend = True
+                chart.api.Legend.Position = legend_map[position]
+    except:
+        pass
+
+# 데이터 레이블 표시
+def show_data_labels(chart, show=True):
+    """데이터 레이블 표시 설정 (Windows 전용)"""
+    try:
+        if platform.system() == "Windows" and show:
+            chart.api.FullSeriesCollection(1).HasDataLabels = True
+    except:
+        pass
 ```
 
 ### 2.4 스타일 및 포맷팅

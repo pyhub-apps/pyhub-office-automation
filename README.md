@@ -63,11 +63,35 @@ oa excel sheet-add --name "결과"
 oa excel sheet-activate --name "데이터"
 ```
 
-### 차트 및 피벗
-```bash
-# 기본 차트 생성
-oa excel chart-add --data-range "A1:C10" --chart-type "column"
+### 차트 생성 (두 가지 방식)
 
+#### 정적 차트 - chart-add
+```bash
+# 일반 데이터 범위에서 차트 생성
+# 데이터가 변경되어도 차트는 고정된 범위만 표시
+oa excel chart-add --data-range "A1:C10" --chart-type "column" --title "매출 현황"
+
+# 자동 배치로 차트 생성
+oa excel chart-add --data-range "A1:C10" --auto-position --chart-type "line" --title "추세 분석"
+```
+
+#### 동적 피벗차트 - chart-pivot-create (Windows 전용)
+```bash
+# 기존 피벗테이블 기반으로 차트 생성
+# 피벗테이블 필터/재배치 시 차트도 자동 업데이트
+oa excel chart-pivot-create --pivot-name "SalesAnalysis" --chart-type "column" --title "동적 매출 분석"
+
+# 다른 시트에 피벗차트 생성
+oa excel chart-pivot-create --pivot-name "ProductSummary" --chart-type "pie" --sheet "Dashboard" --position "B2"
+```
+
+💡 **차트 선택 가이드**:
+- **chart-add**: 고정 데이터, 간단한 시각화, 일회성 차트, 크로스 플랫폼
+- **chart-pivot-create**: 대용량 데이터, 동적 분석, 대시보드용, Windows 전용
+
+### 피벗테이블 생성
+
+```bash
 # 피벗테이블 생성 (2단계 필수)
 # 1단계: 빈 피벗테이블 생성
 # source-range에 시트명 포함 가능 (예: "Data!A1:D100")
@@ -79,8 +103,10 @@ oa excel pivot-configure --pivot-name "PivotTable1" \
   --row-fields "지역,제품" \
   --value-fields "매출:Sum" \
   --clear-existing
+```
 
 ### 여러 객체 자동 배치 (겹침 방지)
+```bash
 # 첫 번째 피벗테이블 (수동 위치)
 oa excel pivot-create --source-range "A1:D100" --dest-range "F1"
 
@@ -90,8 +116,11 @@ oa excel pivot-create --source-range "A1:D100" --auto-position
 # 세 번째 피벗테이블 (사용자 설정)
 oa excel pivot-create --source-range "A1:D100" --auto-position --spacing 3 --preferred-position "bottom"
 
-# 차트도 자동 배치
+# 정적 차트 자동 배치
 oa excel chart-add --data-range "A1:C10" --auto-position --chart-type "line"
+
+# 피벗차트 자동 배치 (Windows)
+oa excel chart-pivot-create --pivot-name "PivotTable1" --chart-type "column" --sheet "Dashboard" --position "H1"
 
 # 겹침 검사 후 생성
 oa excel chart-add --data-range "A1:C10" --position "K1" --check-overlap
