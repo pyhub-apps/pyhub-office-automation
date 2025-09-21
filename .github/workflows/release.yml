@@ -56,7 +56,28 @@ jobs:
           $zipPath = "dist/$zipName"
 
           Write-Host "📦 Creating release package..."
-          Compress-Archive -Path "dist/oa.exe" -DestinationPath $zipPath -CompressionLevel Optimal
+
+          # 버전 정보 가져오기
+          $version = & uv run python -c "from pyhub_office_automation.version import get_version; print(get_version())"
+
+          # KST 시간 계산 (UTC+9)
+          $utcTime = Get-Date -AsUTC
+          $kstTime = $utcTime.AddHours(9)
+          $buildDate = $kstTime.ToString("yyyy-MM-dd HH:mm:ss") + " KST"
+
+          # version.txt 파일 생성 (한글)
+          $gitTag = "${{ github.ref_name }}"
+          $versionContent = @"
+pyhub-office-automation
+버전: $version
+빌드 시간: $buildDate
+Git 태그: $gitTag
+"@
+          $versionContent | Out-File -FilePath "dist/version.txt" -Encoding UTF8
+          Write-Host "📝 Created version.txt with version: $version"
+
+          # ZIP 생성 (oa.exe와 version.txt 포함)
+          Compress-Archive -Path "dist/oa.exe", "dist/version.txt" -DestinationPath $zipPath -CompressionLevel Optimal
 
           if (Test-Path $zipPath) {
               $sizeMB = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
@@ -74,22 +95,26 @@ jobs:
           body: |
             ## pyhub-office-automation ${{ github.ref_name }}
 
-            ### Installation
-            1. Download `oa-windows-amd64.zip`
-            2. Extract to get `oa.exe`
-            3. Run executable (no Python installation required)
+            ### 📦 설치 방법
+            1. `oa-windows-amd64.zip` 파일 다운로드
+            2. 압축 해제하여 `oa.exe` 실행 파일 추출
+            3. Python 설치 없이 바로 실행 가능
 
-            ### Usage
+            ### 🚀 사용 방법
             ```bash
-            oa.exe --version
-            oa.exe info
-            oa.exe excel list
-            oa.exe hwp list
+            oa.exe --version      # 버전 확인
+            oa.exe info          # 시스템 정보
+            oa.exe excel list    # Excel 명령어 목록
+            oa.exe hwp list      # HWP 명령어 목록
             ```
 
-            ### System Requirements
+            ### 💻 시스템 요구사항
             - Windows 10/11 (AMD64)
-            - Microsoft Excel (for Excel automation)
-            - 한글(HWP) (for HWP automation)
+            - Microsoft Excel (Excel 자동화 기능 사용 시)
+            - 한글(HWP) (HWP 자동화 기능 사용 시)
+
+            ### 📝 버전 정보
+            - 빌드 시간: KST 기준
+            - 버전 체계: HeadVer (major.yearweek.build)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -256,6 +256,36 @@ except Exception as e:
     Write-Host "   Location: $exePath"
     Write-Host "   Size: ${fileSize} MB"
 
+    # version.txt 파일 생성
+    Write-Host "📝 Creating version.txt file..."
+    try {
+        # KST 시간 계산 (UTC+9)
+        $utcTime = Get-Date -AsUTC
+        $kstTime = $utcTime.AddHours(9)
+        $buildDate = $kstTime.ToString("yyyy-MM-dd HH:mm:ss") + " KST"
+        $gitTag = try { git describe --tags --exact-match HEAD 2>&1 } catch { "local-build" }
+
+        $versionContent = @"
+pyhub-office-automation
+버전: $version
+빌드 시간: $buildDate
+Git 태그: $gitTag
+빌드 타입: $BuildType
+"@
+
+        if ($BuildType -eq "onefile") {
+            $versionPath = "dist\version.txt"
+        } else {
+            $versionPath = "dist\oa\version.txt"
+        }
+
+        $versionContent | Out-File -FilePath $versionPath -Encoding UTF8
+        Write-Host "   Version file created: $versionPath"
+    }
+    catch {
+        Write-Warning "version.txt 생성 실패: $($_.Exception.Message)"
+    }
+
     # 빌드 메타데이터 생성
     if ($GenerateMetadata) {
         Write-Host "📊 Generating build metadata..."

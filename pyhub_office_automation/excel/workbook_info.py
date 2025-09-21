@@ -192,9 +192,9 @@ def workbook_info(
 
             # 애플리케이션 정보
             app_info = {
-                "version": getattr(book.app, "version", "Unknown"),
+                "version": str(getattr(book.app, "version", "Unknown")),
                 "visible": app_visible,
-                "calculation_mode": getattr(book.app, "calculation", "Unknown"),
+                "calculation_mode": str(getattr(book.app, "calculation", "Unknown")),
             }
 
             # 데이터 구성

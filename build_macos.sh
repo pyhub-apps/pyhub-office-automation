@@ -172,6 +172,28 @@ echo "📁 Build output:"
 echo "   Location: $exe_path"
 echo "   Size: ${file_size_mb} MB"
 
+# version.txt 파일 생성
+echo "📝 Creating version.txt file..."
+# KST 시간 계산 (UTC+9)
+build_date=$(TZ='Asia/Seoul' date +"%Y-%m-%d %H:%M:%S KST")
+git_tag=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "local-build")
+
+if [ "$BUILD_TYPE" = "onefile" ]; then
+    version_path="./dist/version.txt"
+else
+    version_path="./dist/oa/version.txt"
+fi
+
+cat > "$version_path" << EOF
+pyhub-office-automation
+버전: $version
+빌드 시간: $build_date
+Git 태그: $git_tag
+빌드 타입: $BUILD_TYPE
+EOF
+
+echo "   Version file created: $version_path"
+
 # 빌드 메타데이터 생성
 if [ "$GENERATE_METADATA" = true ]; then
     echo "📊 Generating build metadata..."
