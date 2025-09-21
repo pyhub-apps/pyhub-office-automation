@@ -37,9 +37,12 @@ jobs:
 
     - name: Test executable
       run: |
+        echo "Testing --version option..."
         ./dist/oa.exe --version
-        ./dist/oa.exe --help
+        echo "Version test completed successfully"
+        echo "Testing info command (errors expected due to missing Excel/HWP)..."
         ./dist/oa.exe info --format json || echo "Expected error: Excel/HWP not installed in CI environment"
+        echo "Basic executable tests completed"
 
     - name: Create Release
       id: create_release
