@@ -33,13 +33,11 @@ jobs:
       uses: astral-sh/setup-uv@v3
       with:
         enable-cache: true
-        cache-dependency-glob: "requirements.txt"
+        cache-dependency-glob: "uv.lock"
 
-    - name: Install dependencies
+    - name: Install dependencies and sync
       run: |
-        uv venv
-        uv pip install -r requirements.txt
-        uv pip install pyinstaller
+        uv sync --extra dev --extra build
 
     - name: Get version info
       id: version
@@ -48,19 +46,10 @@ jobs:
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         echo "Version: $version"
 
-    - name: Build executable with PyInstaller
+    - name: Build executable with PowerShell script
+      shell: pwsh
       run: |
-        uv run pyinstaller --onefile --name "oa" --console pyhub_office_automation/cli/main.py
-
-    - name: Test executable
-      run: |
-        echo "Testing --version option..."
-        ./dist/oa.exe --version
-        echo "Version test completed successfully"
-        echo "Testing info command (errors expected due to missing Excel/HWP)..."
-        ./dist/oa.exe info --format json || true
-        echo "Expected error: Excel/HWP not installed in CI environment"
-        echo "Basic executable tests completed"
+        uv run pwsh -File build_windows.ps1 -BuildType onefile -CiMode
 
     - name: Create Release
       id: create_release

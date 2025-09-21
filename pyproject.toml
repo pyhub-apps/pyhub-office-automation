@@ -1,6 +1,62 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyhub-office-automation"
+dynamic = ["version"]
+description = "Python-based Excel and HWP automation package for AI agents"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "pyhub-apps", email = "admin@pyhub.kr" }
+]
+keywords = ["office", "automation", "excel", "hwp", "ai", "agent", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "typer>=0.9.0",
+    "xlwings>=0.30.0",
+    "pyhwpx>=0.2.0; sys_platform == 'win32'",
+    "pandas>=2.0.0",
+    "pathlib2>=2.3.0",
+    "typing-extensions>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "black>=24.0.0",
+    "isort>=5.13.0",
+    "flake8>=7.0.0",
+    "pre-commit>=3.0.0",
+]
+build = [
+    "pyinstaller>=5.0.0",
+]
+
+[project.scripts]
+oa = "pyhub_office_automation.cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/pyhub-apps/pyhub-office-automation"
+Repository = "https://github.com/pyhub-apps/pyhub-office-automation"
+Issues = "https://github.com/pyhub-apps/pyhub-office-automation/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "pyhub_office_automation.__version__"}
 
 [tool.black]
 line-length = 127
