@@ -6,17 +6,11 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=[
-        'win32com.gen_py',
-        'win32com.client.gencache',
-        'win32com.shell.shell',
-        'pywintypes',
-        'pythoncom',
-    ],
+    hiddenimports=[],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=['runtime_hook_win32com.py'],
-    excludes=['matplotlib', 'scipy', 'sklearn', 'tkinter', 'IPython', 'jupyter'],
+    runtime_hooks=[],
+    excludes=['matplotlib', 'scipy', 'sklearn', 'tkinter', 'IPython', 'jupyter', 'PIL.ImageQt'],
     noarchive=False,
     optimize=0,
 )
@@ -38,7 +32,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='pyhub_office_automation/assets/icons/logo.ico',
 )
 coll = COLLECT(
     exe,
