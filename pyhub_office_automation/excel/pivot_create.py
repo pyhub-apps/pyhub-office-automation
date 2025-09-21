@@ -16,15 +16,21 @@ from pyhub_office_automation.version import get_version
 
 from .utils import (
     ExpandMode,
+    check_range_overlap,
     create_error_response,
     create_success_response,
+    estimate_pivot_table_size,
+    find_available_position,
     format_output,
+    get_all_chart_ranges,
+    get_all_pivot_ranges,
     get_or_open_workbook,
     get_range,
     get_sheet,
     get_workbook,
     normalize_path,
     parse_range,
+    validate_auto_position_requirements,
     validate_range_string,
 )
 
@@ -37,6 +43,12 @@ def pivot_create(
     dest_range: str = typer.Option("F1", help='피벗테이블을 생성할 위치 (기본값: "F1")'),
     dest_sheet: Optional[str] = typer.Option(None, help="피벗테이블을 생성할 시트 이름 (지정하지 않으면 현재 시트)"),
     pivot_name: Optional[str] = typer.Option(None, help="피벗테이블 이름 (지정하지 않으면 자동 생성)"),
+    auto_position: bool = typer.Option(False, "--auto-position", help="자동으로 빈 공간을 찾아 배치 (Windows 전용)"),
+    check_overlap: bool = typer.Option(False, "--check-overlap", help="지정된 위치의 겹침 검사 후 경고 표시"),
+    spacing: int = typer.Option(2, "--spacing", help="자동 배치 시 기존 객체와의 최소 간격 (열 단위, 기본값: 2)"),
+    preferred_position: str = typer.Option(
+        "right", "--preferred-position", help="자동 배치 시 선호 방향 (right/bottom, 기본값: right)"
+    ),
     output_format: str = typer.Option("json", help="출력 형식 선택"),
     visible: bool = typer.Option(False, help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
     save: bool = typer.Option(True, help="생성 후 파일 저장 여부 (기본값: True)"),
@@ -59,11 +71,31 @@ def pivot_create(
       • 범위와 expand 옵션을 함께 사용하면 시작점에서 자동으로 확장
 
     \b
+    자동 배치 기능:
+      • --auto-position: 기존 피벗테이블과 차트를 피해 자동으로 빈 공간 찾기
+      • --check-overlap: 지정된 위치가 기존 객체와 겹치는지 검사
+      • --spacing: 자동 배치 시 최소 간격 설정 (기본값: 2열)
+      • --preferred-position: 배치 방향 선호도 (right/bottom)
+
+    \b
     사용 예제:
+      # 기본 피벗테이블 생성
       oa excel pivot-create --file-path "sales.xlsx" --source-range "A1:D100"
+
+      # 수동 위치 지정
       oa excel pivot-create --source-range "Data!A1:F200" --dest-range "H1"
-      oa excel pivot-create --workbook-name "Report.xlsx" --source-range "A1:E50" --pivot-name "SalesPivot"
-      oa excel pivot-create --source-range "A1" --expand table --dest-range "H1" --pivot-name "AutoPivot"
+
+      # 자동 배치 (첫 번째 피벗 후 사용 권장)
+      oa excel pivot-create --source-range "A1:D100" --auto-position
+
+      # 자동 배치 + 사용자 설정
+      oa excel pivot-create --source-range "A1:D100" --auto-position --spacing 3 --preferred-position "bottom"
+
+      # 겹침 검사
+      oa excel pivot-create --source-range "A1:D100" --dest-range "H1" --check-overlap
+
+      # 데이터 범위 자동 확장
+      oa excel pivot-create --source-range "A1" --expand table --auto-position --pivot-name "AutoPivot"
     """
     book = None
 
@@ -75,6 +107,18 @@ def pivot_create(
         # expand 옵션 검증 (피벗테이블에는 table 모드만 적합)
         if expand and expand != ExpandMode.TABLE:
             raise ValueError("피벗테이블 생성에는 --expand table 옵션만 지원됩니다.")
+
+        # 자동 배치와 수동 배치 옵션 충돌 검사
+        if auto_position and dest_range != "F1":
+            raise ValueError("--auto-position 옵션 사용 시 --dest-range를 지정할 수 없습니다. 자동으로 위치가 결정됩니다.")
+
+        # preferred_position 검증
+        if preferred_position not in ["right", "bottom"]:
+            raise ValueError("--preferred-position은 'right' 또는 'bottom'만 지원됩니다.")
+
+        # spacing 검증
+        if spacing < 1 or spacing > 10:
+            raise ValueError("--spacing은 1~10 사이의 값이어야 합니다.")
 
         # 소스 범위 파싱 및 검증
         source_sheet_name, source_range_part = parse_range(source_range)
@@ -109,8 +153,75 @@ def pivot_create(
         else:
             target_sheet = get_sheet(book, dest_sheet_name) if dest_sheet_name else source_sheet
 
-        # 목적지 범위 가져오기
-        dest_cell = get_range(target_sheet, dest_range_part)
+        # 자동 배치 또는 수동 배치 처리
+        overlap_warning = None
+        auto_position_info = None
+
+        if auto_position:
+            # 자동 배치 기능 사용 가능 여부 확인
+            can_auto_position, auto_error = validate_auto_position_requirements(target_sheet)
+            if not can_auto_position:
+                raise RuntimeError(f"자동 배치를 사용할 수 없습니다: {auto_error}")
+
+            # 피벗 테이블 예상 크기 계산
+            estimated_size = estimate_pivot_table_size(source_range_part)
+
+            # 자동으로 빈 위치 찾기
+            try:
+                auto_dest_range = find_available_position(
+                    target_sheet, min_spacing=spacing, preferred_position=preferred_position, estimate_size=estimated_size
+                )
+                dest_cell = target_sheet.range(auto_dest_range)
+                auto_position_info = {
+                    "original_request": "auto",
+                    "found_position": auto_dest_range,
+                    "estimated_size": {"cols": estimated_size[0], "rows": estimated_size[1]},
+                    "spacing_used": spacing,
+                    "preferred_direction": preferred_position,
+                }
+            except RuntimeError as e:
+                raise RuntimeError(f"자동 배치 실패: {str(e)}")
+
+        else:
+            # 수동 배치: 기존 로직 사용
+            dest_cell = get_range(target_sheet, dest_range_part)
+
+            # 겹침 검사 옵션 처리
+            if check_overlap:
+                # 피벗 테이블 예상 크기로 범위 계산
+                estimated_size = estimate_pivot_table_size(source_range_part)
+                dest_row = dest_cell.row
+                dest_col = dest_cell.column
+                estimated_end_row = dest_row + estimated_size[1] - 1
+                estimated_end_col = dest_col + estimated_size[0] - 1
+
+                from .utils import coords_to_excel_address
+
+                estimated_range = f"{dest_cell.address}:{coords_to_excel_address(estimated_end_row, estimated_end_col)}"
+
+                # 기존 피벗 테이블 범위 확인
+                existing_pivots = get_all_pivot_ranges(target_sheet)
+                overlapping_pivots = []
+
+                for pivot_range in existing_pivots:
+                    if check_range_overlap(estimated_range, pivot_range):
+                        overlapping_pivots.append(pivot_range)
+
+                # 기존 차트 범위 확인
+                chart_info = get_all_chart_ranges(target_sheet)
+                overlapping_charts = []
+
+                for chart_range, _, _ in chart_info:
+                    if check_range_overlap(estimated_range, chart_range):
+                        overlapping_charts.append(chart_range)
+
+                if overlapping_pivots or overlapping_charts:
+                    overlap_warning = {
+                        "estimated_range": estimated_range,
+                        "overlapping_pivots": overlapping_pivots,
+                        "overlapping_charts": overlapping_charts,
+                        "recommendation": "다른 위치를 선택하거나 --auto-position 옵션을 사용하세요.",
+                    }
 
         # 피벗테이블 이름 생성
         if not pivot_name:
@@ -187,6 +298,14 @@ def pivot_create(
             },
         }
 
+        # 자동 배치 정보 추가
+        if auto_position_info:
+            data_content["auto_position"] = auto_position_info
+
+        # 겹침 경고 추가
+        if overlap_warning:
+            data_content["overlap_warning"] = overlap_warning
+
         if save_error:
             data_content["save_error"] = save_error
 
@@ -211,6 +330,25 @@ def pivot_create(
             typer.echo(f"📊 소스 데이터: {source_sheet.name}!{source_data_range.address}")
             typer.echo(f"📍 생성 위치: {target_sheet.name}!{dest_cell.address}")
             typer.echo(f"📈 데이터 크기: {pivot_info['data_rows']}행 × {pivot_info['field_count']}열")
+
+            # 자동 배치 정보 표시
+            if auto_position_info:
+                typer.echo(
+                    f"🎯 자동 배치: {auto_position_info['found_position']} (방향: {auto_position_info['preferred_direction']}, 간격: {auto_position_info['spacing_used']}열)"
+                )
+                typer.echo(
+                    f"📐 예상 크기: {auto_position_info['estimated_size']['cols']}열 × {auto_position_info['estimated_size']['rows']}행"
+                )
+
+            # 겹침 경고 표시
+            if overlap_warning:
+                typer.echo("⚠️  겹침 경고!")
+                typer.echo(f"   예상 범위: {overlap_warning['estimated_range']}")
+                if overlap_warning["overlapping_pivots"]:
+                    typer.echo(f"   겹치는 피벗테이블: {', '.join(overlap_warning['overlapping_pivots'])}")
+                if overlap_warning["overlapping_charts"]:
+                    typer.echo(f"   겹치는 차트: {len(overlap_warning['overlapping_charts'])}개")
+                typer.echo(f"   💡 {overlap_warning['recommendation']}")
 
             if save_success:
                 typer.echo("💾 파일이 저장되었습니다")
