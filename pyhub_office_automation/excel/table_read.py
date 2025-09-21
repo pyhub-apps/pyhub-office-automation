@@ -57,13 +57,28 @@ def table_read(
             if output_file:
                 df.to_csv(output_file, index=False)
 
+            # JSON 직렬화 가능한 preview 데이터 생성
+            preview_data = []
+            if not df.empty:
+                preview_df = df.head()
+                for record in preview_df.to_dict("records"):
+                    clean_record = {}
+                    for key, value in record.items():
+                        if pd.isna(value) or value is None:
+                            clean_record[key] = None
+                        elif isinstance(value, (str, int, float, bool)):
+                            clean_record[key] = value
+                        else:
+                            clean_record[key] = str(value)
+                    preview_data.append(clean_record)
+
             data_content = {
                 "dataframe_info": {
                     "shape": df.shape,
                     "columns": df.columns.tolist() if not df.empty else [],
-                    "dtypes": df.dtypes.to_dict() if not df.empty else {},
+                    "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()} if not df.empty else {},
                 },
-                "preview": df.head().to_dict("records") if not df.empty else [],
+                "preview": preview_data,
                 "output_file": output_file,
             }
 
@@ -77,6 +92,12 @@ def table_read(
 
             if output_format == "json":
                 typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
+            elif output_format == "csv":
+                # CSV 형식으로 데이터 출력
+                if not df.empty:
+                    typer.echo(df.to_csv(index=False))
+                else:
+                    typer.echo("# 데이터가 없습니다")
             else:
                 typer.echo(f"✅ 테이블 데이터를 읽었습니다 ({df.shape[0]}행 × {df.shape[1]}열)")
                 if output_file:
