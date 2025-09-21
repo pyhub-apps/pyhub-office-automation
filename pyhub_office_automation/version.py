@@ -49,10 +49,17 @@ def get_build_number():
 
 def get_version():
     """HeadVer 형식의 전체 버전 문자열 생성"""
-    head = get_head_version()
-    yearweek = get_yearweek()
-    build = get_build_number()
-    return f"{head}.{yearweek}.{build}"
+    # 빌드 시 생성된 고정 버전이 있으면 사용 (PyInstaller 등)
+    try:
+        from .__version__ import __version__
+
+        return __version__
+    except ImportError:
+        # 개발 환경에서는 동적 계산
+        head = get_head_version()
+        yearweek = get_yearweek()
+        build = get_build_number()
+        return f"{head}.{yearweek}.{build}"
 
 
 def get_version_info():

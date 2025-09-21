@@ -38,6 +38,13 @@ jobs:
           $ErrorActionPreference = "Stop"
           Write-Host "🔨 Building Windows executable..."
 
+          # 버전 고정을 위한 __version__.py 파일 생성
+          $version = & uv run python -c "from pyhub_office_automation.version import get_version; print(get_version())"
+          Write-Host "📝 Creating fixed version file for build: $version"
+          $versionPyContent = "__version__ = '$version'"
+          $versionPyPath = "pyhub_office_automation\__version__.py"
+          $versionPyContent | Out-File -FilePath $versionPyPath -Encoding UTF8
+
           uv run pwsh -File build_windows.ps1 -BuildType onefile -CiMode
 
           # 빌드 결과 확인

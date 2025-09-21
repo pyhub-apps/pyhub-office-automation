@@ -105,11 +105,18 @@ try {
         throw "PyInstaller가 설치되어 있지 않습니다. 'pip install pyinstaller' 또는 'uv add pyinstaller'를 실행하세요."
     }
 
-    # 프로젝트 정보 확인
+    # 프로젝트 정보 확인 및 빌드 버전 고정
     Write-Host "📦 Getting project information..."
     try {
         $version = python -c "import sys; sys.path.insert(0, 'pyhub_office_automation'); from version import get_version; print(get_version())"
         Write-Host "   Version: $version"
+
+        # 빌드 시 버전 고정을 위한 __version__.py 파일 생성
+        Write-Host "🔧 Creating fixed version file for build..."
+        $versionPyContent = "__version__ = '$version'"
+        $versionPyPath = "pyhub_office_automation\__version__.py"
+        $versionPyContent | Out-File -FilePath $versionPyPath -Encoding UTF8
+        Write-Host "   Fixed version file created: $versionPyPath"
     }
     catch {
         Write-Warning "버전 정보를 가져올 수 없습니다: $($_.Exception.Message)"
