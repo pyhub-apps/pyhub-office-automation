@@ -37,7 +37,9 @@ def pivot_configure(
         None, "--column-fields", help='열 필드 목록 (콤마로 구분, 예: "Year,Quarter")'
     ),
     value_fields: Optional[str] = typer.Option(
-        None, "--value-fields", help='값 필드 설정 JSON 문자열 (예: \'[{"field":"Sales","function":"Sum"}]\')'
+        None,
+        "--value-fields",
+        help='값 필드 설정 - 간결한 형식: "필드명:함수,필드명2:함수2" (예: "매출:Sum,수량:Count") 또는 JSON 문자열',
     ),
     filter_fields: Optional[str] = typer.Option(
         None, "--filter-fields", help='필터 필드 목록 (콤마로 구분, 예: "Category,Status")'
@@ -66,6 +68,14 @@ def pivot_configure(
       Sum, Count, Average, Max, Min, Product, CountNums, StdDev, StdDevp, Var, Varp
 
     \b
+    값 필드 설정 방법:
+      1. 간결한 형식 (권장): "필드명:함수,필드명2:함수2"
+         예: "매출:Sum,수량:Count" 또는 "매출" (기본값: Sum)
+
+      2. JSON 형식: '[{"field":"필드명","function":"함수"}]'
+         예: '[{"field":"매출","function":"Sum"}]'
+
+    \b
     JSON 설정 파일 형식:
       {
           "row_fields": ["Region", "Product"],
@@ -79,7 +89,8 @@ def pivot_configure(
 
     \b
     사용 예제:
-      oa excel pivot-configure --pivot-name "PivotTable1" --row-fields "Region,Product" --value-fields '[{"field":"Sales","function":"Sum"}]'
+      oa excel pivot-configure --pivot-name "PivotTable1" --row-fields "Region,Product" --value-fields "Sales:Sum,Quantity:Count"
+      oa excel pivot-configure --pivot-name "PivotTable1" --value-fields "매출:Sum" --row-fields "지역"
       oa excel pivot-configure --file-path "sales.xlsx" --pivot-name "SalesPivot" --config-file "pivot_config.json"
       oa excel pivot-configure --workbook-name "Report.xlsx" --pivot-name "PivotTable1" --column-fields "Year" --clear-existing
     """
@@ -118,13 +129,67 @@ def pivot_configure(
 
         if value_fields:
             try:
-                value_config = json.loads(value_fields)
-                if isinstance(value_config, list):
+                # 간결한 문법 체크: "field:function,field2:function2" 형태
+                if not value_fields.strip().startswith("["):
+                    # 간결한 문법으로 파싱
+                    value_config = []
+                    items = value_fields.split(",")
+
+                    # 잘못된 형식 체크: 함수명이 필드명으로 사용되는 경우
+                    function_names = {
+                        "Sum",
+                        "Count",
+                        "Average",
+                        "Max",
+                        "Min",
+                        "Product",
+                        "CountNums",
+                        "StdDev",
+                        "StdDevp",
+                        "Var",
+                        "Varp",
+                    }
+                    for item in items:
+                        item = item.strip()
+                        if item in function_names:
+                            raise ValueError(
+                                f"잘못된 형식입니다. '{item}'은 함수명입니다.\n"
+                                f"올바른 형식: '필드명:함수명' (예: '북미 판매량:Sum')\n"
+                                f"현재 입력: '{value_fields}'"
+                            )
+
+                    for item in items:
+                        item = item.strip()
+                        if ":" in item:
+                            field, function = item.split(":", 1)
+                            field = field.strip()
+                            function = function.strip()
+
+                            # 빈 필드명이나 함수명 체크
+                            if not field:
+                                raise ValueError(f"필드명이 비어있습니다: '{item}'")
+                            if not function:
+                                raise ValueError(f"함수명이 비어있습니다: '{item}'")
+
+                            value_config.append({"field": field, "function": function})
+                        else:
+                            # 기본값 Sum 사용
+                            field = item.strip()
+                            if not field:
+                                raise ValueError("빈 필드명은 허용되지 않습니다")
+                            value_config.append({"field": field, "function": "Sum"})
                     config_data["value_fields"] = value_config
                 else:
-                    raise ValueError("value_fields는 배열이어야 합니다")
+                    # 기존 JSON 방식
+                    value_config = json.loads(value_fields)
+                    if isinstance(value_config, list):
+                        config_data["value_fields"] = value_config
+                    else:
+                        raise ValueError("value_fields는 배열이어야 합니다")
             except json.JSONDecodeError as e:
                 raise ValueError(f"value_fields JSON 파싱 실패: {str(e)}")
+            except Exception as e:
+                raise ValueError(f"value_fields 파싱 실패: {str(e)}")
 
         if filter_fields:
             config_data["filter_fields"] = [field.strip() for field in filter_fields.split(",")]
@@ -172,8 +237,8 @@ def pivot_configure(
             "Min": ConsolidationFunction.xlMin,
             "Product": ConsolidationFunction.xlProduct,
             "CountNums": ConsolidationFunction.xlCountNums,
-            "StdDev": ConsolidationFunction.xlStdDev,
-            "StdDevp": ConsolidationFunction.xlStdDevP,
+            "StdDev": ConsolidationFunction.xlStDev,
+            "StdDevp": ConsolidationFunction.xlStDevP,
             "Var": ConsolidationFunction.xlVar,
             "Varp": ConsolidationFunction.xlVarP,
         }
