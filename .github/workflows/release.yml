@@ -130,6 +130,46 @@ jobs:
         # 성공적인 완료를 명시적으로 표시
         exit 0
 
+    - name: Compress executable
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+
+        Write-Host "📦 Compressing executable for release..."
+
+        # 압축 파일명 설정 (표준 명명 규칙: project-os-arch.extension)
+        $zipName = "oa-windows-amd64.zip"
+        $exePath = "./dist/oa.exe"
+        $zipPath = "./dist/$zipName"
+
+        # 실행 파일 존재 확인
+        if (-not (Test-Path $exePath)) {
+            throw "Executable not found at $exePath"
+        }
+
+        # 기존 ZIP 파일 제거 (있다면)
+        if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+            Write-Host "   Removed existing zip file"
+        }
+
+        # ZIP 압축 생성
+        Compress-Archive -Path $exePath -DestinationPath $zipPath -CompressionLevel Optimal
+
+        # 압축 결과 검증 및 정보 출력
+        if (Test-Path $zipPath) {
+            $originalSize = (Get-Item $exePath).Length
+            $compressedSize = (Get-Item $zipPath).Length
+            $compressionRatio = [math]::Round((1 - ($compressedSize / $originalSize)) * 100, 1)
+
+            Write-Host "✅ Compression completed successfully:"
+            Write-Host "   📄 Original file: $(Split-Path $exePath -Leaf) ($('{0:N2}' -f ($originalSize / 1MB)) MB)"
+            Write-Host "   📦 Compressed file: $zipName ($('{0:N2}' -f ($compressedSize / 1MB)) MB)"
+            Write-Host "   💾 Compression ratio: $compressionRatio%"
+        } else {
+            throw "Failed to create compressed file at $zipPath"
+        }
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -142,22 +182,31 @@ jobs:
           ## pyhub-office-automation ${{ github.ref_name }}
 
           ### Changes
-          - Windows executable build
+          - Windows executable build (compressed)
           - Version: ${{ steps.version.outputs.VERSION }}
           - HeadVer format: {head}.{yearweek}.{build}
+          - Improved release packaging with ZIP compression
 
           ### Installation
-          1. Download `oa.exe`
-          2. Run the executable directly (no Python installation required)
-          3. Use `oa.exe --help` for available commands
+          1. Download `oa-windows-amd64.zip`
+          2. Extract the ZIP file to get `oa.exe`
+          3. Run the executable directly (no Python installation required)
+          4. Use `oa.exe --help` for available commands
+
+          ### File Information
+          - **Windows (AMD64)**: `oa-windows-amd64.zip`
+          - Compressed for faster download
+          - Future releases will include ARM64 and other platforms
 
           ### System Requirements
-          - Windows 10/11
+          - Windows 10/11 (AMD64 architecture)
           - For Excel automation: Microsoft Excel installed
           - For HWP automation: 한글(HWP) program installed
 
           ### Usage
           ```
+          # Extract the ZIP file first
+          # Then run:
           oa.exe --version
           oa.exe info
           oa.exe install-guide
@@ -173,6 +222,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dist/oa.exe
-        asset_name: oa.exe
-        asset_content_type: application/octet-stream
+        asset_path: ./dist/oa-windows-amd64.zip
+        asset_name: oa-windows-amd64.zip
+        asset_content_type: application/zip
