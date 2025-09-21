@@ -136,74 +136,61 @@ def chart_pivot_create(
     기존 피벗테이블의 데이터를 활용하여 차트를 생성하며, 피벗테이블의 필드 변경에 따라
     차트도 자동으로 업데이트되는 동적 차트입니다. 대용량 데이터 분석에 특히 유용합니다.
 
-    === 워크북 접근 방법 ===
-    - --file-path: 파일 경로로 워크북 열기
-        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+    \b
+    워크북 접근 방법:
+      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • --file-path: 파일 경로로 워크북 열기
+      • --workbook-name: 열린 워크북 이름으로 접근
 
-    === 피벗테이블 지정 ===
-    --pivot-name 옵션으로 기준 피벗테이블을 지정합니다:
+    \b
+    피벗테이블 지정:
+      --pivot-name 옵션으로 기준 피벗테이블을 지정합니다:
+      • 피벗테이블 이름 확인: Excel에서 피벗테이블 선택 → 피벗테이블 도구 → 분석 탭
+      • 존재하지 않는 이름 지정 시 사용 가능한 피벗테이블 목록 표시
+      • 여러 시트에 동일 이름 피벗테이블이 있으면 처음 발견된 것 사용
 
-    • 피벗테이블 이름 확인: Excel에서 피벗테이블 선택 → 피벗테이블 도구 → 분석 탭
-    • 존재하지 않는 이름 지정 시 사용 가능한 피벗테이블 목록 표시
-    • 여러 시트에 동일 이름 피벗테이블이 있으면 처음 발견된 것 사용
+    \b
+    피벗차트의 특징과 장점:
+      ▶ 동적 업데이트:
+        • 피벗테이블 필터 변경 시 차트 자동 반영
+        • 행/열 필드 재배치 시 차트 구조 자동 변경
+        • 새 데이터 추가 후 피벗테이블 새로고침 시 차트도 업데이트
 
-    === 피벗차트의 특징과 장점 ===
-    ▶ 동적 업데이트:
-      • 피벗테이블 필터 변경 시 차트 자동 반영
-      • 행/열 필드 재배치 시 차트 구조 자동 변경
-      • 새 데이터 추가 후 피벗테이블 새로고침 시 차트도 업데이트
+      ▶ 대용량 데이터 처리:
+        • 수만 건 이상의 데이터도 빠른 차트 생성
+        • 메모리 효율적인 데이터 처리
+        • 필터링된 데이터만 차트에 반영
 
-    ▶ 대용량 데이터 처리:
-      • 수만 건 이상의 데이터도 빠른 차트 생성
-      • 메모리 효율적인 데이터 처리
-      • 필터링된 데이터만 차트에 반영
+    \b
+    지원되는 차트 유형:
+      • column/column_clustered: 세로 막대 차트 (기본값, 시계열 데이터에 적합)
+      • bar/bar_clustered: 가로 막대 차트 (카테고리 비교에 적합)
+      • pie: 원형 차트 (구성 비율 표시에 적합)
+      • line: 선 차트 (추세 분석에 적합)
+      • area: 영역 차트 (누적 데이터 표시에 적합)
 
-    === 지원되는 차트 유형 ===
-    • column/column_clustered: 세로 막대 차트 (기본값, 시계열 데이터에 적합)
-    • bar/bar_clustered: 가로 막대 차트 (카테고리 비교에 적합)
-    • pie: 원형 차트 (구성 비율 표시에 적합)
-    • line: 선 차트 (추세 분석에 적합)
-    • area: 영역 차트 (누적 데이터 표시에 적합)
+    \b
+    위치 및 스타일 옵션:
+      • --position "H1": 차트 생성 위치 (셀 주소)
+      • --sheet "Charts": 차트 생성 대상 시트 (없으면 자동 생성)
+      • --width 400 --height 300: 차트 크기
+      • --style 1-48: 차트 스타일 (Windows)
+      • --legend-position: 범례 위치
+      • --show-data-labels: 데이터 레이블 표시
 
-    === 위치 및 스타일 옵션 ===
-    • --position "H1": 차트 생성 위치 (셀 주소)
-    • --sheet "Charts": 차트 생성 대상 시트 (없으면 자동 생성)
-    • --width 400 --height 300: 차트 크기
-    • --style 1-48: 차트 스타일 (Windows)
-    • --legend-position: 범례 위치
-    • --show-data-labels: 데이터 레이블 표시
+    \b
+    사용 예제:
+      # 기본 피벗차트 생성
+      oa excel chart-pivot-create --pivot-name "SalesAnalysis" --chart-type "column"
 
-    === 실제 활용 시나리오 예제 ===
+      # 제품별 매출 비중 원형 차트
+      oa excel chart-pivot-create --file-path "report.xlsx" --pivot-name "ProductSummary" --chart-type "pie" --title "제품별 판매 비중" --show-data-labels
 
-    # 1. 기본 피벗차트 생성
-    oa excel chart-pivot-create --pivot-name "SalesAnalysis" --chart-type "column"
+      # 지역별 매출 추세 분석
+      oa excel chart-pivot-create --workbook-name "Dashboard.xlsx" --pivot-name "RegionalSales" --chart-type "line" --position "F5" --title "지역별 월간 매출 추세"
 
-    # 2. 제품별 매출 비중 원형 차트
-    oa excel chart-pivot-create --file-path "report.xlsx" --pivot-name "ProductSummary" \\
-        --chart-type "pie" --title "제품별 판매 비중" --show-data-labels
-
-    # 3. 지역별 매출 추세 분석
-    oa excel chart-pivot-create --workbook-name "Dashboard.xlsx" --pivot-name "RegionalSales" \\
-        --chart-type "line" --position "F5" --title "지역별 월간 매출 추세"
-
-    # 4. 차트 전용 시트에 생성
-    oa excel chart-pivot-create --pivot-name "QuarterlySummary" \\
-        --chart-type "column" --sheet "피벗차트" --position "B2" --width 600 --height 400
-
-    # 5. 스타일이 적용된 고급 피벗차트
-    oa excel chart-pivot-create --file-path "analysis.xlsx" --pivot-name "YearlyTrend" \\
-        --chart-type "area" --style 25 --legend-position "top" --title "연도별 매출 추이"
-
-    === Windows 전용 기능 안내 ===
-    • 이 명령어는 Windows에서만 작동합니다
-    • macOS에서는 수동으로 피벗차트를 생성해주세요
-    • COM API를 사용하여 Excel과 직접 연동
-
-    === 피벗차트 활용 팁 ===
-    • 피벗테이블 설계 시 차트 용도를 고려하여 필드 배치
-    • 슬라이서 추가로 동적 필터링 기능 강화
-    • 여러 피벗차트를 하나의 피벗테이블에서 생성하여 다각도 분석
-    • 정기 보고서는 피벗차트로 구성하여 자동 업데이트 활용
+      # 차트 전용 시트에 생성
+      oa excel chart-pivot-create --pivot-name "QuarterlySummary" --chart-type "column" --sheet "피벗차트" --position "B2" --width 600 --height 400
     """
     # 입력 값 검증
     valid_chart_types = [
@@ -428,4 +415,4 @@ def chart_pivot_create(
 
 
 if __name__ == "__main__":
-    chart_pivot_create()
+    typer.run(chart_pivot_create)

@@ -242,88 +242,48 @@ def chart_configure(
     생성된 차트의 외관과 속성을 세밀하게 조정할 수 있습니다. 차트 제목, 스타일, 범례, 축 제목,
     데이터 레이블 등을 설정하여 전문적인 차트를 완성할 수 있습니다.
 
-    === 워크북 접근 방법 ===
-    - --file-path: 파일 경로로 워크북 열기
-        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+    \b
+    워크북 접근 방법:
+      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • --file-path: 파일 경로로 워크북 열기
+      • --workbook-name: 열린 워크북 이름으로 접근
 
-    === 차트 선택 방법 ===
-    차트를 선택하는 두 가지 방법이 있습니다:
+    \b
+    차트 선택 방법:
+      두 가지 방법 중 하나를 선택하세요:
+      • --chart-name "Chart1": 차트 이름으로 선택
+      • --chart-index 0: 인덱스 번호로 선택 (0부터 시작)
 
-    ▶ 차트 이름으로 선택:
-      • --chart-name "Chart1"
-      • chart-list 명령으로 차트 이름 확인 가능
+    \b
+    설정 가능한 속성:
+      ▶ 제목 및 레이블:
+        • --title "새 제목": 차트 제목 설정
+        • --x-axis-title "X축 제목": X축 제목
+        • --y-axis-title "Y축 제목": Y축 제목
 
-    ▶ 인덱스 번호로 선택:
-      • --chart-index 0 (첫 번째 차트)
-      • 시트의 차트 순서대로 0, 1, 2...
+      ▶ 스타일 및 외관:
+        • --style 1-48: 차트 스타일 번호 (Windows 전용)
+        • --color-scheme: colorful/monochromatic/office/grayscale
+        • --transparent-bg: 차트 배경 투명화
 
-    === 설정 가능한 속성 ===
+      ▶ 범례 설정:
+        • --legend-position: top/bottom/left/right/none
 
-    ▶ 제목 및 레이블:
-      • --title "새 제목": 차트 제목 설정
-      • --x-axis-title "X축 제목": X축 제목
-      • --y-axis-title "Y축 제목": Y축 제목
+      ▶ 데이터 레이블:
+        • --show-data-labels: 데이터 레이블 표시
+        • --hide-data-labels: 데이터 레이블 숨김
+        • --data-label-position: center/above/below/left/right/outside/inside (Windows)
 
-    ▶ 스타일 및 외관:
-      • --style 1-48: 차트 스타일 번호 (Windows 전용)
-      • --color-scheme: colorful/monochromatic/office/grayscale
-      • --transparent-bg: 차트 배경 투명화
+    \b
+    사용 예제:
+      # 기본 차트 스타일링
+      oa excel chart-configure --chart-index 0 --title "2024년 매출 현황" --legend-position "bottom"
 
-    ▶ 범례 설정:
-      • --legend-position: top/bottom/left/right/none
-      • 범례 위치를 조정하여 차트 가독성 향상
+      # 축 제목과 데이터 레이블 추가
+      oa excel chart-configure --chart-name "SalesChart" --x-axis-title "월" --y-axis-title "매출액(만원)" --show-data-labels
 
-    ▶ 데이터 레이블:
-      • --show-data-labels: 데이터 레이블 표시
-      • --hide-data-labels: 데이터 레이블 숨김
-      • --data-label-position: center/above/below/left/right/outside/inside (Windows)
-
-    === 차트 유형별 권장 설정 ===
-
-    ▶ 막대/선 차트:
-      • 축 제목 추가로 데이터 의미 명확화
-      • 범례를 하단에 배치하여 공간 효율성
-      • 데이터 레이블은 선택적 사용
-
-    ▶ 원형/도넛 차트:
-      • 데이터 레이블 표시 권장 (백분율 또는 값)
-      • 범례를 우측에 배치
-      • 색상 구분이 중요하므로 colorful 테마 사용
-
-    ▶ 산점도:
-      • X, Y축 제목 필수 (상관관계 표현)
-      • 범례 위치는 데이터 분포에 따라 조정
-      • 투명 배경으로 데이터 포인트 강조
-
-    === 실제 활용 시나리오 예제 ===
-
-    # 1. 기본 차트 스타일링
-    oa excel chart-configure --chart-index 0 --title "2024년 매출 현황" --legend-position "bottom"
-
-    # 2. 축 제목과 데이터 레이블 추가
-    oa excel chart-configure --chart-name "SalesChart" \\
-        --x-axis-title "월" --y-axis-title "매출액(만원)" --show-data-labels
-
-    # 3. 프레젠테이션용 고급 스타일링 (Windows)
-    oa excel chart-configure --file-path "report.xlsx" --chart-index 0 \\
-        --style 15 --color-scheme "office" --transparent-bg --data-label-position "outside"
-
-    # 4. 원형 차트 최적화
-    oa excel chart-configure --workbook-name "Dashboard.xlsx" --chart-name "MarketShare" \\
-        --title "시장 점유율" --legend-position "right" --show-data-labels
-
-    # 5. 산점도 상관관계 차트 설정
-    oa excel chart-configure --chart-index 2 \\
-        --title "광고비 vs 매출 상관관계" --x-axis-title "광고비(만원)" --y-axis-title "매출(억원)"
-
-    === 플랫폼별 기능 차이 ===
-    • Windows: 모든 설정 옵션 지원 (스타일, 색상 테마, 레이블 위치 등)
-    • macOS: 기본 설정만 지원 (제목, 범례 위치, 레이블 표시/숨김)
-
-    === 팁 ===
-    • chart-list --detailed로 현재 설정 확인 후 수정
-    • 한 번에 여러 속성을 동시에 설정 가능
-    • 설정 변경 후 --save false로 미리보기 가능
+      # 프레젠테이션용 고급 스타일링 (Windows)
+      oa excel chart-configure --file-path "report.xlsx" --chart-index 0 --style 15 --color-scheme "office" --transparent-bg
     """
     # Enum 타입이므로 별도 검증 불필요
 

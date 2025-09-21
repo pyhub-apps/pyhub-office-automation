@@ -43,14 +43,17 @@ def pivot_refresh(
     소스 데이터가 변경된 후 피벗테이블에 반영하기 위해 사용합니다.
     특정 피벗테이블 또는 전체 피벗테이블을 새로고침할 수 있습니다.
 
+    \b
     워크북 접근 방법:
-    - --file-path: 파일 경로로 워크북 열기
-        - --workbook-name: 열린 워크북 이름으로 접근
+      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • --file-path: 파일 경로로 워크북 열기
+      • --workbook-name: 열린 워크북 이름으로 접근
 
-    예제:
-        oa excel pivot-refresh --pivot-name "PivotTable1"
-        oa excel pivot-refresh --file-path "sales.xlsx" --refresh-all
-        oa excel pivot-refresh --workbook-name "Report.xlsx" --sheet "Dashboard"
+    \b
+    사용 예제:
+      oa excel pivot-refresh --pivot-name "PivotTable1"
+      oa excel pivot-refresh --file-path "sales.xlsx" --refresh-all
+      oa excel pivot-refresh --workbook-name "Report.xlsx" --sheet "Dashboard"
     """
     book = None
 

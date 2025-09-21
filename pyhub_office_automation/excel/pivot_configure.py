@@ -55,27 +55,33 @@ def pivot_configure(
     Windows 전용 기능으로, COM API를 통해 피벗테이블 필드를 설정합니다.
     JSON 파일 또는 개별 옵션으로 설정을 지정할 수 있습니다.
 
+    \b
     워크북 접근 방법:
-    - --file-path: 파일 경로로 워크북 열기
-        - --workbook-name: 열린 워크북 이름으로 접근
+      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • --file-path: 파일 경로로 워크북 열기
+      • --workbook-name: 열린 워크북 이름으로 접근
 
-    예제:
-        oa excel pivot-configure --pivot-name "PivotTable1" --row-fields "Region,Product" --value-fields '[{"field":"Sales","function":"Sum"}]'
-        oa excel pivot-configure --file-path "sales.xlsx" --pivot-name "SalesPivot" --config-file "pivot_config.json"
-        oa excel pivot-configure --workbook-name "Report.xlsx" --pivot-name "PivotTable1" --column-fields "Year" --clear-existing
+    \b
+    집계 함수 옵션:
+      Sum, Count, Average, Max, Min, Product, CountNums, StdDev, StdDevp, Var, Varp
 
+    \b
     JSON 설정 파일 형식:
-    {
-        "row_fields": ["Region", "Product"],
-        "column_fields": ["Year", "Quarter"],
-        "value_fields": [
-            {"field": "Sales", "function": "Sum"},
-            {"field": "Quantity", "function": "Average"}
-        ],
-        "filter_fields": ["Category", "Status"]
-    }
+      {
+          "row_fields": ["Region", "Product"],
+          "column_fields": ["Year", "Quarter"],
+          "value_fields": [
+              {"field": "Sales", "function": "Sum"},
+              {"field": "Quantity", "function": "Average"}
+          ],
+          "filter_fields": ["Category", "Status"]
+      }
 
-    집계 함수 옵션: Sum, Count, Average, Max, Min, Product, CountNums, StdDev, StdDevp, Var, Varp
+    \b
+    사용 예제:
+      oa excel pivot-configure --pivot-name "PivotTable1" --row-fields "Region,Product" --value-fields '[{"field":"Sales","function":"Sum"}]'
+      oa excel pivot-configure --file-path "sales.xlsx" --pivot-name "SalesPivot" --config-file "pivot_config.json"
+      oa excel pivot-configure --workbook-name "Report.xlsx" --pivot-name "PivotTable1" --column-fields "Year" --clear-existing
     """
     # 입력 값 검증
     if output_format not in ["json", "text"]:

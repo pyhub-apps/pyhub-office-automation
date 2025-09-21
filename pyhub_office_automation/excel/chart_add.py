@@ -15,6 +15,7 @@ from pyhub_office_automation.version import get_version
 
 from .utils import (
     ChartType,
+    ExpandMode,
     LegendPosition,
     OutputFormat,
     create_error_response,
@@ -102,6 +103,7 @@ def chart_add(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 생성할 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     data_range: str = typer.Option(..., "--data-range", help='차트 데이터 범위 (예: "A1:C10" 또는 "Sheet1!A1:C10")'),
+    expand: Optional[ExpandMode] = typer.Option(None, "--expand", help="데이터 범위 확장 모드 (table, down, right)"),
     chart_type: ChartType = typer.Option(ChartType.COLUMN, "--chart-type", help="차트 유형 (기본값: column)"),
     title: Optional[str] = typer.Option(None, "--title", help="차트 제목"),
     position: str = typer.Option("E1", "--position", help="차트 생성 위치 (셀 주소, 기본값: E1)"),
@@ -123,68 +125,76 @@ def chart_add(
     다양한 차트 유형을 지원하며, 위치와 크기를 정밀하게 제어할 수 있습니다.
     Windows와 macOS 모두에서 동작하지만, 일부 고급 기능은 Windows에서만 지원됩니다.
 
-    === 워크북 접근 방법 ===
-    - --file-path: 파일 경로로 워크북 열기
-        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+    \b
+    워크북 접근 방법:
+      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • --file-path: 파일 경로로 워크북 열기
+      • --workbook-name: 열린 워크북 이름으로 접근
 
-    === 데이터 범위 지정 방법 ===
-    --data-range 옵션으로 차트 데이터를 지정합니다:
+    \b
+    데이터 범위 지정 방법:
+      --data-range 옵션으로 차트 데이터를 지정합니다:
+      • 현재 시트 범위: "A1:C10"
+      • 특정 시트 범위: "Sheet1!A1:C10"
+      • 공백 포함 시트명: "'데이터 시트'!A1:C10"
+      • 헤더 포함 권장: 첫 행은 열 제목, 나머지는 데이터
 
-    • 현재 시트 범위: "A1:C10"
-    • 특정 시트 범위: "Sheet1!A1:C10"
-    • 공백 포함 시트명: "'데이터 시트'!A1:C10"
-    • 헤더 포함 권장: 첫 행은 열 제목, 나머지는 데이터
+    \b
+    데이터 범위 확장 모드:
+      • --expand table: 연결된 데이터 테이블 전체로 확장
+      • --expand down: 아래쪽으로 데이터가 있는 곳까지 확장
+      • --expand right: 오른쪽으로 데이터가 있는 곳까지 확장
 
-    === 차트 위치 지정 방법 ===
-    --position과 --sheet 옵션으로 차트 위치를 지정합니다:
+    \b
+    차트 위치 지정 방법:
+      --position과 --sheet 옵션으로 차트 위치를 지정합니다:
+      • 기본 위치: E1 (지정하지 않은 경우)
+      • 셀 주소 지정: --position "H5" (H열 5행)
+      • 다른 시트에 생성: --sheet "Dashboard" --position "B2"
+      • 새 시트 자동 생성: 지정한 시트가 없으면 자동으로 생성
 
-    • 기본 위치: E1 (지정하지 않은 경우)
-    • 셀 주소 지정: --position "H5" (H열 5행)
-    • 다른 시트에 생성: --sheet "Dashboard" --position "B2"
-    • 새 시트 자동 생성: 지정한 시트가 없으면 자동으로 생성
+    \b
+    지원되는 차트 유형과 적합한 데이터 구조:
+      ▶ 원형/도넛 차트 (pie, doughnut):
+        • 데이터 구조: [레이블, 값] - 2열 필요
+        • 예: A열=제품명, B열=판매량
 
-    === 지원되는 차트 유형과 적합한 데이터 구조 ===
+      ▶ 막대/선 차트 (column, bar, line):
+        • 데이터 구조: [카테고리, 시리즈1, 시리즈2, ...]
+        • 예: A열=월, B열=매출, C열=비용
 
-    ▶ 원형/도넛 차트 (pie, doughnut):
-      • 데이터 구조: [레이블, 값] - 2열 필요
-      • 예: A열=제품명, B열=판매량
+      ▶ 산점도 (scatter):
+        • 데이터 구조: [X값, Y값] 또는 [X값, Y값, 크기]
+        • 예: A열=광고비, B열=매출
 
-    ▶ 막대/선 차트 (column, bar, line):
-      • 데이터 구조: [카테고리, 시리즈1, 시리즈2, ...]
-      • 예: A열=월, B열=매출, C열=비용
+      ▶ 버블 차트 (bubble):
+        • 데이터 구조: [X값, Y값, 크기값]
+        • 예: A열=가격, B열=품질점수, C열=판매량
 
-    ▶ 산점도 (scatter):
-      • 데이터 구조: [X값, Y값] 또는 [X값, Y값, 크기]
-      • 예: A열=광고비, B열=매출
+    \b
+    차트 스타일링 옵션:
+      • --style: 차트 스타일 번호 (1-48)
+      • --legend-position: 범례 위치 (top/bottom/left/right/none)
+      • --show-data-labels: 데이터 레이블 표시
+      • --title: 차트 제목 설정
 
-    ▶ 버블 차트 (bubble):
-      • 데이터 구조: [X값, Y값, 크기값]
-      • 예: A열=가격, B열=품질점수, C열=판매량
+    \b
+    사용 예제:
+      # 기본 매출 차트 생성
+      oa excel chart-add --data-range "A1:C10" --chart-type "column" --title "매출 현황"
 
-    === 차트 스타일링 옵션 ===
-    --style: 차트 스타일 번호 (1-48)
-    --legend-position: 범례 위치 (top/bottom/left/right/none)
-    --show-data-labels: 데이터 레이블 표시
-    --title: 차트 제목 설정
+      # 특정 시트 데이터로 원형 차트 생성
+      oa excel chart-add --file-path "sales.xlsx" --data-range "Sheet1!A1:D20" --chart-type "pie" --position "F5"
 
-    === 실제 사용 시나리오 예제 ===
+      # 데이터 범위 자동 확장으로 차트 생성
+      oa excel chart-add --data-range "A1" --expand table --chart-type "column" --title "전체 데이터 차트"
 
-    # 1. 기본 매출 차트 생성
-    oa excel chart-add --data-range "A1:C10" --chart-type "column" --title "매출 현황"
+      # 대시보드용 차트를 별도 시트에 생성
+      oa excel chart-add --data-range "Data!A1:E15" --sheet "Dashboard" --position "B2" --chart-type "line"
 
-    # 2. 특정 시트 데이터로 원형 차트 생성
-    oa excel chart-add --file-path "sales.xlsx" --data-range "Sheet1!A1:D20" --chart-type "pie" --position "F5"
-
-    # 3. 대시보드용 차트를 별도 시트에 생성
-    oa excel chart-add --data-range "Data!A1:E15" --sheet "Dashboard" --position "B2" --chart-type "line"
-
-    # 4. 스타일링이 적용된 차트 생성
-    oa excel chart-add --workbook-name "Report.xlsx" --data-range "A1:C15" --chart-type "column" \\
-        --title "월별 실적" --style 10 --legend-position "bottom" --show-data-labels --position "H1"
-
-    # 5. 산점도로 상관관계 분석
-    oa excel chart-add --data-range "Analysis!A1:C20" --chart-type "scatter" \\
-        --title "광고비 vs 매출 상관관계" --position "F10"
+      # 스타일링이 적용된 차트 생성 (범위 자동 확장)
+      oa excel chart-add --workbook-name "Report.xlsx" --data-range "A1" --expand table --chart-type "column" \\
+          --title "월별 실적" --style 10 --legend-position "bottom" --show-data-labels --position "H1"
     """
     book = None
 
@@ -205,8 +215,8 @@ def chart_add(
         # 데이터 시트 가져오기
         data_sheet = get_sheet(book, data_sheet_name)
 
-        # 데이터 범위 가져오기 및 검증
-        data_chart_range = get_range(data_sheet, data_range_part)
+        # 데이터 범위 가져오기 및 검증 (expand 옵션 적용)
+        data_chart_range = get_range(data_sheet, data_range_part, expand_mode=expand)
         data_values = data_chart_range.value
 
         if not data_values or (isinstance(data_values, list) and len(data_values) == 0):
@@ -354,4 +364,4 @@ def chart_add(
 
 
 if __name__ == "__main__":
-    chart_add()
+    typer.run(chart_add)

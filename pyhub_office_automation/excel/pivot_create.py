@@ -15,6 +15,7 @@ import xlwings as xw
 from pyhub_office_automation.version import get_version
 
 from .utils import (
+    ExpandMode,
     create_error_response,
     create_success_response,
     format_output,
@@ -32,6 +33,7 @@ def pivot_create(
     file_path: Optional[str] = typer.Option(None, help="피벗테이블을 생성할 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     source_range: str = typer.Option(..., help='소스 데이터 범위 (예: "A1:D100" 또는 "Data!A1:D100")'),
+    expand: Optional[ExpandMode] = typer.Option(None, "--expand", help="소스 범위 확장 모드 (table만 지원)"),
     dest_range: str = typer.Option("F1", help='피벗테이블을 생성할 위치 (기본값: "F1")'),
     dest_sheet: Optional[str] = typer.Option(None, help="피벗테이블을 생성할 시트 이름 (지정하지 않으면 현재 시트)"),
     pivot_name: Optional[str] = typer.Option(None, help="피벗테이블 이름 (지정하지 않으면 자동 생성)"),
@@ -45,15 +47,23 @@ def pivot_create(
     기본적인 피벗테이블을 생성하며, 이후 pivot-configure 명령어로 필드 설정이 가능합니다.
     Windows 전용 기능으로, macOS에서는 에러가 발생합니다.
 
+    \b
     워크북 접근 방법:
-    - 옵션 없음: 활성 워크북 자동 사용 (기본값)
-    - --file-path: 파일 경로로 워크북 열기
-    - --workbook-name: 열린 워크북 이름으로 접근
+      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • --file-path: 파일 경로로 워크북 열기
+      • --workbook-name: 열린 워크북 이름으로 접근
 
-    예제:
-        oa excel pivot-create --file-path "sales.xlsx" --source-range "A1:D100"
-        oa excel pivot-create --source-range "Data!A1:F200" --dest-range "H1"
-        oa excel pivot-create --workbook-name "Report.xlsx" --source-range "A1:E50" --pivot-name "SalesPivot"
+    \b
+    소스 범위 확장 모드:
+      • --expand table: 연결된 데이터 테이블 전체로 확장 (피벗테이블에 적합)
+      • 범위와 expand 옵션을 함께 사용하면 시작점에서 자동으로 확장
+
+    \b
+    사용 예제:
+      oa excel pivot-create --file-path "sales.xlsx" --source-range "A1:D100"
+      oa excel pivot-create --source-range "Data!A1:F200" --dest-range "H1"
+      oa excel pivot-create --workbook-name "Report.xlsx" --source-range "A1:E50" --pivot-name "SalesPivot"
+      oa excel pivot-create --source-range "A1" --expand table --dest-range "H1" --pivot-name "AutoPivot"
     """
     book = None
 
@@ -61,6 +71,10 @@ def pivot_create(
         # Windows 전용 기능 확인
         if platform.system() != "Windows":
             raise RuntimeError("피벗테이블 생성은 Windows에서만 지원됩니다. macOS에서는 수동으로 피벗테이블을 생성해주세요.")
+
+        # expand 옵션 검증 (피벗테이블에는 table 모드만 적합)
+        if expand and expand != ExpandMode.TABLE:
+            raise ValueError("피벗테이블 생성에는 --expand table 옵션만 지원됩니다.")
 
         # 소스 범위 파싱 및 검증
         source_sheet_name, source_range_part = parse_range(source_range)
@@ -78,8 +92,8 @@ def pivot_create(
         # 소스 시트 가져오기
         source_sheet = get_sheet(book, source_sheet_name)
 
-        # 소스 데이터 범위 가져오기
-        source_data_range = get_range(source_sheet, source_range_part)
+        # 소스 데이터 범위 가져오기 (expand 옵션 적용)
+        source_data_range = get_range(source_sheet, source_range_part, expand_mode=expand)
 
         # 소스 데이터 검증
         source_values = source_data_range.value

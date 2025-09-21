@@ -38,14 +38,17 @@ def pivot_list(
 
     Windows와 macOS 모두에서 작동하지만, 상세 정보는 Windows에서 더 많이 제공됩니다.
 
+    \b
     워크북 접근 방법:
-    - --file-path: 파일 경로로 워크북 열기
-        - --workbook-name: 열린 워크북 이름으로 접근
+      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • --file-path: 파일 경로로 워크북 열기
+      • --workbook-name: 열린 워크북 이름으로 접근
 
-    예제:
-        oa excel pivot-list --file-path "sales.xlsx"
-        oa excel pivot-list --include-details
-        oa excel pivot-list --workbook-name "Report.xlsx" --sheet "Dashboard"
+    \b
+    사용 예제:
+      oa excel pivot-list --file-path "sales.xlsx"
+      oa excel pivot-list --include-details
+      oa excel pivot-list --workbook-name "Report.xlsx" --sheet "Dashboard"
     """
     book = None
 

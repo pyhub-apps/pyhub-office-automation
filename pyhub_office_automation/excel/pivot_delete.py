@@ -42,14 +42,17 @@ def pivot_delete(
     안전을 위해 --confirm=True 옵션을 지정해야 실제로 삭제됩니다.
     Windows 전용 기능입니다.
 
+    \b
     워크북 접근 방법:
-    - --file-path: 파일 경로로 워크북 열기
-        - --workbook-name: 열린 워크북 이름으로 접근
+      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • --file-path: 파일 경로로 워크북 열기
+      • --workbook-name: 열린 워크북 이름으로 접근
 
-    예제:
-        oa excel pivot-delete --pivot-name "PivotTable1" --confirm=True
-        oa excel pivot-delete --file-path "sales.xlsx" --pivot-name "SalesPivot" --confirm=True --delete-cache=True
-        oa excel pivot-delete --workbook-name "Report.xlsx" --pivot-name "Dashboard" --sheet "Data" --confirm=True
+    \b
+    사용 예제:
+      oa excel pivot-delete --pivot-name "PivotTable1" --confirm=True
+      oa excel pivot-delete --file-path "sales.xlsx" --pivot-name "SalesPivot" --confirm=True --delete-cache=True
+      oa excel pivot-delete --workbook-name "Report.xlsx" --pivot-name "Dashboard" --sheet "Data" --confirm=True
     """
     book = None
 
