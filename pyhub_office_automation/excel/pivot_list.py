@@ -22,6 +22,7 @@ from .utils import (
     get_sheet,
     get_workbook,
     normalize_path,
+    parse_excel_range,
 )
 
 
@@ -30,6 +31,9 @@ def pivot_list(
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="특정 시트의 피벗테이블만 조회 (지정하지 않으면 전체 워크북)"),
     include_details: bool = typer.Option(False, "--include-details", help="피벗테이블 상세 정보 포함 여부 (기본값: False)"),
+    include_ranges: bool = typer.Option(
+        False, "--include-ranges", help="피벗테이블 상세 범위 정보 포함 여부 (Windows 전용, 기본값: False)"
+    ),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
 ):
@@ -49,6 +53,7 @@ def pivot_list(
       oa excel pivot-list --file-path "sales.xlsx"
       oa excel pivot-list --include-details
       oa excel pivot-list --workbook-name "Report.xlsx" --sheet "Dashboard"
+      oa excel pivot-list --include-ranges  # 자동 배치를 위한 상세 범위 정보 포함
     """
     book = None
 
@@ -79,6 +84,52 @@ def pivot_list(
                             "sheet": ws.name,
                             "location": pivot_table.TableRange1.Address if hasattr(pivot_table, "TableRange1") else "Unknown",
                         }
+
+                        # 상세 범위 정보 추가 (자동 배치 기능용)
+                        if include_ranges:
+                            try:
+                                range_details = {}
+
+                                # TableRange1: 피벗 테이블 본체 범위
+                                if hasattr(pivot_table, "TableRange1") and pivot_table.TableRange1:
+                                    table_range1 = pivot_table.TableRange1.Address.replace("$", "")
+                                    range_details["table_range"] = table_range1
+                                    try:
+                                        start_row, start_col, end_row, end_col = parse_excel_range(table_range1)
+                                        range_details["table_coords"] = {
+                                            "start": {"row": start_row, "col": start_col},
+                                            "end": {"row": end_row, "col": end_col},
+                                        }
+                                    except Exception:
+                                        pass
+
+                                # TableRange2: 데이터 영역 포함 전체 범위 (더 정확한 크기)
+                                if hasattr(pivot_table, "TableRange2") and pivot_table.TableRange2:
+                                    table_range2 = pivot_table.TableRange2.Address.replace("$", "")
+                                    range_details["full_range"] = table_range2
+                                    try:
+                                        start_row, start_col, end_row, end_col = parse_excel_range(table_range2)
+                                        range_details["full_coords"] = {
+                                            "start": {"row": start_row, "col": start_col},
+                                            "end": {"row": end_row, "col": end_col},
+                                        }
+                                        # 자동 배치에 사용할 권장 범위
+                                        range_details["recommended_range"] = table_range2
+                                    except Exception:
+                                        pass
+
+                                # 범위 크기 정보
+                                if "full_coords" in range_details:
+                                    coords = range_details["full_coords"]
+                                    range_details["size"] = {
+                                        "width": coords["end"]["col"] - coords["start"]["col"] + 1,
+                                        "height": coords["end"]["row"] - coords["start"]["row"] + 1,
+                                    }
+
+                                pivot_info["range_details"] = range_details
+
+                            except Exception as e:
+                                pivot_info["range_error"] = f"범위 정보 수집 실패: {str(e)}"
 
                         if include_details:
                             try:
@@ -158,6 +209,7 @@ def pivot_list(
             "scanned_sheets": [ws.name for ws in sheets_to_check],
             "platform": platform.system(),
             "details_included": include_details,
+            "ranges_included": include_ranges,
             "file_info": {
                 "path": (
                     str(Path(normalize_path(file_path)).resolve())
@@ -200,6 +252,17 @@ def pivot_list(
                 for i, pivot in enumerate([pt for pt in pivot_tables if "error" not in pt], 1):
                     typer.echo(f"{i}. 📋 {pivot['name']}")
                     typer.echo(f"   📍 위치: {pivot['sheet']}!{pivot.get('location', 'Unknown')}")
+
+                    # 범위 정보 표시
+                    if include_ranges and "range_details" in pivot:
+                        range_details = pivot["range_details"]
+                        if "full_range" in range_details:
+                            typer.echo(f"   📐 전체 범위: {range_details['full_range']}")
+                        if "table_range" in range_details:
+                            typer.echo(f"   📊 테이블 범위: {range_details['table_range']}")
+                        if "size" in range_details:
+                            size = range_details["size"]
+                            typer.echo(f"   📏 크기: {size['width']}열 × {size['height']}행")
 
                     if include_details and "row_fields" in pivot:
                         if pivot["row_fields"]:
