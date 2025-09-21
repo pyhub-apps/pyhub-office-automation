@@ -46,9 +46,14 @@ oa excel workbook-info --workbook-name "파일.xlsx" --include-sheets  # 특정 
 oa excel range-read --range "A1:C10"
 oa excel range-write --range "A1" --data '["이름", "나이", "부서"]'
 
-# 테이블 처리
+# 테이블 처리 (기본)
 oa excel table-read --output-file "data.csv"
 oa excel table-write --range "A1" --data-file "data.csv"
+
+# Excel Table 관리 (Windows 전용)
+oa excel table-create --range "A1:D100" --table-name "SalesData"  # 범위를 Excel Table로 변환
+oa excel table-list --detailed                                   # Excel Table 목록 조회
+oa excel table-write --data-file "data.csv" --table-name "AutoTable"  # 데이터 쓰기 + Table 생성
 ```
 
 ### 워크북/시트 관리
@@ -137,7 +142,31 @@ oa excel pivot-configure --pivot-name "PivotTable1" \
 oa excel pivot-refresh --pivot-name "PivotTable1"
 ```
 
-### 4. 에러 방지 패턴
+### 4. Excel Table 기반 고급 피벗 워크플로우 (Windows 전용)
+```bash
+# 🎯 향상된 워크플로우: Excel Table → 동적 피벗테이블
+
+# 1단계: 데이터를 Excel Table로 변환 (동적 범위 확장을 위해)
+oa excel table-write --data-file "sales.csv" --table-name "SalesData" --table-style "TableStyleMedium5"
+
+# 2단계: Excel Table 확인
+oa excel table-list --detailed
+
+# 3단계: Excel Table 기반 피벗테이블 생성 (범위 자동 확장!)
+oa excel pivot-create --source-range "SalesData" --auto-position --pivot-name "SalesPivot"
+
+# 4단계: 피벗테이블 필드 설정
+oa excel pivot-configure --pivot-name "SalesPivot" \
+  --row-fields "지역,제품" \
+  --value-fields "매출:Sum" \
+  --clear-existing
+
+# 💡 장점: 새 데이터 추가 시 피벗테이블 범위가 자동으로 확장됨!
+# 기존 범위를 Excel Table로 변환하는 경우:
+oa excel table-create --range "A1:F100" --table-name "AnalysisData" --headers
+```
+
+### 5. 에러 방지 패턴
 ```bash
 # 안전한 워크플로우: 확인 → 연결 → 작업
 oa excel workbook-list | grep "target.xlsx"  # 파일 열림 확인

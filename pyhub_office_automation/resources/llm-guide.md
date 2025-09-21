@@ -140,6 +140,66 @@ oa excel workbook-list --format json
 oa excel workbook-info --workbook-name "target.xlsx" --include-sheets
 ```
 
+## 🏷️ Excel Table 관리 (Windows 전용)
+
+Excel Table(ListObject)은 **피벗테이블의 동적 범위 확장**을 가능하게 하는 핵심 기능입니다.
+
+### 핵심 장점
+- **동적 범위**: 새 데이터 추가 시 피벗테이블 범위 자동 확장
+- **구조화된 참조**: 테이블명으로 범위 지정 가능
+- **내장 필터**: 자동 필터/정렬 기능 제공
+
+### Excel Table 생성 패턴
+
+```bash
+# 패턴 1: 데이터 쓰기와 동시에 Excel Table 생성 (권장)
+oa excel table-write --data-file "sales.csv" --table-name "SalesData" --table-style "TableStyleMedium5"
+
+# 패턴 2: 기존 범위를 Excel Table로 변환
+oa excel table-create --range "A1:F100" --table-name "AnalysisData" --headers
+
+# 패턴 3: Excel Table 목록 확인
+oa excel table-list --detailed --format json
+```
+
+### AI 에이전트 권장 워크플로우
+
+```bash
+# 1단계: Excel Table 생성 (기존 데이터가 있는 경우)
+oa excel table-create --range "A1:F100" --table-name "DataTable" --table-style "TableStyleMedium2"
+
+# 2단계: Excel Table 확인
+oa excel table-list --format json
+# AI가 JSON 파싱하여 테이블 정보 확인
+
+# 3단계: Excel Table 기반 피벗테이블 생성 (동적 범위!)
+oa excel pivot-create --source-range "DataTable" --auto-position
+
+# 💡 장점: 새 데이터가 추가되면 피벗테이블 범위가 자동으로 확장됨
+```
+
+### 플랫폼별 처리
+
+**Windows**
+```bash
+# 모든 Excel Table 기능 지원
+oa excel table-create --range "A1:D100" --table-name "MyTable"
+```
+
+**macOS**
+```bash
+# Excel Table 생성은 실패하지만 데이터 쓰기는 정상 작동
+oa excel table-write --data-file "data.csv" --no-create-table  # Table 생성 비활성화
+```
+
+### 에러 처리 패턴
+
+```bash
+# AI 에이전트 권장: 플랫폼 확인 후 분기 처리
+# 1. Windows에서는 Excel Table 기능 활용
+# 2. macOS에서는 일반 범위로 피벗테이블 생성
+```
+
 ## 📊 피벗테이블 워크플로우
 
 피벗테이블은 **2단계 필수 과정**이 필요합니다:

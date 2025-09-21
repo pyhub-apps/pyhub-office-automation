@@ -63,6 +63,8 @@ from pyhub_office_automation.excel.slicer_add import slicer_add
 from pyhub_office_automation.excel.slicer_connect import slicer_connect
 from pyhub_office_automation.excel.slicer_list import slicer_list
 from pyhub_office_automation.excel.slicer_position import slicer_position
+from pyhub_office_automation.excel.table_create import table_create
+from pyhub_office_automation.excel.table_list import table_list
 from pyhub_office_automation.excel.table_read import table_read
 from pyhub_office_automation.excel.table_write import table_write
 from pyhub_office_automation.excel.textbox_add import textbox_add
@@ -219,6 +221,8 @@ excel_app.command("sheet-delete")(sheet_delete)
 excel_app.command("sheet-rename")(sheet_rename)
 
 # Table Commands
+excel_app.command("table-create")(table_create)
+excel_app.command("table-list")(table_list)
 excel_app.command("table-read")(table_read)
 excel_app.command("table-write")(table_write)
 
@@ -275,8 +279,10 @@ def excel_list_temp(
         {"name": "range-write", "description": "셀 범위에 데이터 쓰기", "category": "range"},
         {"name": "range-convert", "description": "셀 범위 데이터 형식 변환 (문자열 → 숫자)", "category": "range"},
         # Table Commands
+        {"name": "table-create", "description": "기존 범위를 Excel Table로 변환", "category": "table"},
+        {"name": "table-list", "description": "워크북의 Excel Table 목록 조회", "category": "table"},
         {"name": "table-read", "description": "테이블 데이터를 DataFrame으로 읽기", "category": "table"},
-        {"name": "table-write", "description": "DataFrame을 Excel 테이블로 쓰기", "category": "table"},
+        {"name": "table-write", "description": "DataFrame을 Excel 테이블로 쓰기 (선택적 Table 생성)", "category": "table"},
         # Chart Commands
         {"name": "chart-add", "description": "차트 추가", "category": "chart"},
         {"name": "chart-configure", "description": "차트 설정", "category": "chart"},

@@ -431,7 +431,9 @@ def advanced_pivot_example():
         print(f"피벗 테이블 생성 오류: {e}")
 ```
 
-### 2.2 Table 생성 (Windows 전용)
+### 2.2 Excel Table 생성 및 관리 (Windows 전용)
+
+#### 기본 Table 생성
 ```python
 # 범위를 Excel Table로 변환
 range_ = sheet.range("A1:D10")
@@ -445,6 +447,156 @@ table = sheet.tables.add(
 # Table 목록 조회
 for table in sheet.tables:
     print(table.name)
+```
+
+#### COM API를 통한 고급 Table 생성 (pyhub-office-automation 패턴)
+```python
+import platform
+
+def create_excel_table(sheet, range_str, table_name=None, has_headers=True, table_style="TableStyleMedium2"):
+    """
+    Excel Table(ListObject) 생성 함수 - Windows 전용
+    피벗테이블의 동적 범위 확장을 위한 핵심 기능
+    """
+    if platform.system() != "Windows":
+        raise ValueError("Excel Table 생성은 Windows에서만 지원됩니다.")
+
+    try:
+        # 범위 객체 생성
+        range_obj = sheet.range(range_str)
+
+        # 테이블 이름 자동 생성
+        if not table_name:
+            existing_tables = [table.name for table in sheet.tables]
+            counter = 1
+            while True:
+                candidate_name = f"Table{counter}"
+                if candidate_name not in existing_tables:
+                    table_name = candidate_name
+                    break
+                counter += 1
+
+        # ListObject 생성 (COM API)
+        list_object = sheet.api.ListObjects.Add(
+            SourceType=1,  # xlSrcRange
+            Source=range_obj.api,
+            XlListObjectHasHeaders=1 if has_headers else 2  # xlYes=1, xlNo=2
+        )
+
+        # 테이블 이름 설정
+        list_object.Name = table_name
+
+        # 테이블 스타일 적용
+        try:
+            list_object.TableStyle = table_style
+        except:
+            list_object.TableStyle = "TableStyleMedium2"
+
+        return {
+            "name": table_name,
+            "range": range_obj.address,
+            "has_headers": has_headers,
+            "style": table_style,
+            "created": True
+        }
+
+    except Exception as e:
+        raise ValueError(f"Excel Table 생성 실패: {str(e)}")
+
+# 사용 예제
+table_info = create_excel_table(
+    sheet=sheet,
+    range_str="A1:D100",
+    table_name="SalesData",
+    has_headers=True,
+    table_style="TableStyleMedium5"
+)
+print(f"테이블 생성됨: {table_info}")
+```
+
+#### 피벗테이블과의 통합 패턴 (동적 범위 확장)
+```python
+def create_table_based_pivot(sheet, data_range, table_name, pivot_dest_range):
+    """
+    Excel Table 기반 피벗테이블 생성
+    핵심 장점: 새 데이터 추가 시 피벗테이블 범위 자동 확장
+    """
+    # 1단계: Excel Table 생성
+    table_info = create_excel_table(
+        sheet=sheet,
+        range_str=data_range,
+        table_name=table_name,
+        has_headers=True
+    )
+
+    # 2단계: Table 기반 피벗테이블 생성
+    try:
+        from xlwings.constants import PivotTableSourceType
+
+        # 피벗 캐시 생성 (테이블명 사용으로 동적 범위!)
+        pivot_cache = sheet.api.Parent.PivotCaches().Create(
+            SourceType=PivotTableSourceType.xlDatabase,
+            SourceData=table_name  # 범위 대신 테이블명 사용
+        )
+
+        # 피벗 테이블 생성
+        pivot_name = f"Pivot_{table_name}"
+        pivot_table = pivot_cache.CreatePivotTable(
+            TableDestination=sheet.range(pivot_dest_range).api,
+            TableName=pivot_name
+        )
+
+        return {
+            "table": table_info,
+            "pivot_name": pivot_name,
+            "source_type": "excel_table",
+            "dynamic_range": True,
+            "advantage": "새 데이터 추가 시 피벗테이블 범위 자동 확장"
+        }
+
+    except Exception as e:
+        raise ValueError(f"Table 기반 피벗테이블 생성 실패: {str(e)}")
+
+# 사용 예제 - 동적 범위 피벗테이블
+result = create_table_based_pivot(
+    sheet=sheet,
+    data_range="A1:F100",
+    table_name="SalesData",
+    pivot_dest_range="H1"
+)
+print(f"동적 피벗테이블 생성: {result}")
+
+# 💡 핵심 장점: 새 데이터가 추가되면 피벗테이블 범위가 자동으로 확장됨!
+```
+
+#### 플랫폼별 Graceful Degradation
+```python
+def safe_table_operation(sheet, range_str, table_name=None):
+    """
+    플랫폼 안전 Table 작업
+    Windows: Excel Table 생성
+    macOS: 경고와 함께 범위 정보 반환
+    """
+    if platform.system() == "Windows":
+        try:
+            return create_excel_table(sheet, range_str, table_name)
+        except Exception as e:
+            return {
+                "warning": f"Table 생성 실패: {str(e)}",
+                "range": range_str,
+                "fallback": True
+            }
+    else:
+        return {
+            "warning": "Excel Table 생성은 Windows에서만 지원됩니다.",
+            "range": range_str,
+            "platform": platform.system(),
+            "recommendation": "일반 범위를 사용하여 피벗테이블 생성"
+        }
+
+# 사용 예제
+result = safe_table_operation(sheet, "A1:D100", "MyTable")
+print(result)
 ```
 
 ### 2.3 차트 작업

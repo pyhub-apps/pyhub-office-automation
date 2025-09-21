@@ -34,8 +34,11 @@ oa excel range-write --range "A1" --data '["안녕", "세상아"]'
 # 데이터 읽기
 oa excel range-read --range "A1:B1"
 
-# 피벗테이블 생성 (2단계)
-oa excel pivot-create --source-range "A1" --expand "table" --dest-sheet "피벗" --dest-range "F1"
+# Excel Table 생성 (Windows 전용 - 피벗테이블의 동적 범위 확장을 위해 권장)
+oa excel table-create --range "A1:B1" --table-name "첫번째테이블" --headers
+
+# Excel Table 기반 피벗테이블 생성 (범위 자동 확장!)
+oa excel pivot-create --source-range "첫번째테이블" --dest-sheet "피벗" --dest-range "F1"
 oa excel pivot-configure --pivot-name "PivotTable1" --row-fields "안녕" --value-fields "세상아:Count"
 ```
 
@@ -53,6 +56,7 @@ oa excel pivot-configure --pivot-name "PivotTable1" --row-fields "안녕" --valu
 - AI 에이전트가 파싱하기 쉽도록 설계되었습니다
 - Windows에서 최고의 성능을 발휘합니다 (Excel, HWP 모두 지원)
 - macOS에서는 Excel 기능만 사용 가능합니다
+- **🎯 피벗테이블 사용 시**: Excel Table을 먼저 생성하면 데이터 추가 시 범위가 자동으로 확장됩니다 (Windows 전용)
 
 ---
 *AI 에이전트나 LLM과 함께 사용하는 경우, `oa llm-guide`를 먼저 확인해보세요!*
