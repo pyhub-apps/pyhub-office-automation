@@ -103,7 +103,15 @@ def range_write(
 
             # 시트 및 범위 처리
             sheet_name = parsed_sheet or sheet
-            target_sheet = get_sheet(book, sheet_name, create_if_missing=create_sheet)
+            try:
+                target_sheet = get_sheet(book, sheet_name)
+            except ValueError as sheet_error:
+                if create_sheet and sheet_name:
+                    # 시트가 없으면 새로 생성
+                    target_sheet = book.sheets.add(sheet_name)
+                else:
+                    # 시트 생성 옵션이 없거나 시트명이 없으면 원래 에러 발생
+                    raise sheet_error
 
             # 시작 셀 범위 객체 가져오기
             start_range = get_range(target_sheet, start_cell)
