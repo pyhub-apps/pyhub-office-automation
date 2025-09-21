@@ -212,7 +212,6 @@ def set_chart_colors(chart, color_scheme):
 
 def chart_configure(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트가 있는 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
     chart_name: Optional[str] = typer.Option(None, "--chart-name", help="설정할 차트의 이름"),
@@ -245,8 +244,7 @@ def chart_configure(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용 (권장)
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 차트 선택 방법 ===
     차트를 선택하는 두 가지 방법이 있습니다:
@@ -300,10 +298,10 @@ def chart_configure(
     === 실제 활용 시나리오 예제 ===
 
     # 1. 기본 차트 스타일링
-    oa excel chart-configure --use-active --chart-index 0 --title "2024년 매출 현황" --legend-position "bottom"
+    oa excel chart-configure --chart-index 0 --title "2024년 매출 현황" --legend-position "bottom"
 
     # 2. 축 제목과 데이터 레이블 추가
-    oa excel chart-configure --use-active --chart-name "SalesChart" \\
+    oa excel chart-configure --chart-name "SalesChart" \\
         --x-axis-title "월" --y-axis-title "매출액(만원)" --show-data-labels
 
     # 3. 프레젠테이션용 고급 스타일링 (Windows)
@@ -315,7 +313,7 @@ def chart_configure(
         --title "시장 점유율" --legend-position "right" --show-data-labels
 
     # 5. 산점도 상관관계 차트 설정
-    oa excel chart-configure --use-active --chart-index 2 \\
+    oa excel chart-configure --chart-index 2 \\
         --title "광고비 vs 매출 상관관계" --x-axis-title "광고비(만원)" --y-axis-title "매출(억원)"
 
     === 플랫폼별 기능 차이 ===
@@ -333,7 +331,7 @@ def chart_configure(
 
     try:
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
         # 시트 가져오기
         target_sheet = get_sheet(book, sheet)
@@ -467,7 +465,7 @@ def chart_configure(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

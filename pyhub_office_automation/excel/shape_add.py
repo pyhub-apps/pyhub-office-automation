@@ -30,7 +30,6 @@ from .utils import (
 
 def shape_add(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 추가할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="도형을 추가할 시트 이름 (지정하지 않으면 활성 시트)"),
     shape_type: str = typer.Option(
@@ -60,8 +59,7 @@ def shape_add(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 지원되는 도형 유형 ===
     • rectangle: 사각형 (기본값)
@@ -92,26 +90,26 @@ def shape_add(
     === 대시보드 구성 시나리오 ===
 
     # 1. 배경 도형 생성
-    oa excel shape-add --use-active --shape-type rectangle --left 50 --top 50 \\
+    oa excel shape-add --shape-type rectangle --left 50 --top 50 \\
         --width 800 --height 600 --style-preset background --name "DashboardBG"
 
     # 2. 제목 영역 추가
-    oa excel shape-add --use-active --shape-type rounded_rectangle --left 70 --top 70 \\
+    oa excel shape-add --shape-type rounded_rectangle --left 70 --top 70 \\
         --width 760 --height 80 --style-preset title-box --name "TitleArea"
 
     # 3. 차트 영역들 추가
-    oa excel shape-add --use-active --shape-type rounded_rectangle --left 90 --top 170 \\
+    oa excel shape-add --shape-type rounded_rectangle --left 90 --top 170 \\
         --width 350 --height 200 --style-preset chart-box --name "Chart1Area"
 
-    oa excel shape-add --use-active --shape-type rounded_rectangle --left 460 --top 170 \\
+    oa excel shape-add --shape-type rounded_rectangle --left 460 --top 170 \\
         --width 350 --height 200 --style-preset chart-box --name "Chart2Area"
 
     # 4. 슬라이서 영역 추가
-    oa excel shape-add --use-active --shape-type rounded_rectangle --left 90 --top 390 \\
+    oa excel shape-add --shape-type rounded_rectangle --left 90 --top 390 \\
         --width 720 --height 120 --style-preset slicer-box --name "SlicerArea"
 
     # 5. 커스텀 색상으로 도형 추가
-    oa excel shape-add --use-active --shape-type oval --left 200 --top 300 \\
+    oa excel shape-add --shape-type oval --left 200 --top 300 \\
         --width 100 --height 100 --fill-color "#FF5733" --transparency 20
 
     === 고급 활용 ===
@@ -130,9 +128,7 @@ def shape_add(
                 raise ValueError(error_msg)
 
             # 워크북 연결
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
@@ -251,7 +247,7 @@ def shape_add(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

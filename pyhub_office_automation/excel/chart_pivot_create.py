@@ -109,7 +109,6 @@ def get_pivot_chart_type_constant(chart_type: str):
 
 def chart_pivot_create(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="피벗차트를 생성할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     pivot_name: str = typer.Option(..., "--pivot-name", help="차트를 생성할 피벗테이블 이름"),
     chart_type: str = typer.Option(
@@ -139,8 +138,7 @@ def chart_pivot_create(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용 (권장)
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 피벗테이블 지정 ===
     --pivot-name 옵션으로 기준 피벗테이블을 지정합니다:
@@ -178,7 +176,7 @@ def chart_pivot_create(
     === 실제 활용 시나리오 예제 ===
 
     # 1. 기본 피벗차트 생성
-    oa excel chart-pivot-create --use-active --pivot-name "SalesAnalysis" --chart-type "column"
+    oa excel chart-pivot-create --pivot-name "SalesAnalysis" --chart-type "column"
 
     # 2. 제품별 매출 비중 원형 차트
     oa excel chart-pivot-create --file-path "report.xlsx" --pivot-name "ProductSummary" \\
@@ -189,7 +187,7 @@ def chart_pivot_create(
         --chart-type "line" --position "F5" --title "지역별 월간 매출 추세"
 
     # 4. 차트 전용 시트에 생성
-    oa excel chart-pivot-create --use-active --pivot-name "QuarterlySummary" \\
+    oa excel chart-pivot-create --pivot-name "QuarterlySummary" \\
         --chart-type "column" --sheet "피벗차트" --position "B2" --width 600 --height 400
 
     # 5. 스타일이 적용된 고급 피벗차트
@@ -241,7 +239,7 @@ def chart_pivot_create(
             raise RuntimeError("피벗차트 생성은 Windows에서만 지원됩니다. macOS에서는 수동으로 피벗차트를 생성해주세요.")
 
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
         # 피벗테이블이 있는 시트 찾기
         pivot_table = None
@@ -415,7 +413,7 @@ def chart_pivot_create(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

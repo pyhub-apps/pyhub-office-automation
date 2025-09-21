@@ -12,7 +12,6 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 
 def sheet_delete(
     workbook: Optional[str] = typer.Option(None, "--workbook", help="워크북 파일 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
     name: str = typer.Option(..., "--name", help="삭제할 시트의 이름"),
     force: bool = typer.Option(False, "--force", help="확인 없이 강제 삭제"),
@@ -22,7 +21,7 @@ def sheet_delete(
     book = None
     try:
         with ExecutionTimer() as timer:
-            book = get_or_open_workbook(file_path=workbook, workbook_name=workbook_name, use_active=use_active, visible=True)
+            book = get_or_open_workbook(file_path=workbook, workbook_name=workbook_name, visible=True)
 
             # 시트 존재 확인
             if name not in [sheet.name for sheet in book.sheets]:

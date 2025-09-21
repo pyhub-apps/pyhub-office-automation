@@ -593,7 +593,7 @@ def get_or_open_workbook(
     Args:
         file_path: 파일 경로 (기존 방식)
         workbook_name: 열린 워크북 이름
-        use_active: 활성 워크북 사용 여부
+        use_active: 활성 워크북 사용 여부 (내부 사용, 옵션 없으면 자동으로 True)
         visible: Excel 애플리케이션 표시 여부
 
     Returns:
@@ -603,11 +603,12 @@ def get_or_open_workbook(
         ValueError: 옵션이 잘못 지정된 경우
         RuntimeError: 워크북을 찾거나 열 수 없는 경우
     """
-    # 옵션 검증 - 정확히 하나만 지정되어야 함
+    # 옵션 검증 - 최대 하나만 지정되어야 함
     options_count = sum([bool(file_path), bool(workbook_name), use_active])
 
     if options_count == 0:
-        raise ValueError("file_path, workbook_name, use_active 중 하나는 반드시 지정해야 합니다")
+        # 옵션이 없으면 활성 워크북 자동 사용 (Issue #31)
+        use_active = True
     elif options_count > 1:
         raise ValueError("file_path, workbook_name, use_active 중 하나만 지정할 수 있습니다")
 

@@ -126,7 +126,6 @@ def get_chart_export_info(chart):
 
 def chart_export(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트가 있는 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
     chart_name: Optional[str] = typer.Option(None, "--chart-name", help="내보낼 차트의 이름"),
@@ -149,8 +148,7 @@ def chart_export(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용 (권장)
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 차트 선택 방법 ===
     내보낼 차트를 지정하는 두 가지 방법:
@@ -236,7 +234,7 @@ def chart_export(
     === 실제 활용 예제 ===
 
     # 1. 기본 PNG 내보내기
-    oa excel chart-export --use-active --chart-index 0 --output-path "chart1.png"
+    oa excel chart-export --chart-index 0 --output-path "chart1.png"
 
     # 2. 웹용 JPG 내보내기 (작은 크기)
     oa excel chart-export --file-path "report.xlsx" --chart-name "SalesChart" \\
@@ -247,13 +245,13 @@ def chart_export(
         --output-path "dashboard.png" --width 800 --height 600 --transparent-bg
 
     # 4. 고해상도 인쇄용 이미지
-    oa excel chart-export --use-active --chart-name "QuarterlyReport" \\
+    oa excel chart-export --chart-name "QuarterlyReport" \\
         --output-path "print_chart.png" --dpi 300 --image-format "png"
 
     # 5. 여러 차트 일괄 내보내기 (스크립트 활용)
-    oa excel chart-export --use-active --chart-index 0 --output-path "chart_0.png"
-    oa excel chart-export --use-active --chart-index 1 --output-path "chart_1.png"
-    oa excel chart-export --use-active --chart-index 2 --output-path "chart_2.png"
+    oa excel chart-export --chart-index 0 --output-path "chart_0.png"
+    oa excel chart-export --chart-index 1 --output-path "chart_1.png"
+    oa excel chart-export --chart-index 2 --output-path "chart_2.png"
 
     # 6. 기존 파일 덮어쓰기
     oa excel chart-export --file-path "old_report.xlsx" --chart-name "OldChart" \\
@@ -280,7 +278,7 @@ def chart_export(
 
     try:
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
         # 시트 가져오기
         target_sheet = get_sheet(book, sheet)
@@ -430,7 +428,7 @@ def chart_export(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

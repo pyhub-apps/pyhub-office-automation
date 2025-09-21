@@ -99,7 +99,6 @@ def get_chart_data_source(chart_obj):
 
 def chart_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 조회할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="특정 시트의 차트만 조회 (지정하지 않으면 모든 시트)"),
     detailed: bool = typer.Option(False, "--detailed", help="차트의 상세 정보 포함"),
@@ -114,8 +113,7 @@ def chart_list(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용 (가장 간편)
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 조회 범위 지정 ===
     --sheet 옵션으로 조회 범위를 제한할 수 있습니다:
@@ -142,10 +140,10 @@ def chart_list(
     === 활용 시나리오별 예제 ===
 
     # 1. 현재 워크북의 모든 차트 간단 조회
-    oa excel chart-list --use-active
+    oa excel chart-list
 
     # 2. 특정 시트의 차트만 상세 조회
-    oa excel chart-list --use-active --sheet "Dashboard" --detailed
+    oa excel chart-list --sheet "Dashboard" --detailed
 
     # 3. 파일의 모든 차트 상세 분석
     oa excel chart-list --file-path "report.xlsx" --detailed
@@ -172,7 +170,7 @@ def chart_list(
 
     try:
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
         charts_info = []
         total_charts = 0
@@ -302,7 +300,7 @@ def chart_list(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

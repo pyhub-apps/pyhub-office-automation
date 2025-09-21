@@ -25,7 +25,6 @@ from .utils import (
 
 def slicer_position(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서 위치를 조정할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     slicer_name: str = typer.Option(..., "--slicer-name", help="위치를 조정할 슬라이서 이름"),
     left: Optional[int] = typer.Option(None, "--left", help="새로운 왼쪽 위치 (픽셀)"),
@@ -61,8 +60,7 @@ def slicer_position(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 절대 위치 지정 ===
     • --left, --top: 새로운 절대 위치 (픽셀)
@@ -84,98 +82,98 @@ def slicer_position(
     === 절대 위치 지정 시나리오 ===
 
     # 1. 슬라이서를 특정 위치로 정확히 이동
-    oa excel slicer-position --use-active --slicer-name "RegionSlicer" \\
+    oa excel slicer-position --slicer-name "RegionSlicer" \\
         --left 100 --top 400 --width 200 --height 150
 
     # 2. 위치만 변경 (크기 유지)
-    oa excel slicer-position --use-active --slicer-name "MonthSlicer" \\
+    oa excel slicer-position --slicer-name "MonthSlicer" \\
         --left 320 --top 400
 
     # 3. 크기만 조정 (위치 유지)
-    oa excel slicer-position --use-active --slicer-name "CategorySlicer" \\
+    oa excel slicer-position --slicer-name "CategorySlicer" \\
         --width 300 --height 100
 
     === 상대 이동 시나리오 ===
 
     # 1. 슬라이서를 오른쪽으로 50픽셀 이동
-    oa excel slicer-position --use-active --slicer-name "ProductSlicer" \\
+    oa excel slicer-position --slicer-name "ProductSlicer" \\
         --move-by-x 50
 
     # 2. 슬라이서를 위로 30픽셀, 왼쪽으로 20픽셀 이동
-    oa excel slicer-position --use-active --slicer-name "DateSlicer" \\
+    oa excel slicer-position --slicer-name "DateSlicer" \\
         --move-by-x -20 --move-by-y -30
 
     # 3. 슬라이서 크기를 가로 50픽셀, 세로 20픽셀 확대
-    oa excel slicer-position --use-active --slicer-name "SalesPersonSlicer" \\
+    oa excel slicer-position --slicer-name "SalesPersonSlicer" \\
         --resize-by-width 50 --resize-by-height 20
 
     # 4. 슬라이서를 왼쪽으로 이동하면서 크기 축소
-    oa excel slicer-position --use-active --slicer-name "TempSlicer" \\
+    oa excel slicer-position --slicer-name "TempSlicer" \\
         --move-by-x -100 --resize-by-width -50
 
     === 정렬 시나리오 ===
 
     # 1. 워크시트 왼쪽에 정렬
-    oa excel slicer-position --use-active --slicer-name "RegionSlicer" \\
+    oa excel slicer-position --slicer-name "RegionSlicer" \\
         --align-to left
 
     # 2. 워크시트 중앙에 정렬
-    oa excel slicer-position --use-active --slicer-name "MainSlicer" \\
+    oa excel slicer-position --slicer-name "MainSlicer" \\
         --align-to center
 
     # 3. 다른 슬라이서와 정렬 (왼쪽 맞춤)
-    oa excel slicer-position --use-active --slicer-name "SubSlicer" \\
+    oa excel slicer-position --slicer-name "SubSlicer" \\
         --align-with "MainSlicer"
 
     === 미리 정의된 레이아웃 ===
 
     # 1. 수평 배치 레이아웃 (가로로 나란히)
-    oa excel slicer-position --use-active --slicer-name "RegionSlicer" \\
+    oa excel slicer-position --slicer-name "RegionSlicer" \\
         --preset-layout horizontal
 
     # 2. 수직 배치 레이아웃 (세로로 나란히)
-    oa excel slicer-position --use-active --slicer-name "CategorySlicer" \\
+    oa excel slicer-position --slicer-name "CategorySlicer" \\
         --preset-layout vertical
 
     # 3. 2x2 그리드 레이아웃
-    oa excel slicer-position --use-active --slicer-name "DateSlicer" \\
+    oa excel slicer-position --slicer-name "DateSlicer" \\
         --preset-layout grid-2x2
 
     # 4. 사이드바 배치
-    oa excel slicer-position --use-active --slicer-name "FilterSlicer" \\
+    oa excel slicer-position --slicer-name "FilterSlicer" \\
         --preset-layout sidebar
 
     === 고급 배치 및 정렬 ===
 
     # 1. 그리드에 맞춤 (10픽셀 단위)
-    oa excel slicer-position --use-active --slicer-name "RegionSlicer" \\
+    oa excel slicer-position --slicer-name "RegionSlicer" \\
         --left 105 --top 407 --snap-to-grid 10
 
     # 2. 자동 배치 (다른 슬라이서와 겹치지 않음)
-    oa excel slicer-position --use-active --slicer-name "NewSlicer" \\
+    oa excel slicer-position --slicer-name "NewSlicer" \\
         --auto-arrange --width 200 --height 120
 
     # 3. 복합 조정 (이동 + 크기 조정 + 그리드 맞춤)
-    oa excel slicer-position --use-active --slicer-name "MainSlicer" \\
+    oa excel slicer-position --slicer-name "MainSlicer" \\
         --move-by-x 25 --resize-by-width 30 --snap-to-grid 5
 
     === 대시보드 레이아웃 구성 ===
 
     # 뉴모피즘 슬라이서 영역 내부 정렬
     # 1. 첫 번째 슬라이서 - 왼쪽 정렬
-    oa excel slicer-position --use-active --slicer-name "RegionSlicer" \\
+    oa excel slicer-position --slicer-name "RegionSlicer" \\
         --left 100 --top 420 --width 150 --height 80
 
     # 2. 두 번째 슬라이서 - 첫 번째 오른쪽에 배치
-    oa excel slicer-position --use-active --slicer-name "MonthSlicer" \\
+    oa excel slicer-position --slicer-name "MonthSlicer" \\
         --left 270 --top 420 --width 150 --height 80
 
     # 3. 세 번째 슬라이서 - 두 번째 오른쪽에 배치
-    oa excel slicer-position --use-active --slicer-name "CategorySlicer" \\
+    oa excel slicer-position --slicer-name "CategorySlicer" \\
         --left 440 --top 420 --width 150 --height 80
 
     # 4. 네 번째 슬라이서 - 세 번째 오른쪽에 배치
-    oa excel slicer-position --use-active --slicer-name "ProductSlicer" \\
+    oa excel slicer-position --slicer-name "ProductSlicer" \\
         --left 610 --top 420 --width 150 --height 80
 
     === 반응형 레이아웃 조정 ===
@@ -183,12 +181,12 @@ def slicer_position(
     # 화면 크기에 따른 슬라이서 재배치
     # 1. 큰 화면용 - 가로 배치
     for slicer in ["Region", "Month", "Category", "Product"]:
-        oa excel slicer-position --use-active --slicer-name f"{slicer}Slicer" \\
+        oa excel slicer-position --slicer-name f"{slicer}Slicer" \\
             --preset-layout horizontal
 
     # 2. 작은 화면용 - 세로 배치
     for slicer in ["Region", "Month", "Category", "Product"]:
-        oa excel slicer-position --use-active --slicer-name f"{slicer}Slicer" \\
+        oa excel slicer-position --slicer-name f"{slicer}Slicer" \\
             --preset-layout vertical
 
     === 배치 최적화 팁 ===
@@ -225,9 +223,7 @@ def slicer_position(
                 raise RuntimeError("슬라이서 위치 조정은 Windows에서만 지원됩니다")
 
             # 워크북 연결
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 슬라이서 찾기
             slicer_cache = get_slicer_by_name(book, slicer_name)
@@ -354,7 +350,7 @@ def slicer_position(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

@@ -27,7 +27,6 @@ from .utils import (
 
 def pivot_delete(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="피벗테이블이 있는 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     pivot_name: str = typer.Option(..., "--pivot-name", help="삭제할 피벗테이블 이름"),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="피벗테이블이 있는 시트 이름 (지정하지 않으면 자동 검색)"),
@@ -45,11 +44,10 @@ def pivot_delete(
 
     워크북 접근 방법:
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근
+        - --workbook-name: 열린 워크북 이름으로 접근
 
     예제:
-        oa excel pivot-delete --use-active --pivot-name "PivotTable1" --confirm=True
+        oa excel pivot-delete --pivot-name "PivotTable1" --confirm=True
         oa excel pivot-delete --file-path "sales.xlsx" --pivot-name "SalesPivot" --confirm=True --delete-cache=True
         oa excel pivot-delete --workbook-name "Report.xlsx" --pivot-name "Dashboard" --sheet "Data" --confirm=True
     """
@@ -65,7 +63,7 @@ def pivot_delete(
             raise ValueError("안전을 위해 --confirm=True 옵션을 지정해야 피벗테이블이 삭제됩니다")
 
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
         # 피벗테이블 찾기
         target_sheet = None

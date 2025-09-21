@@ -27,7 +27,6 @@ from .utils import (
 
 def pivot_refresh(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="피벗테이블이 있는 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     pivot_name: Optional[str] = typer.Option(
         None, "--pivot-name", help="새로고침할 피벗테이블 이름 (지정하지 않으면 전체 새로고침)"
@@ -46,11 +45,10 @@ def pivot_refresh(
 
     워크북 접근 방법:
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근
+        - --workbook-name: 열린 워크북 이름으로 접근
 
     예제:
-        oa excel pivot-refresh --use-active --pivot-name "PivotTable1"
+        oa excel pivot-refresh --pivot-name "PivotTable1"
         oa excel pivot-refresh --file-path "sales.xlsx" --refresh-all
         oa excel pivot-refresh --workbook-name "Report.xlsx" --sheet "Dashboard"
     """
@@ -58,7 +56,7 @@ def pivot_refresh(
 
     try:
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
         refresh_results = {
             "refreshed_pivots": [],

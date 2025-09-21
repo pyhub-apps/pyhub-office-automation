@@ -100,7 +100,6 @@ def get_chart_type_constant(chart_type: ChartType):
 
 def chart_add(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 생성할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     data_range: str = typer.Option(..., "--data-range", help='차트 데이터 범위 (예: "A1:C10" 또는 "Sheet1!A1:C10")'),
     chart_type: ChartType = typer.Option(ChartType.COLUMN, "--chart-type", help="차트 유형 (기본값: column)"),
@@ -126,8 +125,7 @@ def chart_add(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 데이터 범위 지정 방법 ===
     --data-range 옵션으로 차트 데이터를 지정합니다:
@@ -172,20 +170,20 @@ def chart_add(
     === 실제 사용 시나리오 예제 ===
 
     # 1. 기본 매출 차트 생성
-    oa excel chart-add --use-active --data-range "A1:C10" --chart-type "column" --title "매출 현황"
+    oa excel chart-add --data-range "A1:C10" --chart-type "column" --title "매출 현황"
 
     # 2. 특정 시트 데이터로 원형 차트 생성
     oa excel chart-add --file-path "sales.xlsx" --data-range "Sheet1!A1:D20" --chart-type "pie" --position "F5"
 
     # 3. 대시보드용 차트를 별도 시트에 생성
-    oa excel chart-add --use-active --data-range "Data!A1:E15" --sheet "Dashboard" --position "B2" --chart-type "line"
+    oa excel chart-add --data-range "Data!A1:E15" --sheet "Dashboard" --position "B2" --chart-type "line"
 
     # 4. 스타일링이 적용된 차트 생성
     oa excel chart-add --workbook-name "Report.xlsx" --data-range "A1:C15" --chart-type "column" \\
         --title "월별 실적" --style 10 --legend-position "bottom" --show-data-labels --position "H1"
 
     # 5. 산점도로 상관관계 분석
-    oa excel chart-add --use-active --data-range "Analysis!A1:C20" --chart-type "scatter" \\
+    oa excel chart-add --data-range "Analysis!A1:C20" --chart-type "scatter" \\
         --title "광고비 vs 매출 상관관계" --position "F10"
     """
     book = None
@@ -202,7 +200,7 @@ def chart_add(
             raise ValueError(f"잘못된 데이터 범위 형식입니다: {data_range}")
 
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
         # 데이터 시트 가져오기
         data_sheet = get_sheet(book, data_sheet_name)
@@ -341,7 +339,7 @@ def chart_add(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

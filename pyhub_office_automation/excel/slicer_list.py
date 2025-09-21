@@ -24,7 +24,6 @@ from .utils import (
 
 def slicer_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서를 조회할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     detailed: bool = typer.Option(False, "--detailed", help="상세 정보 포함 (슬라이서 항목, 연결된 피벗테이블 등)"),
     include_items: bool = typer.Option(False, "--include-items", help="슬라이서 항목 목록 포함"),
@@ -42,8 +41,7 @@ def slicer_list(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 조회 옵션 ===
     • 기본 조회: 슬라이서 이름, 위치, 크기, 필드명
@@ -71,19 +69,19 @@ def slicer_list(
     === 사용 시나리오 ===
 
     # 1. 워크북의 모든 슬라이서 기본 정보 조회
-    oa excel slicer-list --use-active
+    oa excel slicer-list
 
     # 2. 상세한 슬라이서 정보 조회
     oa excel slicer-list --file-path "dashboard.xlsx" --detailed
 
     # 3. 슬라이서 항목과 선택 상태까지 포함한 전체 정보
-    oa excel slicer-list --use-active --detailed --include-items --show-connections
+    oa excel slicer-list --detailed --include-items --show-connections
 
     # 4. 특정 필드의 슬라이서만 조회
-    oa excel slicer-list --use-active --filter-field "지역" --detailed
+    oa excel slicer-list --filter-field "지역" --detailed
 
     # 5. 특정 시트의 슬라이서만 조회
-    oa excel slicer-list --use-active --filter-sheet "Dashboard" --include-items
+    oa excel slicer-list --filter-sheet "Dashboard" --include-items
 
     # 6. 대시보드 슬라이서 현황 분석
     oa excel slicer-list --workbook-name "SalesReport.xlsx" \\
@@ -123,11 +121,11 @@ def slicer_list(
     === 연결 상태 분석 ===
     ```bash
     # 연결이 끊어진 슬라이서 찾기
-    oa excel slicer-list --use-active --show-connections | \\
+    oa excel slicer-list --show-connections | \\
         grep -A 5 '"connected_pivot_tables": \\[\\]'
 
     # 특정 피벗테이블에 연결된 모든 슬라이서 확인
-    oa excel slicer-list --use-active --show-connections | \\
+    oa excel slicer-list --show-connections | \\
         grep -B 5 -A 5 "SalesPivot"
     ```
 
@@ -148,9 +146,7 @@ def slicer_list(
     try:
         with ExecutionTimer() as timer:
             # 워크북 연결
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 슬라이서 정보 수집
             slicers_info = get_slicers_info(book)
@@ -290,7 +286,7 @@ def slicer_list(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

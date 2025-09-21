@@ -199,8 +199,8 @@ Excel commands are organized by category for better usability:
 All Excel commands now support multiple ways to connect to workbooks, eliminating the need to create new Excel instances for each operation:
 
 #### Connection Options
+- **옵션 없음**: 활성 워크북 자동 사용 (기본값)
 - **`--file-path`**: Traditional file path (existing behavior)
-- **`--use-active`**: Connect to currently active workbook
 - **`--workbook-name`**: Connect to open workbook by name (e.g., "Sales.xlsx")
 
 #### Usage Examples
@@ -208,21 +208,21 @@ All Excel commands now support multiple ways to connect to workbooks, eliminatin
 # Traditional file path approach
 oa excel range-read --file-path "data.xlsx" --range "A1:C10"
 
-# Use currently active workbook
-oa excel range-read --use-active --range "A1:C10"
+# Use currently active workbook (automatic)
+oa excel range-read --range "A1:C10"
 
 # Connect to specific open workbook by name
 oa excel range-read --workbook-name "Sales.xlsx" --range "A1:C10"
 
 # AI Agent workflow - efficient consecutive operations
 oa excel workbook-open --file-path "report.xlsx"
-oa excel sheet-add --use-active --name "Results"
-oa excel range-write --use-active --range "A1" --data '["Name", "Score"]'
-oa excel table-read --use-active --output-file "summary.csv"
+oa excel sheet-add --name "Results"
+oa excel range-write --range "A1" --data '["Name", "Score"]'
+oa excel table-read --output-file "summary.csv"
 
 # Workbook discovery and information gathering (Issue #16)
 oa excel workbook-list --detailed  # List all open workbooks with details
-oa excel workbook-info --use-active --include-sheets  # Get active workbook info with sheet details
+oa excel workbook-info --include-sheets  # Get active workbook info with sheet details
 oa excel workbook-info --workbook-name "Sales.xlsx" --include-sheets --include-properties  # Comprehensive info
 ```
 

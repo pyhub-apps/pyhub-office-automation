@@ -24,7 +24,6 @@ from .utils import (
 
 def shape_delete(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 삭제할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="도형을 삭제할 시트 이름 (지정하지 않으면 활성 시트)"),
     shape_name: Optional[str] = typer.Option(None, "--shape-name", help="삭제할 도형 이름"),
@@ -44,8 +43,7 @@ def shape_delete(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 삭제 방법 ===
     1. 이름으로 삭제: --shape-name "TitleArea"
@@ -60,16 +58,16 @@ def shape_delete(
     === 사용 시나리오 ===
 
     # 1. 특정 도형 삭제 (이름으로)
-    oa excel shape-delete --use-active --shape-name "TitleArea"
+    oa excel shape-delete --shape-name "TitleArea"
 
     # 2. 첫 번째 도형 삭제 (인덱스로)
-    oa excel shape-delete --use-active --shape-index 1
+    oa excel shape-delete --shape-index 1
 
     # 3. 삭제 전 확인 (dry-run)
-    oa excel shape-delete --use-active --shape-name "OldChart" --dry-run
+    oa excel shape-delete --shape-name "OldChart" --dry-run
 
     # 4. 시트의 모든 도형 삭제 (주의!)
-    oa excel shape-delete --use-active --all-shapes --confirm-all
+    oa excel shape-delete --all-shapes --confirm-all
 
     # 5. 특정 시트의 도형 삭제
     oa excel shape-delete --file-path "dashboard.xlsx" --sheet "OldDashboard" \\
@@ -105,9 +103,7 @@ def shape_delete(
                 raise ValueError("모든 도형을 삭제하려면 --confirm-all 플래그를 함께 사용하세요")
 
             # 워크북 연결
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
@@ -249,7 +245,7 @@ def shape_delete(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

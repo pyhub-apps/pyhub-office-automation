@@ -13,7 +13,6 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 
 def table_write(
     workbook: Optional[str] = typer.Option(None, "--workbook", help="워크북 파일 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="시트 이름"),
     data_file: str = typer.Option(..., "--data-file", help="쓸 데이터 파일 (CSV/JSON)"),
@@ -34,7 +33,7 @@ def table_write(
             else:
                 raise ValueError("지원되지 않는 파일 형식입니다. CSV 또는 JSON 파일을 사용하세요.")
 
-            book = get_or_open_workbook(file_path=workbook, workbook_name=workbook_name, use_active=use_active, visible=False)
+            book = get_or_open_workbook(file_path=workbook, workbook_name=workbook_name, visible=False)
 
             target_sheet = book.sheets.active if not sheet else book.sheets[sheet]
             start_range = target_sheet.range(range_str)

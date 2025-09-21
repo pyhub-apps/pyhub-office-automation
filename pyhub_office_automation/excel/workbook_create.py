@@ -19,7 +19,7 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 def workbook_create(
     name: str = typer.Option("NewWorkbook", "--name", help="생성할 워크북의 이름"),
     save_path: Optional[str] = typer.Option(None, "--save-path", help="워크북을 저장할 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="기존 Excel 애플리케이션을 사용하여 새 워크북 생성"),
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="새 애플리케이션 인스턴스 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="특정 워크북의 애플리케이션을 사용"),
     visible: bool = typer.Option(True, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
@@ -28,14 +28,14 @@ def workbook_create(
     새로운 Excel 워크북을 생성합니다.
 
     항상 새로운 워크북을 생성하며, Excel 애플리케이션 연결 방식을 선택할 수 있습니다:
-    - 기본: 새 Excel 애플리케이션 인스턴스 사용
-    - --use-active: 현재 활성 Excel 애플리케이션 사용
+    - 옵션 없음: 활성 Excel 애플리케이션 자동 사용 (기본값)
+    - --file-path: 새 Excel 애플리케이션 인스턴스 사용
     - --workbook-name: 특정 워크북의 애플리케이션 사용
 
     예제:
         oa excel workbook-create --name "MyReport"
         oa excel workbook-create --name "Data" --save-path "data.xlsx"
-        oa excel workbook-create --use-active --name "NewSheet"
+        oa excel workbook-create --file-path dummy --name "NewSheet"
     """
     app = None
     book = None
@@ -43,7 +43,7 @@ def workbook_create(
         # 실행 시간 측정 시작
         with ExecutionTimer() as timer:
             # Excel 애플리케이션 가져오기
-            if use_active:
+            if not file_path and not workbook_name:
                 # 기존 활성 애플리케이션 사용
                 app = get_active_app(visible=visible)
             elif workbook_name:
@@ -74,7 +74,7 @@ def workbook_create(
                 book = app.books.add()
             except Exception as e:
                 # 기존 앱을 사용하는 경우에는 종료하지 않음
-                if not use_active and not workbook_name:
+                if file_path and not workbook_name:
                     app.quit()
                 raise RuntimeError(f"새 워크북을 생성할 수 없습니다: {str(e)}")
 
@@ -128,14 +128,16 @@ def workbook_create(
             app_info = {
                 "version": getattr(app, "version", "Unknown"),
                 "visible": getattr(app, "visible", visible),
-                "is_new_instance": not use_active and not workbook_name,
+                "is_new_instance": file_path and not workbook_name,
             }
 
             # 데이터 구성
             data_content = {
                 "workbook": workbook_info,
                 "application": app_info,
-                "creation_method": "active_app" if use_active else ("existing_app" if workbook_name else "new_app"),
+                "creation_method": (
+                    "active_app" if (not file_path and not workbook_name) else ("existing_app" if workbook_name else "new_app")
+                ),
             }
 
             # 성공 메시지

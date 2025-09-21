@@ -29,7 +29,6 @@ from .utils import (
 
 def shape_format(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 포맷팅할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="도형이 있는 시트 이름 (지정하지 않으면 활성 시트)"),
     shape_name: str = typer.Option(..., "--shape-name", help="포맷팅할 도형 이름"),
@@ -61,8 +60,7 @@ def shape_format(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 기본 스타일링 ===
     • --fill-color: 채우기 색상 (예: #FFFFFF, #1D2433)
@@ -92,35 +90,35 @@ def shape_format(
     === 실제 사용 시나리오 ===
 
     # 1. 뉴모피즘 제목 박스 스타일 적용
-    oa excel shape-format --use-active --shape-name "TitleArea" --style-preset "title-box"
+    oa excel shape-format --shape-name "TitleArea" --style-preset "title-box"
 
     # 2. 커스텀 색상으로 차트 영역 스타일링
-    oa excel shape-format --use-active --shape-name "ChartArea" \\
+    oa excel shape-format --shape-name "ChartArea" \\
         --fill-color "#F8F9FA" --line-color "#DEE2E6" --line-width 1.5
 
     # 3. 고급 그림자 효과 적용
-    oa excel shape-format --use-active --shape-name "HighlightBox" \\
+    oa excel shape-format --shape-name "HighlightBox" \\
         --fill-color "#FFFFFF" --shadow-type "drop" --shadow-color "#1D2433" \\
         --shadow-transparency 80 --shadow-blur 25 --shadow-distance 8 --shadow-angle 135
 
     # 4. 투명 오버레이 효과
-    oa excel shape-format --use-active --shape-name "Overlay" \\
+    oa excel shape-format --shape-name "Overlay" \\
         --fill-color "#000000" --transparency 50 --no-line
 
     # 5. 그라데이션 배경 (Windows)
-    oa excel shape-format --use-active --shape-name "Background" \\
+    oa excel shape-format --shape-name "Background" \\
         --fill-color "#E3F2FD" --gradient --gradient-color2 "#BBDEFB"
 
     === 대시보드 일관성 관리 ===
 
     # 모든 차트 영역을 동일한 스타일로 통일
-    oa excel shape-format --use-active --shape-name "Chart1Area" --style-preset "chart-box"
-    oa excel shape-format --use-active --shape-name "Chart2Area" --style-preset "chart-box"
-    oa excel shape-format --use-active --shape-name "Chart3Area" --style-preset "chart-box"
+    oa excel shape-format --shape-name "Chart1Area" --style-preset "chart-box"
+    oa excel shape-format --shape-name "Chart2Area" --style-preset "chart-box"
+    oa excel shape-format --shape-name "Chart3Area" --style-preset "chart-box"
 
     # 제목과 부제목 영역 차별화
-    oa excel shape-format --use-active --shape-name "MainTitle" --style-preset "title-box"
-    oa excel shape-format --use-active --shape-name "SubTitle" \\
+    oa excel shape-format --shape-name "MainTitle" --style-preset "title-box"
+    oa excel shape-format --shape-name "SubTitle" \\
         --fill-color "#6C757D" --transparency 10
 
     === 플랫폼별 지원 ===
@@ -139,9 +137,7 @@ def shape_format(
     try:
         with ExecutionTimer() as timer:
             # 워크북 연결
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
@@ -336,7 +332,7 @@ def shape_format(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

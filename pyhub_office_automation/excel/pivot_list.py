@@ -27,7 +27,6 @@ from .utils import (
 
 def pivot_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="조회할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="특정 시트의 피벗테이블만 조회 (지정하지 않으면 전체 워크북)"),
     include_details: bool = typer.Option(False, "--include-details", help="피벗테이블 상세 정보 포함 여부 (기본값: False)"),
@@ -41,19 +40,18 @@ def pivot_list(
 
     워크북 접근 방법:
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근
+        - --workbook-name: 열린 워크북 이름으로 접근
 
     예제:
         oa excel pivot-list --file-path "sales.xlsx"
-        oa excel pivot-list --use-active --include-details
+        oa excel pivot-list --include-details
         oa excel pivot-list --workbook-name "Report.xlsx" --sheet "Dashboard"
     """
     book = None
 
     try:
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
         pivot_tables = []
 

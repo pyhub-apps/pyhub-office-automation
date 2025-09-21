@@ -30,7 +30,6 @@ from .utils import (
 
 def pivot_create(
     file_path: Optional[str] = typer.Option(None, help="피벗테이블을 생성할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     source_range: str = typer.Option(..., help='소스 데이터 범위 (예: "A1:D100" 또는 "Data!A1:D100")'),
     dest_range: str = typer.Option("F1", help='피벗테이블을 생성할 위치 (기본값: "F1")'),
@@ -47,13 +46,13 @@ def pivot_create(
     Windows 전용 기능으로, macOS에서는 에러가 발생합니다.
 
     워크북 접근 방법:
+    - 옵션 없음: 활성 워크북 자동 사용 (기본값)
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
     - --workbook-name: 열린 워크북 이름으로 접근
 
     예제:
         oa excel pivot-create --file-path "sales.xlsx" --source-range "A1:D100"
-        oa excel pivot-create --use-active --source-range "Data!A1:F200" --dest-range "H1"
+        oa excel pivot-create --source-range "Data!A1:F200" --dest-range "H1"
         oa excel pivot-create --workbook-name "Report.xlsx" --source-range "A1:E50" --pivot-name "SalesPivot"
     """
     book = None
@@ -74,7 +73,7 @@ def pivot_create(
             raise ValueError(f"잘못된 목적지 범위 형식입니다: {dest_range}")
 
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
         # 소스 시트 가져오기
         source_sheet = get_sheet(book, source_sheet_name)

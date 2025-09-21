@@ -27,7 +27,6 @@ from .utils import (
 
 def textbox_add(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="텍스트 박스를 추가할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="텍스트 박스를 추가할 시트 이름 (지정하지 않으면 활성 시트)"),
     text: str = typer.Option(..., "--text", help="텍스트 박스에 입력할 텍스트 내용"),
@@ -62,8 +61,7 @@ def textbox_add(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 텍스트 스타일링 ===
     • --font-size: 글꼴 크기 (포인트)
@@ -89,38 +87,38 @@ def textbox_add(
     === 대시보드 구성 시나리오 ===
 
     # 1. 대시보드 메인 제목
-    oa excel textbox-add --use-active --text "월별 매출 현황 대시보드" \\
+    oa excel textbox-add --text "월별 매출 현황 대시보드" \\
         --left 70 --top 80 --width 760 --height 60 \\
         --font-size 24 --font-color "#FFFFFF" --bold --alignment center \\
         --name "MainTitle"
 
     # 2. 차트 제목들
-    oa excel textbox-add --use-active --text "지역별 매출" \\
+    oa excel textbox-add --text "지역별 매출" \\
         --left 90 --top 180 --width 350 --height 30 \\
         --font-size 16 --font-color "#1D2433" --bold --alignment center \\
         --fill-color "#F8F9FA" --name "Chart1Title"
 
-    oa excel textbox-add --use-active --text "월별 성장률" \\
+    oa excel textbox-add --text "월별 성장률" \\
         --left 460 --top 180 --width 350 --height 30 \\
         --font-size 16 --font-color "#1D2433" --bold --alignment center \\
         --fill-color "#F8F9FA" --name "Chart2Title"
 
     # 3. 설명 텍스트
-    oa excel textbox-add --use-active \\
+    oa excel textbox-add \\
         --text "이 대시보드는 실시간 매출 데이터를 기반으로 작성되었습니다." \\
         --left 90 --top 520 --width 720 --height 40 \\
         --font-size 10 --font-color "#6C757D" --italic --alignment center \\
         --no-border --name "Description"
 
     # 4. KPI 라벨들
-    oa excel textbox-add --use-active --text "총 매출" \\
+    oa excel textbox-add --text "총 매출" \\
         --left 100 --top 400 --width 100 --height 25 \\
         --font-size 14 --font-color "#495057" --bold --alignment center \\
         --fill-color "#E9ECEF" --border-color "#DEE2E6" --border-width 1 \\
         --name "KPI1Label"
 
     # 5. 다중 라인 텍스트 (자동 줄바꿈)
-    oa excel textbox-add --use-active \\
+    oa excel textbox-add \\
         --text "주요 성과 지표:\\n• 매출 증가율: 15%\\n• 신규 고객: 234명\\n• 고객 만족도: 4.7/5.0" \\
         --left 90 --top 450 --width 300 --height 80 \\
         --font-size 11 --font-color "#495057" --word-wrap --auto-size \\
@@ -130,13 +128,13 @@ def textbox_add(
     === 고급 활용 ===
 
     # 투명 오버레이 텍스트
-    oa excel textbox-add --use-active --text "DRAFT" \\
+    oa excel textbox-add --text "DRAFT" \\
         --left 300 --top 250 --width 200 --height 100 \\
         --font-size 48 --font-color "#DC3545" --bold --alignment center \\
         --vertical-alignment middle --transparency 70 --name "Watermark"
 
     # 컬러 태그 라벨
-    oa excel textbox-add --use-active --text "신규" \\
+    oa excel textbox-add --text "신규" \\
         --left 450 --top 200 --width 50 --height 20 \\
         --font-size 10 --font-color "#FFFFFF" --bold --alignment center \\
         --vertical-alignment middle --fill-color "#28A745" --no-border \\
@@ -172,9 +170,7 @@ def textbox_add(
                 raise ValueError(error_msg)
 
             # 워크북 연결
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
@@ -393,7 +389,7 @@ def textbox_add(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

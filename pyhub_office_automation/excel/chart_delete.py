@@ -82,7 +82,6 @@ def get_chart_info_before_deletion(chart):
 
 def chart_delete(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 삭제할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
     chart_name: Optional[str] = typer.Option(None, "--chart-name", help="삭제할 차트의 이름"),
@@ -101,8 +100,7 @@ def chart_delete(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용 (권장)
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 차트 선택 방법 ===
     삭제할 차트를 지정하는 세 가지 방법:
@@ -142,7 +140,7 @@ def chart_delete(
     === 실제 활용 예제 ===
 
     # 1. 첫 번째 차트 삭제
-    oa excel chart-delete --use-active --chart-index 0
+    oa excel chart-delete --chart-index 0
 
     # 2. 이름으로 특정 차트 삭제
     oa excel chart-delete --file-path "report.xlsx" --chart-name "SalesChart"
@@ -151,13 +149,13 @@ def chart_delete(
     oa excel chart-delete --workbook-name "Dashboard.xlsx" --sheet "Charts" --chart-index 1
 
     # 4. 전체 차트 삭제 (안전 확인 후)
-    oa excel chart-delete --use-active --sheet "Dashboard" --all-charts --confirm
+    oa excel chart-delete --sheet "Dashboard" --all-charts --confirm
 
     # 5. 삭제 결과 텍스트 형식으로 확인
     oa excel chart-delete --workbook-name "Old_Report.xlsx" --all-charts --confirm --format text
 
     # 6. 저장 없이 미리보기
-    oa excel chart-delete --use-active --chart-index 0 --save false
+    oa excel chart-delete --chart-index 0 --save false
 
     === 삭제 전 체크리스트 ===
     • chart-list 명령으로 삭제 대상 차트 확인
@@ -183,7 +181,7 @@ def chart_delete(
 
     try:
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
         # 시트 가져오기
         target_sheet = get_sheet(book, sheet)
@@ -299,7 +297,7 @@ def chart_delete(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

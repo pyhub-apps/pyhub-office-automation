@@ -19,7 +19,6 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 
 def workbook_info(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="조회할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 정보를 조회합니다"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 찾기"),
     include_sheets: bool = typer.Option(False, "--include-sheets", help="시트 목록 및 상세 정보 포함"),
     include_names: bool = typer.Option(False, "--include-names", help="정의된 이름(Named Ranges) 포함"),
@@ -29,24 +28,24 @@ def workbook_info(
     """
     특정 Excel 워크북의 상세 정보를 조회합니다.
 
-    다음 방법 중 하나를 사용할 수 있습니다:
-    - --file-path: 지정된 경로의 파일 정보를 조회합니다 (파일을 열어야 함)
-    - --use-active: 현재 활성 워크북의 정보를 조회합니다
-    - --workbook-name: 이미 열린 워크북을 이름으로 찾아 조회합니다
+    \b
+    워크북 접근 방법:
+      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • --file-path: 파일 경로로 워크북 열기
+      • --workbook-name: 열린 워크북 이름으로 접근
 
-    예제:
-        oa excel workbook-info --use-active --include-sheets
-        oa excel workbook-info --workbook-name "Sales.xlsx" --include-properties
-        oa excel workbook-info --file-path "data.xlsx" --include-names
+    \b
+    사용 예제:
+      oa excel workbook-info --include-sheets
+      oa excel workbook-info --workbook-name "Sales.xlsx" --include-properties
+      oa excel workbook-info --file-path "data.xlsx" --include-names
     """
     book = None
     try:
-        # 옵션 검증
-        options_count = sum([bool(file_path), use_active, bool(workbook_name)])
-        if options_count == 0:
-            raise ValueError("--file-path, --use-active, --workbook-name 중 하나는 반드시 지정해야 합니다")
-        elif options_count > 1:
-            raise ValueError("--file-path, --use-active, --workbook-name 중 하나만 지정할 수 있습니다")
+        # 옵션 검증 (이제 빈 옵션은 자동으로 활성 워크북 사용)
+        options_count = sum([bool(file_path), bool(workbook_name)])
+        if options_count > 1:
+            raise ValueError("--file-path, --workbook-name 중 하나만 지정할 수 있습니다")
 
         # 파일 경로가 지정된 경우 파일 검증
         if file_path:
@@ -59,7 +58,7 @@ def workbook_info(
         # 실행 시간 측정 시작
         with ExecutionTimer() as timer:
             # 워크북 가져오기
-            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=True)
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=True)
 
             # 기본 워크북 정보 수집
             try:
@@ -201,7 +200,7 @@ def workbook_info(
             data_content = {
                 "workbook": workbook_data,
                 "application": app_info,
-                "connection_method": "file_path" if file_path else ("active" if use_active else "workbook_name"),
+                "connection_method": "file_path" if file_path else ("workbook_name" if workbook_name else "active"),
                 "query_options": {
                     "include_sheets": include_sheets,
                     "include_names": include_names,
@@ -308,7 +307,7 @@ def workbook_info(
 
     finally:
         # 리소스 정리 - 파일을 직접 연 경우만 종료 고려
-        if book and file_path and not use_active:
+        if book and file_path:
             try:
                 book.app.quit()
             except:

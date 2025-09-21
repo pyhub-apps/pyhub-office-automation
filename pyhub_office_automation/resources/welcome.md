@@ -29,10 +29,10 @@ oa excel workbook-list
 oa excel workbook-create --save-path "test.xlsx" --name "첫번째테스트"
 
 # 데이터 쓰기
-oa excel range-write --use-active --range "A1" --data '["안녕", "세상아"]'
+oa excel range-write --range "A1" --data '["안녕", "세상아"]'
 
 # 데이터 읽기
-oa excel range-read --use-active --range "A1:B1"
+oa excel range-read --range "A1:B1"
 ```
 
 ## 📚 더 많은 도움말

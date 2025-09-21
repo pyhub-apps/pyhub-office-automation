@@ -32,10 +32,9 @@ from .utils import (
 
 def range_write(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="쓸 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
     range_str: str = typer.Option(..., "--range", help="쓸 시작 셀 위치 (예: A1, Sheet1!A1)"),
-    sheet: Optional[str] = typer.Option(None, "--sheet", help="시트 이름 (범위에 시트가 지정되지 않은 경우)"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="시트 이름 (미지정시 활성 시트 사용)"),
     data_file: Optional[str] = typer.Option(None, "--data-file", help="쓸 데이터가 포함된 파일 경로 (JSON/CSV)"),
     data: Optional[str] = typer.Option(None, "--data", help="직접 입력할 데이터 (JSON 형식)"),
     save: bool = typer.Option(True, "--save/--no-save", help="쓰기 후 파일 저장 여부"),
@@ -47,22 +46,24 @@ def range_write(
     Excel 셀 범위에 데이터를 씁니다.
 
     지정된 시작 위치부터 데이터를 쓸 수 있습니다.
-    데이터는 파일에서 읽거나 직접 입력할 수 있습니다.
 
+    \b
     워크북 접근 방법:
-    - --file-path: 파일 경로로 워크북 열기 (기존 방식)
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근
+      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • --file-path: 파일 경로로 워크북 열기
+      • --workbook-name: 열린 워크북 이름으로 접근
 
+    \b
     데이터 형식:
-    - 단일 값: "Hello"
-    - 1차원 배열: ["A", "B", "C"]
-    - 2차원 배열: [["Name", "Age"], ["John", 30], ["Jane", 25]]
+      • 단일 값: "Hello"
+      • 1차원 배열: ["A", "B", "C"]
+      • 2차원 배열: [["Name", "Age"], ["John", 30], ["Jane", 25]]
 
-    예제:
-        oa excel range-write --file-path "data.xlsx" --range "A1" --data '["Name", "Age"]'
-        oa excel range-write --use-active --range "A1" --data-file "data.json"
-        oa excel range-write --workbook-name "Sales.xlsx" --range "Sheet1!A1" --data-file "data.csv"
+    \b
+    사용 예제:
+      oa excel range-write --file-path "data.xlsx" --range "A1" --data '["Name", "Age"]'
+      oa excel range-write --range "A1" --data-file "data.json"
+      oa excel range-write --workbook-name "Sales.xlsx" --range "Sheet1!A1" --data-file "data.csv"
     """
     book = None
     temp_file_path = None
@@ -97,9 +98,7 @@ def range_write(
                     raise ValueError(f"JSON 데이터 형식이 잘못되었습니다: {str(e)}")
 
             # 워크북 연결
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 시트 및 범위 처리
             sheet_name = parsed_sheet or sheet

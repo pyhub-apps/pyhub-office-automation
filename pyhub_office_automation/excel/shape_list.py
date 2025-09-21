@@ -25,7 +25,6 @@ from .utils import (
 
 def shape_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 조회할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="도형을 조회할 시트 이름 (지정하지 않으면 활성 시트)"),
     detailed: bool = typer.Option(False, "--detailed", help="상세 정보 포함 (색상, 투명도, 텍스트 등)"),
@@ -42,8 +41,7 @@ def shape_list(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 조회 옵션 ===
     • 기본 조회: 도형 이름, 타입, 위치, 크기
@@ -66,16 +64,16 @@ def shape_list(
     === 사용 시나리오 ===
 
     # 1. 활성 시트의 모든 도형 기본 정보 조회
-    oa excel shape-list --use-active
+    oa excel shape-list
 
     # 2. 특정 시트의 상세한 도형 정보 조회
     oa excel shape-list --file-path "dashboard.xlsx" --sheet "Dashboard" --detailed
 
     # 3. 특정 타입의 도형만 필터링
-    oa excel shape-list --use-active --filter-type "rectangle" --detailed
+    oa excel shape-list --filter-type "rectangle" --detailed
 
     # 4. 텍스트 내용까지 포함한 전체 조회 (Windows)
-    oa excel shape-list --use-active --detailed --include-text
+    oa excel shape-list --detailed --include-text
 
     # 5. 대시보드 분석을 위한 전체 정보 수집
     oa excel shape-list --workbook-name "Report.xlsx" --sheet "Dashboard" \\
@@ -116,9 +114,7 @@ def shape_list(
     try:
         with ExecutionTimer() as timer:
             # 워크북 연결
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
@@ -223,7 +219,7 @@ def shape_list(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

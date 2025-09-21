@@ -30,7 +30,6 @@ from .utils import (
 
 def slicer_add(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서를 추가할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="슬라이서를 배치할 시트 이름 (지정하지 않으면 활성 시트)"),
     pivot_table: str = typer.Option(..., "--pivot-table", help="슬라이서를 생성할 피벗테이블 이름"),
@@ -57,8 +56,7 @@ def slicer_add(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 슬라이서 생성 조건 ===
     • 대상 피벗테이블이 존재해야 함
@@ -82,22 +80,22 @@ def slicer_add(
     === 대시보드 구성 시나리오 ===
 
     # 1. 지역별 매출 필터 슬라이서
-    oa excel slicer-add --use-active --pivot-table "SalesPivot" --field "지역" \\
+    oa excel slicer-add --pivot-table "SalesPivot" --field "지역" \\
         --left 90 --top 400 --width 200 --height 120 \\
         --name "RegionSlicer" --caption "지역 선택" --columns 2
 
     # 2. 기간 필터 슬라이서 (세로 레이아웃)
-    oa excel slicer-add --use-active --pivot-table "SalesPivot" --field "월" \\
+    oa excel slicer-add --pivot-table "SalesPivot" --field "월" \\
         --left 320 --top 400 --width 150 --height 180 \\
         --name "MonthSlicer" --caption "기간" --columns 1 --style "medium"
 
     # 3. 제품 카테고리 슬라이서 (가로 레이아웃)
-    oa excel slicer-add --use-active --pivot-table "ProductPivot" --field "카테고리" \\
+    oa excel slicer-add --pivot-table "ProductPivot" --field "카테고리" \\
         --left 500 --top 400 --width 300 --height 80 \\
         --name "CategorySlicer" --caption "제품 분류" --columns 3 --item-height 25
 
     # 4. 판매자 필터 (어두운 스타일)
-    oa excel slicer-add --use-active --pivot-table "SalesPivot" --field "판매자" \\
+    oa excel slicer-add --pivot-table "SalesPivot" --field "판매자" \\
         --left 90 --top 550 --width 180 --height 150 \\
         --name "SalespersonSlicer" --caption "담당자" --style "dark"
 
@@ -105,11 +103,11 @@ def slicer_add(
 
     # 다중 피벗테이블 연동 준비 (연결은 slicer-connect로)
     # 1. 메인 매출 분석용
-    oa excel slicer-add --use-active --pivot-table "MainSalesPivot" --field "지역" \\
+    oa excel slicer-add --pivot-table "MainSalesPivot" --field "지역" \\
         --left 100 --top 500 --width 200 --height 100 --name "MainRegionSlicer"
 
     # 2. 트렌드 분석용 (같은 필드, 다른 피벗테이블)
-    oa excel slicer-add --use-active --pivot-table "TrendPivot" --field "지역" \\
+    oa excel slicer-add --pivot-table "TrendPivot" --field "지역" \\
         --left 320 --top 500 --width 200 --height 100 --name "TrendRegionSlicer"
 
     # 3. 통합 슬라이서로 업그레이드 예정
@@ -119,18 +117,18 @@ def slicer_add(
 
     # 뉴모피즘 슬라이서 박스 내부 배치
     # 1. 배경 도형 먼저 생성 (shape-add로)
-    oa excel shape-add --use-active --shape-type rounded_rectangle \\
+    oa excel shape-add --shape-type rounded_rectangle \\
         --left 80 --top 380 --width 740 --height 140 \\
         --style-preset slicer-box --name "SlicerBackground"
 
     # 2. 슬라이서들을 배경 내부에 배치
-    oa excel slicer-add --use-active --pivot-table "SalesPivot" --field "지역" \\
+    oa excel slicer-add --pivot-table "SalesPivot" --field "지역" \\
         --left 100 --top 400 --width 150 --height 100
-    oa excel slicer-add --use-active --pivot-table "SalesPivot" --field "월" \\
+    oa excel slicer-add --pivot-table "SalesPivot" --field "월" \\
         --left 270 --top 400 --width 150 --height 100
-    oa excel slicer-add --use-active --pivot-table "SalesPivot" --field "제품" \\
+    oa excel slicer-add --pivot-table "SalesPivot" --field "제품" \\
         --left 440 --top 400 --width 150 --height 100
-    oa excel slicer-add --use-active --pivot-table "SalesPivot" --field "담당자" \\
+    oa excel slicer-add --pivot-table "SalesPivot" --field "담당자" \\
         --left 610 --top 400 --width 150 --height 100
 
     === 사용 팁 ===
@@ -162,9 +160,7 @@ def slicer_add(
                 raise ValueError(error_msg)
 
             # 워크북 연결
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
@@ -317,7 +313,7 @@ def slicer_add(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

@@ -32,11 +32,10 @@ from .utils import (
 
 def range_read(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="읽을 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
     range_str: str = typer.Option(..., "--range", help="읽을 셀 범위 (예: A1:C10, Sheet1!A1:C10)"),
-    sheet: Optional[str] = typer.Option(None, "--sheet", help="시트 이름 (범위에 시트가 지정되지 않은 경우)"),
-    expand: Optional[ExpandMode] = typer.Option(None, "--expand", help="범위 확장 모드"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="시트 이름 (미지정시 활성 시트 사용)"),
+    expand: Optional[ExpandMode] = typer.Option(None, "--expand", help="범위 확장 모드 (table, down, right)"),
     include_formulas: bool = typer.Option(False, "--include-formulas", help="공식 포함 여부"),
     output_format: OutputFormat = typer.Option(OutputFormat.JSON, "--format", help="출력 형식 선택"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
@@ -45,18 +44,25 @@ def range_read(
     Excel 셀 범위의 데이터를 읽습니다.
 
     지정된 범위의 셀 값을 읽어서 구조화된 형태로 반환합니다.
-    공식, 포맷팅된 값, 원시 값 등을 선택적으로 포함할 수 있습니다.
 
+    \b
     워크북 접근 방법:
-    - --file-path: 파일 경로로 워크북 열기 (기존 방식)
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근
+      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • --file-path: 파일 경로로 워크북 열기
+      • --workbook-name: 열린 워크북 이름으로 접근
 
-    예제:
-        oa excel range-read --file-path "data.xlsx" --range "A1:C10"
-        oa excel range-read --use-active --range "A1:C10"
-        oa excel range-read --workbook-name "Sales.xlsx" --range "Sheet1!A1:C10" --format csv
-        oa excel range-read --file-path "data.xlsx" --range "A1" --expand table
+    \b
+    범위 확장 모드:
+      • table: 연결된 데이터 테이블 전체로 확장
+      • down: 아래쪽으로 데이터가 있는 곳까지 확장
+      • right: 오른쪽으로 데이터가 있는 곳까지 확장
+
+    \b
+    사용 예제:
+      oa excel range-read --file-path "data.xlsx" --range "A1:C10"
+      oa excel range-read --range "A1:C10"
+      oa excel range-read --workbook-name "Sales.xlsx" --range "Sheet1!A1:C10" --format csv
+      oa excel range-read --file-path "data.xlsx" --range "A1" --expand table
     """
     book = None
     try:
@@ -67,9 +73,7 @@ def range_read(
                 raise typer.BadParameter(f"잘못된 범위 형식입니다: {range_str}")
 
             # 워크북 연결 (새로운 통합 함수 사용)
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 시트 및 범위 파싱
             parsed_sheet, parsed_range = parse_range(range_str)

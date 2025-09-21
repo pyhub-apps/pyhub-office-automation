@@ -12,7 +12,6 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 
 def sheet_rename(
     workbook: Optional[str] = typer.Option(None, "--workbook", help="워크북 파일 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
     old_name: str = typer.Option(..., "--old-name", help="변경할 시트의 현재 이름"),
     new_name: str = typer.Option(..., "--new-name", help="시트의 새 이름"),
@@ -22,7 +21,7 @@ def sheet_rename(
     book = None
     try:
         with ExecutionTimer() as timer:
-            book = get_or_open_workbook(file_path=workbook, workbook_name=workbook_name, use_active=use_active, visible=True)
+            book = get_or_open_workbook(file_path=workbook, workbook_name=workbook_name, visible=True)
 
             # 기존 시트 존재 확인
             if old_name not in [sheet.name for sheet in book.sheets]:

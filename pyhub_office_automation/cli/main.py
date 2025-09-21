@@ -43,6 +43,7 @@ from pyhub_office_automation.excel.pivot_list import pivot_list
 from pyhub_office_automation.excel.pivot_refresh import pivot_refresh
 
 # Excel 명령어 import
+from pyhub_office_automation.excel.range_convert import range_convert
 from pyhub_office_automation.excel.range_read import range_read
 from pyhub_office_automation.excel.range_write import range_write
 
@@ -199,6 +200,7 @@ except Exception:
 # Range Commands
 excel_app.command("range-read")(range_read)
 excel_app.command("range-write")(range_write)
+excel_app.command("range-convert")(range_convert)
 
 # Workbook Commands
 excel_app.command("workbook-list")(workbook_list)
@@ -267,6 +269,7 @@ def excel_list_temp(
         # Range Commands
         {"name": "range-read", "description": "셀 범위 데이터 읽기", "category": "range"},
         {"name": "range-write", "description": "셀 범위에 데이터 쓰기", "category": "range"},
+        {"name": "range-convert", "description": "셀 범위 데이터 형식 변환 (문자열 → 숫자)", "category": "range"},
         # Table Commands
         {"name": "table-read", "description": "테이블 데이터를 DataFrame으로 읽기", "category": "table"},
         {"name": "table-write", "description": "DataFrame을 Excel 테이블로 쓰기", "category": "table"},

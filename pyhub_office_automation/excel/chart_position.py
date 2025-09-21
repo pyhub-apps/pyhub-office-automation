@@ -87,7 +87,6 @@ def calculate_relative_position(base_position, relative_direction, offset=10):
 
 def chart_position(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트가 있는 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
     chart_name: Optional[str] = typer.Option(None, "--chart-name", help="조정할 차트의 이름"),
@@ -114,8 +113,7 @@ def chart_position(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용 (권장)
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 차트 선택 방법 ===
     대상 차트를 지정하는 두 가지 방법:
@@ -170,10 +168,10 @@ def chart_position(
     === 실제 활용 시나리오 예제 ===
 
     # 1. 셀 기준 차트 이동 (가장 일반적)
-    oa excel chart-position --use-active --chart-index 0 --anchor-cell "H2"
+    oa excel chart-position --chart-index 0 --anchor-cell "H2"
 
     # 2. 차트 크기 조정과 위치 이동
-    oa excel chart-position --use-active --chart-name "SalesChart" \\
+    oa excel chart-position --chart-name "SalesChart" \\
         --anchor-cell "B10" --width 600 --height 400
 
     # 3. 픽셀 단위 정밀 배치 (프레젠테이션용)
@@ -181,18 +179,18 @@ def chart_position(
         --left 50 --top 80 --width 800 --height 500
 
     # 4. 여러 차트 정렬 배치
-    oa excel chart-position --use-active --chart-index 0 --anchor-cell "B2"
-    oa excel chart-position --use-active --chart-index 1 --anchor-cell "H2"
-    oa excel chart-position --use-active --chart-index 2 --anchor-cell "B15"
-    oa excel chart-position --use-active --chart-index 3 --anchor-cell "H15"
+    oa excel chart-position --chart-index 0 --anchor-cell "B2"
+    oa excel chart-position --chart-index 1 --anchor-cell "H2"
+    oa excel chart-position --chart-index 2 --anchor-cell "B15"
+    oa excel chart-position --chart-index 3 --anchor-cell "H15"
 
     # 5. 상대 위치 기반 배치 (고급)
     oa excel chart-position --workbook-name "Dashboard.xlsx" --chart-name "Chart2" \\
         --relative-to "Chart1" --relative-direction "right" --offset 20
 
     # 6. 대시보드 표준 크기로 일괄 조정
-    oa excel chart-position --use-active --chart-index 0 --width 450 --height 300
-    oa excel chart-position --use-active --chart-index 1 --width 450 --height 300
+    oa excel chart-position --chart-index 0 --width 450 --height 300
+    oa excel chart-position --chart-index 1 --width 450 --height 300
 
     === 차트 배치 모범 사례 ===
     • 일관된 크기: 같은 대시보드 내 차트는 동일하거나 조화로운 크기 사용
@@ -216,7 +214,7 @@ def chart_position(
 
     try:
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
         # 시트 가져오기
         target_sheet = get_sheet(book, sheet)
@@ -376,7 +374,7 @@ def chart_position(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

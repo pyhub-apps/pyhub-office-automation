@@ -18,7 +18,6 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 
 def workbook_open(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="열 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 정보를 가져옵니다"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 찾기"),
     visible: bool = typer.Option(True, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
@@ -26,23 +25,21 @@ def workbook_open(
     """
     Excel 워크북을 열거나 기존 워크북의 정보를 가져옵니다.
 
-    다음 방법 중 하나를 사용할 수 있습니다:
-    - --file-path: 지정된 경로의 파일을 엽니다
-    - --use-active: 현재 활성 워크북의 정보를 가져옵니다
-    - --workbook-name: 이미 열린 워크북을 이름으로 찾습니다
+    워크북 접근 방법:
+    - 옵션 없음: 활성 워크북 자동 사용 (기본값)
+    - --file-path: 파일 경로로 워크북 열기
+    - --workbook-name: 열린 워크북 이름으로 접근
 
     예제:
         oa excel workbook-open --file-path "data.xlsx"
-        oa excel workbook-open --use-active
+        oa excel workbook-open
         oa excel workbook-open --workbook-name "Sales.xlsx"
     """
     try:
-        # 옵션 검증
-        options_count = sum([bool(file_path), use_active, bool(workbook_name)])
-        if options_count == 0:
-            raise ValueError("--file-path, --use-active, --workbook-name 중 하나는 반드시 지정해야 합니다")
-        elif options_count > 1:
-            raise ValueError("--file-path, --use-active, --workbook-name 중 하나만 지정할 수 있습니다")
+        # 옵션 검증 (이제 빈 옵션은 자동으로 활성 워크북 사용)
+        options_count = sum([bool(file_path), bool(workbook_name)])
+        if options_count > 1:
+            raise ValueError("--file-path, --workbook-name 중 하나만 지정할 수 있습니다")
 
         # 파일 경로가 지정된 경우 파일 검증
         if file_path:
@@ -55,9 +52,7 @@ def workbook_open(
         # 실행 시간 측정 시작
         with ExecutionTimer() as timer:
             # 워크북 가져오기
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 앱 객체 가져오기
             app = book.app
@@ -132,11 +127,11 @@ def workbook_open(
             data_content = {
                 "workbook": workbook_info,
                 "application": app_info,
-                "connection_method": "file_path" if file_path else ("active" if use_active else "workbook_name"),
+                "connection_method": "file_path" if file_path else ("workbook_name" if workbook_name else "active"),
             }
 
             # 성공 메시지
-            if use_active:
+            if not file_path and not workbook_name:
                 message = f"활성 워크북 '{workbook_info['name']}' 정보를 가져왔습니다"
             elif workbook_name:
                 message = f"워크북 '{workbook_info['name']}' 정보를 가져왔습니다"

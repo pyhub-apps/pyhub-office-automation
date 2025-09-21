@@ -26,7 +26,6 @@ from .utils import (
 
 def slicer_connect(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서 연결을 관리할 Excel 파일의 절대 경로"),
-    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     slicer_name: str = typer.Option(..., "--slicer-name", help="연결을 관리할 슬라이서 이름"),
     action: str = typer.Option(..., "--action", help="작업 유형: connect(연결), disconnect(연결 해제), list(연결 상태 조회)"),
@@ -49,8 +48,7 @@ def slicer_connect(
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-    - --use-active: 현재 활성 워크북 사용
-    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 작업 유형 ===
     • connect: 슬라이서를 피벗테이블에 연결
@@ -70,39 +68,39 @@ def slicer_connect(
     === 슬라이서 연결 시나리오 ===
 
     # 1. 지역 슬라이서를 여러 피벗테이블에 연결 (통합 필터링)
-    oa excel slicer-connect --use-active --slicer-name "RegionSlicer" \\
+    oa excel slicer-connect --slicer-name "RegionSlicer" \\
         --action connect --pivot-tables "SalesPivot,TrendPivot,KPIPivot"
 
     # 2. 모든 피벗테이블에 월별 슬라이서 연결
-    oa excel slicer-connect --use-active --slicer-name "MonthSlicer" \\
+    oa excel slicer-connect --slicer-name "MonthSlicer" \\
         --action connect --all-pivots
 
     # 3. 특정 시트의 피벗테이블에만 연결
-    oa excel slicer-connect --use-active --slicer-name "CategorySlicer" \\
+    oa excel slicer-connect --slicer-name "CategorySlicer" \\
         --action connect --target-sheet "Analysis" --all-pivots
 
     # 4. 연결 전 호환성 확인 (dry-run)
-    oa excel slicer-connect --use-active --slicer-name "ProductSlicer" \\
+    oa excel slicer-connect --slicer-name "ProductSlicer" \\
         --action connect --pivot-tables "DetailPivot,SummaryPivot" --dry-run
 
     === 연결 해제 시나리오 ===
 
     # 1. 특정 피벗테이블과의 연결 해제
-    oa excel slicer-connect --use-active --slicer-name "RegionSlicer" \\
+    oa excel slicer-connect --slicer-name "RegionSlicer" \\
         --action disconnect --pivot-tables "OldPivot"
 
     # 2. 모든 연결 해제 (슬라이서 독립화)
-    oa excel slicer-connect --use-active --slicer-name "TempSlicer" \\
+    oa excel slicer-connect --slicer-name "TempSlicer" \\
         --action disconnect --all-pivots
 
     # 3. 강제 연결 해제 (오류 무시)
-    oa excel slicer-connect --use-active --slicer-name "BrokenSlicer" \\
+    oa excel slicer-connect --slicer-name "BrokenSlicer" \\
         --action disconnect --all-pivots --force
 
     === 연결 상태 조회 ===
 
     # 1. 슬라이서의 모든 연결 상태 확인
-    oa excel slicer-connect --use-active --slicer-name "RegionSlicer" --action list
+    oa excel slicer-connect --slicer-name "RegionSlicer" --action list
 
     # 2. 연결 상태와 호환성 정보 확인
     oa excel slicer-connect --file-path "dashboard.xlsx" \\
@@ -112,35 +110,35 @@ def slicer_connect(
 
     # 단계별 대시보드 슬라이서 연결 구성
     # 1. 지역 필터 - 모든 분석에 적용
-    oa excel slicer-connect --use-active --slicer-name "RegionSlicer" \\
+    oa excel slicer-connect --slicer-name "RegionSlicer" \\
         --action connect --pivot-tables "MainSales,TrendAnalysis,KPIDashboard,DetailReport"
 
     # 2. 기간 필터 - 시계열 분석에만 적용
-    oa excel slicer-connect --use-active --slicer-name "DateSlicer" \\
+    oa excel slicer-connect --slicer-name "DateSlicer" \\
         --action connect --pivot-tables "TrendAnalysis,MonthlyReport"
 
     # 3. 제품 분류 - 제품 관련 분석에만 적용
-    oa excel slicer-connect --use-active --slicer-name "CategorySlicer" \\
+    oa excel slicer-connect --slicer-name "CategorySlicer" \\
         --action connect --pivot-tables "ProductAnalysis,CategorySales"
 
     # 4. 전체 연결 상태 확인
-    oa excel slicer-connect --use-active --slicer-name "RegionSlicer" --action list
-    oa excel slicer-connect --use-active --slicer-name "DateSlicer" --action list
-    oa excel slicer-connect --use-active --slicer-name "CategorySlicer" --action list
+    oa excel slicer-connect --slicer-name "RegionSlicer" --action list
+    oa excel slicer-connect --slicer-name "DateSlicer" --action list
+    oa excel slicer-connect --slicer-name "CategorySlicer" --action list
 
     === 고급 연결 관리 ===
 
     # 성능 최적화를 위한 선별적 연결
     # 1. 메인 대시보드 슬라이서는 핵심 피벗테이블에만 연결
-    oa excel slicer-connect --use-active --slicer-name "MainRegionSlicer" \\
+    oa excel slicer-connect --slicer-name "MainRegionSlicer" \\
         --action connect --pivot-tables "PrimarySales,CoreKPI"
 
     # 2. 상세 분석 슬라이서는 해당 분석용 피벗테이블에만 연결
-    oa excel slicer-connect --use-active --slicer-name "DetailCategorySlicer" \\
+    oa excel slicer-connect --slicer-name "DetailCategorySlicer" \\
         --action connect --target-sheet "DetailAnalysis" --all-pivots
 
     # 3. 임시 슬라이서 정리 (모든 연결 해제)
-    oa excel slicer-connect --use-active --slicer-name "TempFilterSlicer" \\
+    oa excel slicer-connect --slicer-name "TempFilterSlicer" \\
         --action disconnect --all-pivots
 
     === 연결 호환성 조건 ===
@@ -174,9 +172,7 @@ def slicer_connect(
                 raise RuntimeError("슬라이서 연결 관리는 Windows에서만 지원됩니다")
 
             # 워크북 연결
-            book = get_or_open_workbook(
-                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 슬라이서 찾기
             slicer_cache = get_slicer_by_name(book, slicer_name)
@@ -231,7 +227,7 @@ def slicer_connect(
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not use_active and not workbook_name:
+        if book and file_path and not workbook_name:
             try:
                 if visible:
                     # 화면에 표시하는 경우 닫지 않음

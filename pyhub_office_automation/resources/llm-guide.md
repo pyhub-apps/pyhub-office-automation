@@ -82,10 +82,10 @@ oa excel range-read --file-path "C:\path\to\file.xlsx" --range "A1:C10"
 oa excel range-read --file-path "/path/to/file.xlsx" --range "A1:C10"
 ```
 
-### 방법 2: 활성 워크북 (`--use-active`)
+### 방법 2: 활성 워크북 (기본값)
 
 ```bash
-oa excel range-read --use-active --range "A1:C10"
+oa excel range-read --range "A1:C10"
 ```
 
 ### 방법 3: 워크북 이름 (`--workbook-name`)
@@ -101,9 +101,9 @@ oa excel range-read --workbook-name "Sales.xlsx" --range "A1:C10"
 ```bash
 # 한번 열고 여러 작업 수행
 oa excel workbook-open --file-path "report.xlsx"
-oa excel sheet-add --use-active --name "Results"
-oa excel range-write --use-active --range "A1" --data '["Name", "Score"]'
-oa excel table-read --use-active --output-file "summary.csv"
+oa excel sheet-add --name "Results"
+oa excel range-write --range "A1" --data '["Name", "Score"]'
+oa excel table-read --output-file "summary.csv"
 ```
 
 ### 패턴 2: 컨텍스트 기반 분석
@@ -161,13 +161,13 @@ oa excel workbook-info --workbook-name "target.xlsx" --include-sheets
 **Windows**
 ```powershell
 # 큰 데이터는 임시 파일 사용
-oa excel table-write --use-active --data-file "C:\temp\large_data.json" --table-name "BigTable"
+oa excel table-write --data-file "C:\temp\large_data.json" --table-name "BigTable"
 ```
 
 **macOS/Linux**
 ```bash
 # 큰 데이터는 임시 파일 사용
-oa excel table-write --use-active --data-file "/tmp/large_data.json" --table-name "BigTable"
+oa excel table-write --data-file "/tmp/large_data.json" --table-name "BigTable"
 ```
 
 ## ⚠️ 에러 처리 가이드
@@ -255,7 +255,7 @@ oa excel range-read --workbook-name "target.xlsx" --range "A1:C10"
 
 ## 📈 성능 최적화 팁
 
-1. **연결 재사용**: 같은 워크북에 여러 작업 시 `--use-active` 또는 `--workbook-name` 사용
+1. **연결 재사용**: 같은 워크북에 여러 작업 시 옵션 없이 활성 워크북 자동 사용 또는 `--workbook-name` 사용
 2. **배치 처리**: 여러 데이터 작업을 하나의 큰 범위로 통합
 3. **임시 파일**: 큰 데이터는 `--data-file` 옵션 사용
 4. **컨텍스트 캐싱**: `workbook-list`, `workbook-info` 결과를 캐시하여 반복 호출 최소화
@@ -272,7 +272,7 @@ oa excel range-read --workbook-name "target.xlsx" --range "A1:C10"
    - 파일 경로는 절대 경로 사용 권장
 
 3. **워크플로우 최적화**:
-   - 연속 작업 시 `--use-active` 방식 활용
+   - 연속 작업 시 옵션 없이 활성 워크북 자동 사용
    - 필요한 경우에만 새 워크북 열기
 
 4. **크로스 플랫폼 대응**:
