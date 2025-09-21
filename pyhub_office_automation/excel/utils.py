@@ -1131,6 +1131,341 @@ def apply_neumorphism_style(shape, style_name: str) -> bool:
         return False
 
 
+# =============================================================================
+# 범위 관리 및 자동 배치 유틸리티 함수들
+# =============================================================================
+
+
+def excel_address_to_coords(address: str) -> Tuple[int, int]:
+    """
+    Excel 주소(A1)를 좌표(row, col)로 변환합니다.
+
+    Args:
+        address: Excel 주소 (예: "A1", "BC123")
+
+    Returns:
+        (row, col) 튜플 (1-based index)
+
+    Raises:
+        ValueError: 잘못된 주소 형식
+    """
+    import re
+
+    # 주소 형식 검증
+    match = re.match(r"^([A-Z]+)(\d+)$", address.upper())
+    if not match:
+        raise ValueError(f"잘못된 Excel 주소 형식: {address}")
+
+    col_letters, row_str = match.groups()
+    row = int(row_str)
+
+    # 열 문자를 숫자로 변환 (A=1, B=2, ..., Z=26, AA=27, ...)
+    col = 0
+    for i, letter in enumerate(reversed(col_letters)):
+        col += (ord(letter) - ord("A") + 1) * (26**i)
+
+    return row, col
+
+
+def coords_to_excel_address(row: int, col: int) -> str:
+    """
+    좌표(row, col)를 Excel 주소로 변환합니다.
+
+    Args:
+        row: 행 번호 (1-based)
+        col: 열 번호 (1-based)
+
+    Returns:
+        Excel 주소 (예: "A1", "BC123")
+    """
+    if row < 1 or col < 1:
+        raise ValueError("행과 열 번호는 1 이상이어야 합니다")
+
+    # 열 번호를 문자로 변환
+    col_letters = ""
+    while col > 0:
+        col -= 1
+        col_letters = chr(ord("A") + col % 26) + col_letters
+        col //= 26
+
+    return f"{col_letters}{row}"
+
+
+def parse_excel_range(range_str: str) -> Tuple[int, int, int, int]:
+    """
+    Excel 범위(A1:C10)를 좌표로 파싱합니다.
+
+    Args:
+        range_str: Excel 범위 (예: "A1:C10", "A1" 단일 셀도 가능)
+
+    Returns:
+        (start_row, start_col, end_row, end_col) 튜플 (1-based)
+
+    Raises:
+        ValueError: 잘못된 범위 형식
+    """
+    range_str = range_str.strip()
+
+    if ":" in range_str:
+        # 범위 형식 (A1:C10)
+        start_addr, end_addr = range_str.split(":", 1)
+        start_row, start_col = excel_address_to_coords(start_addr.strip())
+        end_row, end_col = excel_address_to_coords(end_addr.strip())
+    else:
+        # 단일 셀 형식 (A1)
+        start_row, start_col = excel_address_to_coords(range_str)
+        end_row, end_col = start_row, start_col
+
+    return start_row, start_col, end_row, end_col
+
+
+def check_range_overlap(range1: str, range2: str) -> bool:
+    """
+    두 Excel 범위가 겹치는지 검사합니다.
+
+    Args:
+        range1: 첫 번째 범위 (예: "A1:C10")
+        range2: 두 번째 범위 (예: "B5:D15")
+
+    Returns:
+        겹치면 True, 겹치지 않으면 False
+    """
+    try:
+        r1_start_row, r1_start_col, r1_end_row, r1_end_col = parse_excel_range(range1)
+        r2_start_row, r2_start_col, r2_end_row, r2_end_col = parse_excel_range(range2)
+
+        # 겹침 검사: 한 범위가 다른 범위 완전히 벗어나지 않으면 겹침
+        return not (
+            r1_end_row < r2_start_row or r1_start_row > r2_end_row or r1_end_col < r2_start_col or r1_start_col > r2_end_col
+        )
+    except (ValueError, Exception):
+        # 파싱 실패 시 안전하게 겹친다고 가정
+        return True
+
+
+def get_all_pivot_ranges(sheet: xw.Sheet) -> List[str]:
+    """
+    시트의 모든 피벗 테이블 범위를 가져옵니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+
+    Returns:
+        피벗 테이블 범위 목록 (예: ["F1:H20", "K1:M15"])
+    """
+    ranges = []
+
+    try:
+        if platform.system() == "Windows":
+            # Windows에서는 COM API 사용
+            for pivot_table in sheet.api.PivotTables():
+                try:
+                    # TableRange2는 데이터 영역을 포함한 전체 범위
+                    if hasattr(pivot_table, "TableRange2") and pivot_table.TableRange2:
+                        table_range = pivot_table.TableRange2.Address.replace("$", "")
+                        ranges.append(table_range)
+                    elif hasattr(pivot_table, "TableRange1") and pivot_table.TableRange1:
+                        table_range = pivot_table.TableRange1.Address.replace("$", "")
+                        ranges.append(table_range)
+                except Exception:
+                    # 개별 피벗 테이블 처리 실패 시 무시
+                    continue
+    except Exception:
+        # 피벗 테이블 접근 실패 시 빈 목록 반환
+        pass
+
+    return ranges
+
+
+def get_all_chart_ranges(sheet: xw.Sheet) -> List[Tuple[str, int, int]]:
+    """
+    시트의 모든 차트 위치와 크기를 가져옵니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+
+    Returns:
+        차트 정보 목록 [(range_estimate, width, height), ...]
+        range_estimate는 차트가 차지하는 대략적인 셀 범위
+    """
+    chart_info = []
+
+    try:
+        for chart in sheet.charts:
+            try:
+                # 차트의 픽셀 위치와 크기
+                left = chart.left
+                top = chart.top
+                width = chart.width
+                height = chart.height
+
+                # 픽셀 좌표를 대략적인 셀 좌표로 변환
+                # (Excel 기본 열 너비 약 64픽셀, 행 높이 약 15픽셀)
+                start_col = max(1, int(left / 64) + 1)
+                start_row = max(1, int(top / 15) + 1)
+                end_col = start_col + max(1, int(width / 64))
+                end_row = start_row + max(1, int(height / 15))
+
+                range_estimate = f"{coords_to_excel_address(start_row, start_col)}:{coords_to_excel_address(end_row, end_col)}"
+                chart_info.append((range_estimate, width, height))
+
+            except Exception:
+                # 개별 차트 처리 실패 시 무시
+                continue
+    except Exception:
+        # 차트 접근 실패 시 빈 목록 반환
+        pass
+
+    return chart_info
+
+
+def find_available_position(
+    sheet: xw.Sheet, min_spacing: int = 2, preferred_position: str = "right", estimate_size: Tuple[int, int] = (10, 5)
+) -> str:
+    """
+    시트에서 피벗 테이블이나 차트 배치에 적합한 빈 위치를 찾습니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+        min_spacing: 기존 객체와의 최소 간격 (열 단위)
+        preferred_position: 선호 배치 방향 ("right" 또는 "bottom")
+        estimate_size: 예상 크기 (cols, rows) - 피벗 테이블용
+
+    Returns:
+        추천 위치의 Excel 주소 (예: "F1")
+
+    Raises:
+        RuntimeError: 적절한 위치를 찾을 수 없는 경우
+    """
+    # 기존 객체들의 범위 수집
+    existing_ranges = []
+
+    # 피벗 테이블 범위 추가
+    pivot_ranges = get_all_pivot_ranges(sheet)
+    existing_ranges.extend(pivot_ranges)
+
+    # 차트 범위 추가 (차트는 범위만 사용)
+    chart_info = get_all_chart_ranges(sheet)
+    for chart_range, _, _ in chart_info:
+        existing_ranges.append(chart_range)
+
+    # 사용된 데이터 영역도 고려
+    try:
+        used_range = sheet.used_range
+        if used_range:
+            data_range = used_range.address.replace("$", "")
+            existing_ranges.append(data_range)
+    except Exception:
+        # used_range 접근 실패 시 무시
+        pass
+
+    # 배치 후보 위치들 생성
+    candidates = []
+
+    if preferred_position == "right":
+        # 오른쪽 우선 배치
+        for start_col in range(1, 50):  # A~AX열까지 시도
+            for start_row in range(1, 100):  # 1~100행까지 시도
+                candidates.append((start_row, start_col))
+    else:  # "bottom"
+        # 아래쪽 우선 배치
+        for start_row in range(1, 100):  # 1~100행까지 시도
+            for start_col in range(1, 50):  # A~AX열까지 시도
+                candidates.append((start_row, start_col))
+
+    # 각 후보 위치에서 겹침 검사
+    for row, col in candidates:
+        # 예상 크기로 범위 생성
+        end_row = row + estimate_size[1] - 1
+        end_col = col + estimate_size[0] - 1
+
+        candidate_range = f"{coords_to_excel_address(row, col)}:{coords_to_excel_address(end_row, end_col)}"
+
+        # 기존 범위들과 겹침 검사 (간격 고려)
+        has_conflict = False
+        for existing_range in existing_ranges:
+            try:
+                # 간격을 고려한 확장 범위로 겹침 검사
+                e_start_row, e_start_col, e_end_row, e_end_col = parse_excel_range(existing_range)
+
+                # 간격만큼 확장
+                e_start_row = max(1, e_start_row - min_spacing)
+                e_start_col = max(1, e_start_col - min_spacing)
+                e_end_row += min_spacing
+                e_end_col += min_spacing
+
+                expanded_existing = (
+                    f"{coords_to_excel_address(e_start_row, e_start_col)}:{coords_to_excel_address(e_end_row, e_end_col)}"
+                )
+
+                if check_range_overlap(candidate_range, expanded_existing):
+                    has_conflict = True
+                    break
+            except Exception:
+                # 파싱 실패 시 안전하게 충돌로 간주
+                has_conflict = True
+                break
+
+        if not has_conflict:
+            return coords_to_excel_address(row, col)
+
+    # 적절한 위치를 찾지 못한 경우
+    raise RuntimeError("시트에 충분한 빈 공간을 찾을 수 없습니다. 수동으로 위치를 지정하거나 기존 객체를 정리해주세요.")
+
+
+def estimate_pivot_table_size(source_range: str, field_count: int = 3) -> Tuple[int, int]:
+    """
+    피벗 테이블의 예상 크기를 추정합니다.
+
+    Args:
+        source_range: 소스 데이터 범위
+        field_count: 필드 개수 (기본값: 3)
+
+    Returns:
+        (예상_열수, 예상_행수) 튜플
+    """
+    try:
+        # 소스 데이터 크기에 기반한 추정
+        start_row, start_col, end_row, end_col = parse_excel_range(source_range)
+        data_rows = end_row - start_row + 1
+        data_cols = end_col - start_col + 1
+
+        # 보수적인 추정: 필드 개수 + 여백, 데이터 행의 일부 + 헤더
+        estimated_cols = min(field_count + 3, 15)  # 최대 15열
+        estimated_rows = min(max(data_rows // 10, 10), 50)  # 최소 10행, 최대 50행
+
+        return estimated_cols, estimated_rows
+    except Exception:
+        # 추정 실패 시 기본값
+        return 10, 20
+
+
+def validate_auto_position_requirements(sheet: xw.Sheet) -> Tuple[bool, str]:
+    """
+    자동 배치 기능 사용 가능 여부를 검사합니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+
+    Returns:
+        (사용가능여부, 메시지) 튜플
+    """
+    try:
+        # Windows에서만 완전한 기능 지원
+        if platform.system() != "Windows":
+            return False, "자동 배치 기능은 Windows에서만 완전히 지원됩니다"
+
+        # 시트 접근 가능 여부 확인
+        sheet_name = sheet.name
+        if not sheet_name:
+            return False, "시트 정보에 접근할 수 없습니다"
+
+        return True, ""
+
+    except Exception as e:
+        return False, f"자동 배치 기능을 사용할 수 없습니다: {str(e)}"
+
+
 def get_shape_by_name(sheet: xw.Sheet, shape_name: str) -> Optional[xw.Shape]:
     """
     시트에서 이름으로 도형을 찾습니다.
@@ -1475,3 +1810,338 @@ def apply_slicer_style(slicer, style_name: str = "slicer-box") -> bool:
 
     except Exception:
         return False
+
+
+# =============================================================================
+# 범위 관리 및 자동 배치 유틸리티 함수들
+# =============================================================================
+
+
+def excel_address_to_coords(address: str) -> Tuple[int, int]:
+    """
+    Excel 주소(A1)를 좌표(row, col)로 변환합니다.
+
+    Args:
+        address: Excel 주소 (예: "A1", "BC123")
+
+    Returns:
+        (row, col) 튜플 (1-based index)
+
+    Raises:
+        ValueError: 잘못된 주소 형식
+    """
+    import re
+
+    # 주소 형식 검증
+    match = re.match(r"^([A-Z]+)(\d+)$", address.upper())
+    if not match:
+        raise ValueError(f"잘못된 Excel 주소 형식: {address}")
+
+    col_letters, row_str = match.groups()
+    row = int(row_str)
+
+    # 열 문자를 숫자로 변환 (A=1, B=2, ..., Z=26, AA=27, ...)
+    col = 0
+    for i, letter in enumerate(reversed(col_letters)):
+        col += (ord(letter) - ord("A") + 1) * (26**i)
+
+    return row, col
+
+
+def coords_to_excel_address(row: int, col: int) -> str:
+    """
+    좌표(row, col)를 Excel 주소로 변환합니다.
+
+    Args:
+        row: 행 번호 (1-based)
+        col: 열 번호 (1-based)
+
+    Returns:
+        Excel 주소 (예: "A1", "BC123")
+    """
+    if row < 1 or col < 1:
+        raise ValueError("행과 열 번호는 1 이상이어야 합니다")
+
+    # 열 번호를 문자로 변환
+    col_letters = ""
+    while col > 0:
+        col -= 1
+        col_letters = chr(ord("A") + col % 26) + col_letters
+        col //= 26
+
+    return f"{col_letters}{row}"
+
+
+def parse_excel_range(range_str: str) -> Tuple[int, int, int, int]:
+    """
+    Excel 범위(A1:C10)를 좌표로 파싱합니다.
+
+    Args:
+        range_str: Excel 범위 (예: "A1:C10", "A1" 단일 셀도 가능)
+
+    Returns:
+        (start_row, start_col, end_row, end_col) 튜플 (1-based)
+
+    Raises:
+        ValueError: 잘못된 범위 형식
+    """
+    range_str = range_str.strip()
+
+    if ":" in range_str:
+        # 범위 형식 (A1:C10)
+        start_addr, end_addr = range_str.split(":", 1)
+        start_row, start_col = excel_address_to_coords(start_addr.strip())
+        end_row, end_col = excel_address_to_coords(end_addr.strip())
+    else:
+        # 단일 셀 형식 (A1)
+        start_row, start_col = excel_address_to_coords(range_str)
+        end_row, end_col = start_row, start_col
+
+    return start_row, start_col, end_row, end_col
+
+
+def check_range_overlap(range1: str, range2: str) -> bool:
+    """
+    두 Excel 범위가 겹치는지 검사합니다.
+
+    Args:
+        range1: 첫 번째 범위 (예: "A1:C10")
+        range2: 두 번째 범위 (예: "B5:D15")
+
+    Returns:
+        겹치면 True, 겹치지 않으면 False
+    """
+    try:
+        r1_start_row, r1_start_col, r1_end_row, r1_end_col = parse_excel_range(range1)
+        r2_start_row, r2_start_col, r2_end_row, r2_end_col = parse_excel_range(range2)
+
+        # 겹침 검사: 한 범위가 다른 범위 완전히 벗어나지 않으면 겹침
+        return not (
+            r1_end_row < r2_start_row or r1_start_row > r2_end_row or r1_end_col < r2_start_col or r1_start_col > r2_end_col
+        )
+    except (ValueError, Exception):
+        # 파싱 실패 시 안전하게 겹친다고 가정
+        return True
+
+
+def get_all_pivot_ranges(sheet: xw.Sheet) -> List[str]:
+    """
+    시트의 모든 피벗 테이블 범위를 가져옵니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+
+    Returns:
+        피벗 테이블 범위 목록 (예: ["F1:H20", "K1:M15"])
+    """
+    ranges = []
+
+    try:
+        if platform.system() == "Windows":
+            # Windows에서는 COM API 사용
+            for pivot_table in sheet.api.PivotTables():
+                try:
+                    # TableRange2는 데이터 영역을 포함한 전체 범위
+                    if hasattr(pivot_table, "TableRange2") and pivot_table.TableRange2:
+                        table_range = pivot_table.TableRange2.Address.replace("$", "")
+                        ranges.append(table_range)
+                    elif hasattr(pivot_table, "TableRange1") and pivot_table.TableRange1:
+                        table_range = pivot_table.TableRange1.Address.replace("$", "")
+                        ranges.append(table_range)
+                except Exception:
+                    # 개별 피벗 테이블 처리 실패 시 무시
+                    continue
+    except Exception:
+        # 피벗 테이블 접근 실패 시 빈 목록 반환
+        pass
+
+    return ranges
+
+
+def get_all_chart_ranges(sheet: xw.Sheet) -> List[Tuple[str, int, int]]:
+    """
+    시트의 모든 차트 위치와 크기를 가져옵니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+
+    Returns:
+        차트 정보 목록 [(range_estimate, width, height), ...]
+        range_estimate는 차트가 차지하는 대략적인 셀 범위
+    """
+    chart_info = []
+
+    try:
+        for chart in sheet.charts:
+            try:
+                # 차트의 픽셀 위치와 크기
+                left = chart.left
+                top = chart.top
+                width = chart.width
+                height = chart.height
+
+                # 픽셀 좌표를 대략적인 셀 좌표로 변환
+                # (Excel 기본 열 너비 약 64픽셀, 행 높이 약 15픽셀)
+                start_col = max(1, int(left / 64) + 1)
+                start_row = max(1, int(top / 15) + 1)
+                end_col = start_col + max(1, int(width / 64))
+                end_row = start_row + max(1, int(height / 15))
+
+                range_estimate = f"{coords_to_excel_address(start_row, start_col)}:{coords_to_excel_address(end_row, end_col)}"
+                chart_info.append((range_estimate, width, height))
+
+            except Exception:
+                # 개별 차트 처리 실패 시 무시
+                continue
+    except Exception:
+        # 차트 접근 실패 시 빈 목록 반환
+        pass
+
+    return chart_info
+
+
+def find_available_position(
+    sheet: xw.Sheet, min_spacing: int = 2, preferred_position: str = "right", estimate_size: Tuple[int, int] = (10, 5)
+) -> str:
+    """
+    시트에서 피벗 테이블이나 차트 배치에 적합한 빈 위치를 찾습니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+        min_spacing: 기존 객체와의 최소 간격 (열 단위)
+        preferred_position: 선호 배치 방향 ("right" 또는 "bottom")
+        estimate_size: 예상 크기 (cols, rows) - 피벗 테이블용
+
+    Returns:
+        추천 위치의 Excel 주소 (예: "F1")
+
+    Raises:
+        RuntimeError: 적절한 위치를 찾을 수 없는 경우
+    """
+    # 기존 객체들의 범위 수집
+    existing_ranges = []
+
+    # 피벗 테이블 범위 추가
+    pivot_ranges = get_all_pivot_ranges(sheet)
+    existing_ranges.extend(pivot_ranges)
+
+    # 차트 범위 추가 (차트는 범위만 사용)
+    chart_info = get_all_chart_ranges(sheet)
+    for chart_range, _, _ in chart_info:
+        existing_ranges.append(chart_range)
+
+    # 사용된 데이터 영역도 고려
+    try:
+        used_range = sheet.used_range
+        if used_range:
+            data_range = used_range.address.replace("$", "")
+            existing_ranges.append(data_range)
+    except Exception:
+        # used_range 접근 실패 시 무시
+        pass
+
+    # 배치 후보 위치들 생성
+    candidates = []
+
+    if preferred_position == "right":
+        # 오른쪽 우선 배치
+        for start_col in range(1, 50):  # A~AX열까지 시도
+            for start_row in range(1, 100):  # 1~100행까지 시도
+                candidates.append((start_row, start_col))
+    else:  # "bottom"
+        # 아래쪽 우선 배치
+        for start_row in range(1, 100):  # 1~100행까지 시도
+            for start_col in range(1, 50):  # A~AX열까지 시도
+                candidates.append((start_row, start_col))
+
+    # 각 후보 위치에서 겹침 검사
+    for row, col in candidates:
+        # 예상 크기로 범위 생성
+        end_row = row + estimate_size[1] - 1
+        end_col = col + estimate_size[0] - 1
+
+        candidate_range = f"{coords_to_excel_address(row, col)}:{coords_to_excel_address(end_row, end_col)}"
+
+        # 기존 범위들과 겹침 검사 (간격 고려)
+        has_conflict = False
+        for existing_range in existing_ranges:
+            try:
+                # 간격을 고려한 확장 범위로 겹침 검사
+                e_start_row, e_start_col, e_end_row, e_end_col = parse_excel_range(existing_range)
+
+                # 간격만큼 확장
+                e_start_row = max(1, e_start_row - min_spacing)
+                e_start_col = max(1, e_start_col - min_spacing)
+                e_end_row += min_spacing
+                e_end_col += min_spacing
+
+                expanded_existing = (
+                    f"{coords_to_excel_address(e_start_row, e_start_col)}:{coords_to_excel_address(e_end_row, e_end_col)}"
+                )
+
+                if check_range_overlap(candidate_range, expanded_existing):
+                    has_conflict = True
+                    break
+            except Exception:
+                # 파싱 실패 시 안전하게 충돌로 간주
+                has_conflict = True
+                break
+
+        if not has_conflict:
+            return coords_to_excel_address(row, col)
+
+    # 적절한 위치를 찾지 못한 경우
+    raise RuntimeError("시트에 충분한 빈 공간을 찾을 수 없습니다. 수동으로 위치를 지정하거나 기존 객체를 정리해주세요.")
+
+
+def estimate_pivot_table_size(source_range: str, field_count: int = 3) -> Tuple[int, int]:
+    """
+    피벗 테이블의 예상 크기를 추정합니다.
+
+    Args:
+        source_range: 소스 데이터 범위
+        field_count: 필드 개수 (기본값: 3)
+
+    Returns:
+        (예상_열수, 예상_행수) 튜플
+    """
+    try:
+        # 소스 데이터 크기에 기반한 추정
+        start_row, start_col, end_row, end_col = parse_excel_range(source_range)
+        data_rows = end_row - start_row + 1
+        data_cols = end_col - start_col + 1
+
+        # 보수적인 추정: 필드 개수 + 여백, 데이터 행의 일부 + 헤더
+        estimated_cols = min(field_count + 3, 15)  # 최대 15열
+        estimated_rows = min(max(data_rows // 10, 10), 50)  # 최소 10행, 최대 50행
+
+        return estimated_cols, estimated_rows
+    except Exception:
+        # 추정 실패 시 기본값
+        return 10, 20
+
+
+def validate_auto_position_requirements(sheet: xw.Sheet) -> Tuple[bool, str]:
+    """
+    자동 배치 기능 사용 가능 여부를 검사합니다.
+
+    Args:
+        sheet: xlwings Sheet 객체
+
+    Returns:
+        (사용가능여부, 메시지) 튜플
+    """
+    try:
+        # Windows에서만 완전한 기능 지원
+        if platform.system() != "Windows":
+            return False, "자동 배치 기능은 Windows에서만 완전히 지원됩니다"
+
+        # 시트 접근 가능 여부 확인
+        sheet_name = sheet.name
+        if not sheet_name:
+            return False, "시트 정보에 접근할 수 없습니다"
+
+        return True, ""
+
+    except Exception as e:
+        return False, f"자동 배치 기능을 사용할 수 없습니다: {str(e)}"
