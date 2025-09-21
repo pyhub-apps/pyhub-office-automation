@@ -60,7 +60,8 @@ oa excel sheet-activate --name "데이터"
 
 ### 차트 및 피벗
 ```bash
-oa excel chart-add --range "A1:C10" --chart-type "column"
+# 기본 차트 생성
+oa excel chart-add --data-range "A1:C10" --chart-type "column"
 
 # 피벗테이블 생성 (2단계 필수)
 # 1단계: 빈 피벗테이블 생성
@@ -73,6 +74,22 @@ oa excel pivot-configure --pivot-name "PivotTable1" \
   --row-fields "지역,제품" \
   --value-fields "매출:Sum" \
   --clear-existing
+
+### 여러 객체 자동 배치 (겹침 방지)
+# 첫 번째 피벗테이블 (수동 위치)
+oa excel pivot-create --source-range "A1:D100" --dest-range "F1"
+
+# 두 번째 피벗테이블 (자동 배치)
+oa excel pivot-create --source-range "A1:D100" --auto-position
+
+# 세 번째 피벗테이블 (사용자 설정)
+oa excel pivot-create --source-range "A1:D100" --auto-position --spacing 3 --preferred-position "bottom"
+
+# 차트도 자동 배치
+oa excel chart-add --data-range "A1:C10" --auto-position --chart-type "line"
+
+# 겹침 검사 후 생성
+oa excel chart-add --data-range "A1:C10" --position "K1" --check-overlap
 ```
 
 ## 🔄 AI 워크플로우 예제
@@ -113,7 +130,8 @@ oa excel pivot-configure --pivot-name "PivotTable1" \
   --row-fields "카테고리,제품명" \
   --column-fields "분기" \
   --value-fields "매출액:Sum,수량:Count" \
-  --filter-fields "지역"
+  --filter-fields "지역" \
+  --clear-existing
 
 # 4단계: 데이터 새로고침
 oa excel pivot-refresh --pivot-name "PivotTable1"
@@ -132,6 +150,8 @@ oa excel range-read --workbook-name "target.xlsx" --range "A1:C10"
 - **자동 워크북 선택**: 옵션 없이 활성 워크북 자동 사용으로 Excel 재실행 없이 연속 작업
 - **`--workbook-name`**: 파일명으로 직접 접근, 경로 불필요
 - **워크북 연결 방법**: 옵션 없음(활성), `--file-path`(파일), `--workbook-name`(이름)
+- **🎯 자동 배치**: 피벗테이블과 차트가 겹치지 않게 자동으로 빈 공간 찾아 배치
+- **⚠️ 겹침 검사**: 지정된 위치의 충돌 여부를 사전 확인하여 경고 제공
 - **JSON 최적화**: 모든 출력이 AI 에이전트 파싱에 최적화
 - **한글 파일명 지원**: macOS에서 한글 자소분리 문제 자동 해결
 - **37개 Excel 명령어**: 워크북/시트/데이터/차트/피벗/도형/슬라이서 전체 지원
