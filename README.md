@@ -125,4 +125,4 @@ oa llm-guide
 
 ---
 
-**라이선스**: MIT | **개발**: pyhub-apps | **이슈**: [GitHub Issues](https://github.com/pyhub-apps/pyhub-office-automation/issues)
+**문의**: 파이썬사랑방 이진석 (me@pyhub.kr)
