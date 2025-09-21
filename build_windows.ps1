@@ -12,6 +12,10 @@
     빌드 전 기존 파일 정리 (기본값: $true)
 .PARAMETER Test
     빌드 후 테스트 실행 (기본값: $true)
+.PARAMETER UseSpec
+    기존 oa.spec 파일 사용 (기본값: $false)
+.PARAMETER GenerateMetadata
+    빌드 메타데이터 JSON 파일 생성 (기본값: $false)
 .EXAMPLE
     .\build_windows.ps1
     기본 설정으로 빌드 (onedir 모드)
@@ -21,6 +25,9 @@
 .EXAMPLE
     .\build_windows.ps1 -BuildType onedir -Clean:$false
     기존 파일을 정리하지 않고 onedir 모드로 빌드
+.EXAMPLE
+    .\build_windows.ps1 -BuildType onefile -GenerateMetadata
+    빌드 메타데이터와 함께 onefile 모드로 빌드
 #>
 
 [CmdletBinding()]
@@ -36,7 +43,13 @@ param(
     [bool]$Clean = $true,
 
     [Parameter(Mandatory = $false)]
-    [bool]$Test = $true
+    [bool]$Test = $true,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$UseSpec,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$GenerateMetadata
 )
 
 # PowerShell 스트릭트 모드 활성화
@@ -53,6 +66,8 @@ Write-Host "Build Type: $BuildType"
 Write-Host "CI Mode: $CiMode"
 Write-Host "Clean: $Clean"
 Write-Host "Test: $Test"
+Write-Host "Use Spec: $UseSpec"
+Write-Host "Generate Metadata: $GenerateMetadata"
 Write-Host "=========================================="
 
 # 에러 발생 시 스크립트 중단
@@ -103,32 +118,45 @@ try {
 
     # PyInstaller 빌드 인수 준비
     Write-Host "🔨 Building with PyInstaller..."
-    $excludeModules = @(
-        "matplotlib",
-        "scipy",
-        "sklearn",
-        "tkinter",
-        "IPython",
-        "jupyter",
-        "numpy.random._pickle",
-        "PIL.ImageQt"
-    )
 
-    $buildArgs = @(
-        "--$BuildType",
-        "--name", "oa",
-        "--console",
-        "--noconfirm",
-        "--clean"
-    )
+    if ($UseSpec -and (Test-Path "oa.spec")) {
+        Write-Host "   Using existing oa.spec file..."
+        $buildArgs = @("oa.spec")
 
-    # 제외할 모듈 추가
-    foreach ($module in $excludeModules) {
-        $buildArgs += @("--exclude-module", $module)
+        # spec 파일을 사용할 때는 BuildType에 따라 수정이 필요할 수 있음
+        if ($BuildType -eq "onefile") {
+            Write-Host "   Note: BuildType 'onefile' specified, but using spec file. Check spec file configuration."
+        }
     }
+    else {
+        Write-Host "   Building with command-line arguments..."
+        $excludeModules = @(
+            "matplotlib",
+            "scipy",
+            "sklearn",
+            "tkinter",
+            "IPython",
+            "jupyter",
+            "numpy.random._pickle",
+            "PIL.ImageQt"
+        )
 
-    # 메인 스크립트 경로
-    $buildArgs += "pyhub_office_automation\cli\main.py"
+        $buildArgs = @(
+            "--$BuildType",
+            "--name", "oa",
+            "--console",
+            "--noconfirm",
+            "--clean"
+        )
+
+        # 제외할 모듈 추가
+        foreach ($module in $excludeModules) {
+            $buildArgs += @("--exclude-module", $module)
+        }
+
+        # 메인 스크립트 경로
+        $buildArgs += "pyhub_office_automation\cli\main.py"
+    }
 
     Write-Host "   Build arguments: $($buildArgs -join ' ')"
     Write-Host "   Starting build process..."
@@ -158,6 +186,42 @@ try {
     Write-Host "📁 Build output:"
     Write-Host "   Location: $exePath"
     Write-Host "   Size: ${fileSize} MB"
+
+    # 빌드 메타데이터 생성
+    if ($GenerateMetadata) {
+        Write-Host "📊 Generating build metadata..."
+        try {
+            $hash = Get-FileHash $exePath -Algorithm SHA256
+            $buildMetadata = [ordered]@{
+                BuildInfo = [ordered]@{
+                    Version = $version
+                    BuildTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC" -AsUTC
+                    BuildType = $BuildType
+                    UseSpec = $UseSpec.IsPresent
+                    CiMode = $CiMode.IsPresent
+                }
+                FileInfo = [ordered]@{
+                    Location = $exePath
+                    SizeMB = $fileSize
+                    SHA256 = $hash.Hash
+                }
+                Environment = [ordered]@{
+                    PowerShellVersion = $PSVersionTable.PSVersion.ToString()
+                    OSVersion = [System.Environment]::OSVersion.ToString()
+                    MachineName = [System.Environment]::MachineName
+                }
+            }
+
+            $metadataJson = $buildMetadata | ConvertTo-Json -Depth 3
+            $metadataPath = "build-metadata.json"
+            $metadataJson | Out-File -FilePath $metadataPath -Encoding UTF8
+            Write-Host "   Metadata saved to: $metadataPath"
+            Write-Host "   SHA256: $($hash.Hash.Substring(0, 16))..."
+        }
+        catch {
+            Write-Warning "메타데이터 생성 실패: $($_.Exception.Message)"
+        }
+    }
 
     # 테스트 실행
     if ($Test) {

@@ -1,0 +1,229 @@
+name: Build Test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'pyhub_office_automation/**'
+      - 'build_windows.ps1'
+      - 'oa.spec'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  workflow_dispatch:
+    inputs:
+      test_both_types:
+        description: 'Test both onefile and onedir build types'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  test-build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        build_type: [onefile, onedir]
+
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: 1
+
+    steps:
+    - name: Configure PowerShell UTF-8 encoding
+      shell: pwsh
+      run: |
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+        $OutputEncoding = [System.Text.Encoding]::UTF8
+        echo "PowerShell UTF-8 encoding configured"
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+
+    - name: Install dependencies and sync
+      run: |
+        uv sync --extra dev --extra build
+
+    - name: Get version info
+      id: version
+      run: |
+        $version = uv run python -c "import sys; sys.path.insert(0, 'pyhub_office_automation'); from version import get_version; print(get_version())"
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Version: $version"
+
+    - name: Test build - ${{ matrix.build_type }}
+      shell: pwsh
+      run: |
+        $buildType = "${{ matrix.build_type }}"
+        $startTime = Get-Date
+
+        Write-Host "🚀 Testing $buildType build..."
+
+        # 빌드 실행
+        uv run pwsh -File build_windows.ps1 -BuildType $buildType -CiMode -GenerateMetadata
+
+        $endTime = Get-Date
+        $buildDuration = ($endTime - $startTime).TotalSeconds
+
+        # 결과 파일 경로 설정
+        $exePath = if ($buildType -eq "onefile") { "./dist/oa.exe" } else { "./dist/oa/oa.exe" }
+
+        # 빌드 결과 검증
+        if (-not (Test-Path $exePath)) {
+            throw "Build failed: executable not found at $exePath"
+        }
+
+        # 파일 크기 측정
+        $fileItem = Get-Item $exePath
+        $sizeMB = [math]::Round($fileItem.Length / 1MB, 2)
+        $sizeBytes = $fileItem.Length
+
+        # 빌드 통계 출력
+        Write-Host "📊 Build Statistics ($buildType):"
+        Write-Host "   Build Duration: $([math]::Round($buildDuration, 1)) seconds"
+        Write-Host "   Executable Size: ${sizeMB} MB ($sizeBytes bytes)"
+        Write-Host "   Location: $exePath"
+
+        # 기본 기능 테스트
+        Write-Host "🧪 Testing functionality:"
+
+        # 버전 테스트
+        try {
+            $versionOutput = & $exePath --version 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "   ✅ Version test: $versionOutput"
+            } else {
+                throw "Version test failed with exit code: $LASTEXITCODE"
+            }
+        }
+        catch {
+            Write-Error "❌ Version test failed: $($_.Exception.Message)"
+            throw
+        }
+
+        # Excel list 테스트 (Office 없이도 작동해야 함)
+        try {
+            $listOutput = & $exePath excel list --format text 2>&1
+            Write-Host "   ✅ Excel list command executed"
+        }
+        catch {
+            Write-Host "   ℹ️ Excel list test (expected to fail without Excel): $($_.Exception.Message)"
+        }
+
+        # info 명령어 테스트
+        try {
+            $infoOutput = & $exePath info --format json 2>&1
+            Write-Host "   ✅ Info command executed"
+        }
+        catch {
+            Write-Host "   ℹ️ Info command test (expected to fail without Office): $($_.Exception.Message)"
+        }
+
+        # 빌드 메타데이터 확인
+        if (Test-Path "build-metadata.json") {
+            $metadata = Get-Content "build-metadata.json" | ConvertFrom-Json
+            Write-Host "📋 Build Metadata:"
+            Write-Host "   Build Time: $($metadata.BuildInfo.BuildTime)"
+            Write-Host "   SHA256: $($metadata.FileInfo.SHA256.Substring(0, 16))..."
+
+            # 결과를 GitHub 출력으로 설정
+            echo "SIZE_MB=$sizeMB" >> $env:GITHUB_OUTPUT
+            echo "SIZE_BYTES=$sizeBytes" >> $env:GITHUB_OUTPUT
+            echo "BUILD_DURATION=$buildDuration" >> $env:GITHUB_OUTPUT
+            echo "SHA256_SHORT=$($metadata.FileInfo.SHA256.Substring(0, 16))" >> $env:GITHUB_OUTPUT
+        }
+
+        Write-Host "✅ Build test completed successfully for $buildType"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: oa-${{ matrix.build_type }}-${{ steps.version.outputs.VERSION }}
+        path: |
+          dist/
+          build-metadata.json
+        retention-days: 7
+
+  build-comparison:
+    runs-on: windows-latest
+    needs: test-build
+    if: github.event.inputs.test_both_types == 'true' || github.event_name == 'pull_request'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+
+    - name: Install dependencies and sync
+      run: |
+        uv sync --extra dev --extra build
+
+    - name: Compare build types
+      shell: pwsh
+      run: |
+        Write-Host "🔄 Comparing both build types..."
+
+        $results = @()
+
+        # onedir 빌드
+        Write-Host "Building onedir..."
+        uv run pwsh -File build_windows.ps1 -BuildType onedir -CiMode -GenerateMetadata
+        $onedirPath = "./dist/oa/oa.exe"
+        if (Test-Path $onedirPath) {
+            $onedirSize = [math]::Round((Get-Item $onedirPath).Length / 1MB, 2)
+            $results += [PSCustomObject]@{ Type = "onedir"; SizeMB = $onedirSize; Path = $onedirPath }
+        }
+
+        # 정리
+        Remove-Item -Recurse -Force "dist", "build" -ErrorAction SilentlyContinue
+
+        # onefile 빌드
+        Write-Host "Building onefile..."
+        uv run pwsh -File build_windows.ps1 -BuildType onefile -CiMode -GenerateMetadata
+        $onefilePath = "./dist/oa.exe"
+        if (Test-Path $onefilePath) {
+            $onefileSize = [math]::Round((Get-Item $onefilePath).Length / 1MB, 2)
+            $results += [PSCustomObject]@{ Type = "onefile"; SizeMB = $onefileSize; Path = $onefilePath }
+        }
+
+        # 결과 비교
+        Write-Host ""
+        Write-Host "📊 Build Size Comparison:"
+        Write-Host "=========================================="
+        $results | Format-Table -AutoSize
+
+        if ($results.Count -eq 2) {
+            $sizeDiff = $results[1].SizeMB - $results[0].SizeMB
+            $percentDiff = [math]::Round(($sizeDiff / $results[0].SizeMB) * 100, 1)
+
+            Write-Host "Difference: ${sizeDiff} MB (${percentDiff}%)"
+
+            if ($sizeDiff -gt 0) {
+                Write-Host "📈 onefile is larger by ${sizeDiff} MB"
+            } else {
+                Write-Host "📉 onefile is smaller by $([math]::Abs($sizeDiff)) MB"
+            }
+        }
+
+        Write-Host "=========================================="

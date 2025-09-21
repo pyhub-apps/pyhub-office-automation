@@ -46,10 +46,63 @@ jobs:
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         echo "Version: $version"
 
-    - name: Build executable with PowerShell script
+    - name: Build and verify executable
       shell: pwsh
       run: |
-        uv run pwsh -File build_windows.ps1 -BuildType onefile -CiMode
+        # 빌드 실행 (메타데이터 생성 포함)
+        uv run pwsh -File build_windows.ps1 -BuildType onefile -CiMode -GenerateMetadata
+
+        # 빌드 결과 검증
+        $exePath = "./dist/oa.exe"
+        if (-not (Test-Path $exePath)) {
+            throw "Build failed: executable not found at $exePath"
+        }
+
+        # 파일 크기 확인
+        $fileItem = Get-Item $exePath
+        $sizeMB = [math]::Round($fileItem.Length / 1MB, 2)
+        Write-Host "📊 Build verification:"
+        Write-Host "   Executable size: ${sizeMB} MB"
+
+        # 크기 경고 (100MB 이상일 경우)
+        if ($sizeMB -gt 100) {
+            Write-Warning "⚠️ Executable size is larger than expected: ${sizeMB}MB"
+        } else {
+            Write-Host "✅ Executable size is acceptable: ${sizeMB}MB"
+        }
+
+        # 기본 기능 테스트
+        Write-Host "🧪 Testing basic functionality:"
+
+        # 버전 테스트
+        Write-Host "   Testing --version..."
+        $versionOutput = & $exePath --version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "   ✅ Version test passed: $versionOutput"
+        } else {
+            Write-Warning "   ⚠️ Version test failed with exit code: $LASTEXITCODE"
+        }
+
+        # info 명령어 테스트
+        Write-Host "   Testing info command..."
+        $infoOutput = & $exePath info --format json 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "   ✅ Info command test passed"
+        } else {
+            Write-Host "   ℹ️ Info command test failed (expected - Office not installed): $infoOutput"
+        }
+
+        # 빌드 메타데이터 출력
+        if (Test-Path "build-metadata.json") {
+            Write-Host "📋 Build metadata:"
+            $metadata = Get-Content "build-metadata.json" | ConvertFrom-Json
+            Write-Host "   Version: $($metadata.BuildInfo.Version)"
+            Write-Host "   Build Time: $($metadata.BuildInfo.BuildTime)"
+            Write-Host "   SHA256: $($metadata.FileInfo.SHA256.Substring(0, 16))..."
+            Write-Host "   File Size: $($metadata.FileInfo.SizeMB) MB"
+        }
+
+        Write-Host "✅ Build verification completed successfully"
 
     - name: Create Release
       id: create_release

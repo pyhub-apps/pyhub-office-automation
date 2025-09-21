@@ -75,6 +75,83 @@ pip install -e .
 pip install -e .[dev]
 ```
 
+### Build Scripts
+The project includes cross-platform build scripts for creating standalone executables:
+
+**Windows (PowerShell)**:
+```powershell
+# Basic build (onedir mode)
+.\build_windows.ps1
+
+# Single executable with metadata
+.\build_windows.ps1 -BuildType onefile -GenerateMetadata
+
+# CI mode (no user interaction)
+.\build_windows.ps1 -BuildType onefile -CiMode
+
+# Use existing spec file
+.\build_windows.ps1 -UseSpec
+
+# Get help
+.\build_windows.ps1 -Help
+```
+
+**macOS/Linux (Bash)**:
+```bash
+# Basic build (onedir mode)
+./build_macos.sh
+
+# Single executable with metadata
+./build_macos.sh --onefile --metadata
+
+# CI mode (no user interaction)
+./build_macos.sh --onefile --ci
+
+# Use existing spec file
+./build_macos.sh --use-spec
+
+# Get help
+./build_macos.sh --help
+```
+
+**Build Features**:
+- Automatic dependency exclusion for size optimization (matplotlib, scipy, sklearn, tkinter, IPython, jupyter)
+- Build metadata generation with SHA256 checksums
+- Cross-platform parameter support
+- CI/CD integration ready
+- Post-build validation and testing
+
+### Code Quality Scripts
+**Windows (PowerShell)**:
+```powershell
+# Run all checks
+.\lint.ps1
+
+# Auto-fix formatting issues
+.\lint.ps1 -Fix
+
+# Quick checks only
+.\lint.ps1 -Quick
+
+# Verbose output
+.\lint.ps1 -Verbose
+```
+
+**macOS/Linux (Bash)**:
+```bash
+# Run all checks
+./lint.sh
+
+# Auto-fix formatting issues
+./lint.sh --fix
+
+# Quick checks only
+./lint.sh --quick
+
+# Verbose output
+./lint.sh --verbose
+```
+
 ### Testing Strategy
 - **Unit Tests**: `pytest` for individual script functions
 - **CLI Tests**: Direct command execution testing with `--help` validation
