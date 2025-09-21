@@ -34,3 +34,10 @@ Thumbs.db
 
 # Build-time generated version file
 pyhub_office_automation/__version__.py
+
+# Office files
+*.xlsx
+*.xls
+*.hwp
+*.hwpx
+~$*
