@@ -69,6 +69,7 @@ from pyhub_office_automation.excel.workbook_create import workbook_create
 from pyhub_office_automation.excel.workbook_info import workbook_info
 from pyhub_office_automation.excel.workbook_list import workbook_list
 from pyhub_office_automation.excel.workbook_open import workbook_open
+from pyhub_office_automation.utils.resource_loader import load_llm_guide, load_welcome_message
 from pyhub_office_automation.version import get_version, get_version_info
 
 # Typer 앱 생성
@@ -83,13 +84,24 @@ def version_callback(value: bool):
         raise typer.Exit()
 
 
-# 글로벌 --version 옵션 추가
-@app.callback()
-def main_callback(version: bool = typer.Option(False, "--version", "-v", callback=version_callback, help="버전 정보 출력")):
+# 글로벌 --version 옵션 추가 및 기본 메시지 표시
+@app.callback(invoke_without_command=True)
+def main_callback(
+    ctx: typer.Context,
+    version: bool = typer.Option(False, "--version", "-v", callback=version_callback, help="버전 정보 출력"),
+):
     """
     pyhub-office-automation: AI 에이전트를 위한 Office 자동화 도구
     """
-    pass
+    # 서브커맨드가 없고 버전 옵션도 아닌 경우 welcome 메시지 표시
+    if ctx.invoked_subcommand is None:
+        show_welcome_message()
+
+
+def show_welcome_message():
+    """Welcome 메시지를 표시합니다."""
+    welcome_content = load_welcome_message()
+    console.print(welcome_content)
 
 
 # version 명령어 추가
@@ -98,6 +110,78 @@ def version():
     """버전 정보 출력"""
     version_info = get_version_info()
     typer.echo(f"pyhub-office-automation version {version_info['version']}")
+
+
+@app.command()
+def welcome(output_format: str = typer.Option("text", "--format", help="출력 형식 선택 (text, json)")):
+    """환영 메시지 및 시작 가이드 출력"""
+    welcome_content = load_welcome_message()
+
+    if output_format == "json":
+        # JSON 형식으로 출력
+        welcome_data = {
+            "message_type": "welcome",
+            "content": welcome_content,
+            "package_version": get_version(),
+            "available_commands": {
+                "info": "패키지 정보 및 설치 상태",
+                "excel": "Excel 자동화 명령어들",
+                "hwp": "HWP 자동화 명령어들 (Windows 전용)",
+                "install-guide": "설치 가이드",
+                "llm-guide": "AI 에이전트 사용 지침",
+            },
+        }
+        try:
+            json_output = json.dumps(welcome_data, ensure_ascii=False, indent=2)
+            typer.echo(json_output)
+        except UnicodeEncodeError:
+            json_output = json.dumps(welcome_data, ensure_ascii=True, indent=2)
+            typer.echo(json_output)
+    else:
+        console.print(welcome_content)
+
+
+@app.command()
+def llm_guide(output_format: str = typer.Option("text", "--format", help="출력 형식 선택 (text, json, markdown)")):
+    """LLM/AI 에이전트를 위한 상세 사용 지침"""
+    guide_content = load_llm_guide()
+
+    if output_format == "json":
+        # JSON 형식으로 출력 (AI 에이전트가 파싱하기 쉽도록)
+        guide_data = {
+            "guide_type": "llm_usage",
+            "content": guide_content,
+            "package_version": get_version(),
+            "target_audience": "LLM, AI Agent, Chatbot",
+            "key_principles": [
+                "명령어 발견 (Command Discovery)",
+                "컨텍스트 인식 (Context Awareness)",
+                "에러 방지 워크플로우",
+                "효율적인 연결 방법 활용",
+            ],
+            "essential_commands": {
+                "discovery": ["oa info", "oa excel list --format json", "oa hwp list --format json"],
+                "context": ["oa excel workbook-list --detailed", "oa excel workbook-info --include-sheets"],
+                "workflow": ["연속 작업시 --use-active 또는 --workbook-name 사용"],
+            },
+            "connection_methods": [
+                "--file-path: 파일 경로로 연결",
+                "--use-active: 활성 워크북 사용",
+                "--workbook-name: 워크북 이름으로 연결",
+            ],
+        }
+        try:
+            json_output = json.dumps(guide_data, ensure_ascii=False, indent=2)
+            typer.echo(json_output)
+        except UnicodeEncodeError:
+            json_output = json.dumps(guide_data, ensure_ascii=True, indent=2)
+            typer.echo(json_output)
+    elif output_format == "markdown":
+        # 원본 마크다운 출력
+        typer.echo(guide_content)
+    else:
+        # 콘솔에 포맷팅된 출력
+        console.print(guide_content)
 
 
 excel_app = typer.Typer(help="Excel 자동화 명령어들", no_args_is_help=True)
