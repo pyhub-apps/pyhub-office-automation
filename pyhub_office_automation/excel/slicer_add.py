@@ -15,6 +15,8 @@ from pyhub_office_automation.version import get_version
 
 from .utils import (
     ExecutionTimer,
+    OutputFormat,
+    SlicerStyle,
     create_error_response,
     create_success_response,
     generate_unique_slicer_name,
@@ -39,11 +41,11 @@ def slicer_add(
     height: int = typer.Option(150, "--height", help="슬라이서의 높이 (픽셀, 기본값: 150)"),
     name: Optional[str] = typer.Option(None, "--name", help="슬라이서 이름 (지정하지 않으면 자동 생성)"),
     caption: Optional[str] = typer.Option(None, "--caption", help="슬라이서 제목 (지정하지 않으면 필드명 사용)"),
-    style: str = typer.Option("light", "--style", help="슬라이서 스타일 (light/medium/dark, 기본값: light)"),
+    style: SlicerStyle = typer.Option(SlicerStyle.LIGHT, "--style", help="슬라이서 스타일 (light/medium/dark, 기본값: light)"),
     columns: int = typer.Option(1, "--columns", help="슬라이서 항목 열 개수 (기본값: 1)"),
     item_height: Optional[int] = typer.Option(None, "--item-height", help="슬라이서 항목 높이 (픽셀)"),
     show_header: bool = typer.Option(True, "--show-header", help="슬라이서 헤더 표시 (기본값: True)"),
-    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    output_format: OutputFormat = typer.Option(OutputFormat.JSON, "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
     save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)"),
 ):
@@ -147,9 +149,7 @@ def slicer_add(
     book = None
 
     try:
-        # style 검증
-        if style not in ["light", "medium", "dark"]:
-            raise ValueError(f"style은 'light', 'medium', 'dark' 중 하나여야 합니다. 입력된 값: {style}")
+        # Enum 타입이므로 별도 검증 불필요
 
         with ExecutionTimer() as timer:
             # Windows 플랫폼 확인

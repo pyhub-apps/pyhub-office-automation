@@ -13,7 +13,17 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import create_error_response, create_success_response, get_or_open_workbook, get_sheet, normalize_path
+from .utils import (
+    ColorScheme,
+    DataLabelPosition,
+    LegendPosition,
+    OutputFormat,
+    create_error_response,
+    create_success_response,
+    get_or_open_workbook,
+    get_sheet,
+    normalize_path,
+)
 
 
 def find_chart_by_name_or_index(sheet, chart_name=None, chart_index=None):
@@ -55,7 +65,7 @@ def set_chart_style(chart, style_number):
 def set_legend_position(chart, position):
     """범례 위치 설정"""
     try:
-        if position == "none":
+        if position == LegendPosition.NONE:
             chart.api.HasLegend = False
             return True
 
@@ -64,16 +74,16 @@ def set_legend_position(chart, position):
         if platform.system() == "Windows":
             # LegendPosition 상수값 직접 사용
             position_map = {
-                "top": -4160,  # xlLegendPositionTop
-                "bottom": -4107,  # xlLegendPositionBottom
-                "left": -4152,  # xlLegendPositionLeft
-                "right": -4161,  # xlLegendPositionRight
+                LegendPosition.TOP: -4160,  # xlLegendPositionTop
+                LegendPosition.BOTTOM: -4107,  # xlLegendPositionBottom
+                LegendPosition.LEFT: -4152,  # xlLegendPositionLeft
+                LegendPosition.RIGHT: -4161,  # xlLegendPositionRight
             }
 
             if position in position_map:
                 try:
                     # xlwings 상수 시도
-                    from xlwings.constants import LegendPosition
+                    from xlwings.constants import LegendPosition as XlLegendPosition
 
                     const_map = {
                         -4160: "xlLegendPositionTop",
@@ -184,7 +194,12 @@ def set_chart_colors(chart, color_scheme):
     try:
         if platform.system() == "Windows":
             # 색상 스키마 적용
-            color_schemes = {"colorful": 2, "monochromatic": 3, "office": 1, "grayscale": 4}
+            color_schemes = {
+                ColorScheme.COLORFUL: 2,
+                ColorScheme.MONOCHROMATIC: 3,
+                ColorScheme.OFFICE: 1,
+                ColorScheme.GRAYSCALE: 4,
+            }
 
             if color_scheme in color_schemes:
                 chart.api.ChartColorIndex = color_schemes[color_scheme]
@@ -204,19 +219,21 @@ def chart_configure(
     chart_index: Optional[int] = typer.Option(None, "--chart-index", help="설정할 차트의 인덱스 (0부터 시작)"),
     title: Optional[str] = typer.Option(None, "--title", help="차트 제목 설정"),
     style: Optional[int] = typer.Option(None, "--style", help="차트 스타일 번호 (1-48, Windows 전용)"),
-    legend_position: Optional[str] = typer.Option(None, "--legend-position", help="범례 위치 (top/bottom/left/right/none)"),
+    legend_position: Optional[LegendPosition] = typer.Option(
+        None, "--legend-position", help="범례 위치 (top/bottom/left/right/none)"
+    ),
     x_axis_title: Optional[str] = typer.Option(None, "--x-axis-title", help="X축 제목"),
     y_axis_title: Optional[str] = typer.Option(None, "--y-axis-title", help="Y축 제목"),
     show_data_labels: bool = typer.Option(False, "--show-data-labels", help="데이터 레이블 표시"),
     hide_data_labels: bool = typer.Option(False, "--hide-data-labels", help="데이터 레이블 숨기기"),
-    data_label_position: Optional[str] = typer.Option(
+    data_label_position: Optional[DataLabelPosition] = typer.Option(
         None, "--data-label-position", help="데이터 레이블 위치 (center/above/below/left/right/outside/inside, Windows 전용)"
     ),
-    color_scheme: Optional[str] = typer.Option(
+    color_scheme: Optional[ColorScheme] = typer.Option(
         None, "--color-scheme", help="색상 테마 (colorful/monochromatic/office/grayscale, Windows 전용)"
     ),
     transparent_bg: bool = typer.Option(False, "--transparent-bg", help="차트 배경을 투명하게 설정"),
-    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    output_format: OutputFormat = typer.Option(OutputFormat.JSON, "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
     save: bool = typer.Option(True, "--save", help="설정 후 파일 저장 여부 (기본값: True)"),
 ):
@@ -310,20 +327,7 @@ def chart_configure(
     • 한 번에 여러 속성을 동시에 설정 가능
     • 설정 변경 후 --save false로 미리보기 가능
     """
-    # 입력 값 검증
-    if legend_position and legend_position not in ["top", "bottom", "left", "right", "none"]:
-        raise ValueError(f"잘못된 범례 위치: {legend_position}. 사용 가능한 위치: top, bottom, left, right, none")
-
-    if data_label_position and data_label_position not in ["center", "above", "below", "left", "right", "outside", "inside"]:
-        raise ValueError(
-            f"잘못된 데이터 레이블 위치: {data_label_position}. 사용 가능한 위치: center, above, below, left, right, outside, inside"
-        )
-
-    if color_scheme and color_scheme not in ["colorful", "monochromatic", "office", "grayscale"]:
-        raise ValueError(f"잘못된 색상 테마: {color_scheme}. 사용 가능한 테마: colorful, monochromatic, office, grayscale")
-
-    if output_format not in ["json", "text"]:
-        raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+    # Enum 타입이므로 별도 검증 불필요
 
     book = None
 

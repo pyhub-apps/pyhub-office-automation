@@ -14,6 +14,9 @@ import xlwings as xw
 from pyhub_office_automation.version import get_version
 
 from .utils import (
+    ChartType,
+    LegendPosition,
+    OutputFormat,
     create_error_response,
     create_success_response,
     get_or_open_workbook,
@@ -49,15 +52,15 @@ CHART_TYPE_MAP = {
 }
 
 
-def get_chart_type_constant(chart_type: str):
+def get_chart_type_constant(chart_type: ChartType):
     """차트 타입에 해당하는 xlwings 상수를 반환"""
-    chart_type_lower = chart_type.lower()
-    if chart_type_lower not in CHART_TYPE_MAP:
+    chart_type_value = chart_type.value
+    if chart_type_value not in CHART_TYPE_MAP:
         raise ValueError(f"지원되지 않는 차트 타입: {chart_type}")
 
     # xlwings 상수를 시도하고, 실패하면 숫자값 직접 사용
     try:
-        from xlwings.constants import ChartType
+        from xlwings.constants import ChartType as XlChartType
 
         # xlwings 상수명 시도
         const_map = {
@@ -81,18 +84,18 @@ def get_chart_type_constant(chart_type: str):
             -4111: "xlCombination",
         }
 
-        chart_type_value = CHART_TYPE_MAP[chart_type_lower]
-        const_name = const_map.get(chart_type_value)
+        chart_type_code = CHART_TYPE_MAP[chart_type_value]
+        const_name = const_map.get(chart_type_code)
 
-        if const_name and hasattr(ChartType, const_name):
-            return getattr(ChartType, const_name)
+        if const_name and hasattr(XlChartType, const_name):
+            return getattr(XlChartType, const_name)
         else:
             # 상수 이름이 없거나 접근할 수 없으면 숫자값 직접 반환
-            return chart_type_value
+            return chart_type_code
 
     except ImportError:
         # 상수를 가져올 수 없으면 숫자값 직접 반환
-        return CHART_TYPE_MAP[chart_type_lower]
+        return CHART_TYPE_MAP[chart_type_value]
 
 
 def chart_add(
@@ -100,16 +103,18 @@ def chart_add(
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     data_range: str = typer.Option(..., "--data-range", help='차트 데이터 범위 (예: "A1:C10" 또는 "Sheet1!A1:C10")'),
-    chart_type: str = typer.Option("column", "--chart-type", help="차트 유형 (기본값: column)"),
+    chart_type: ChartType = typer.Option(ChartType.COLUMN, "--chart-type", help="차트 유형 (기본값: column)"),
     title: Optional[str] = typer.Option(None, "--title", help="차트 제목"),
     position: str = typer.Option("E1", "--position", help="차트 생성 위치 (셀 주소, 기본값: E1)"),
     width: int = typer.Option(400, "--width", help="차트 너비 (픽셀, 기본값: 400)"),
     height: int = typer.Option(300, "--height", help="차트 높이 (픽셀, 기본값: 300)"),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="차트를 생성할 시트 이름 (지정하지 않으면 데이터 범위의 시트)"),
     style: Optional[int] = typer.Option(None, "--style", help="차트 스타일 번호 (1-48)"),
-    legend_position: Optional[str] = typer.Option(None, "--legend-position", help="범례 위치 (top/bottom/left/right/none)"),
+    legend_position: Optional[LegendPosition] = typer.Option(
+        None, "--legend-position", help="범례 위치 (top/bottom/left/right/none)"
+    ),
     show_data_labels: bool = typer.Option(False, "--show-data-labels", help="데이터 레이블 표시"),
-    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    output_format: OutputFormat = typer.Option(OutputFormat.JSON, "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
     save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)"),
 ):
@@ -186,39 +191,10 @@ def chart_add(
     book = None
 
     try:
-        # chart_type 검증
-        valid_chart_types = [
-            "column",
-            "column_clustered",
-            "column_stacked",
-            "column_stacked_100",
-            "bar",
-            "bar_clustered",
-            "bar_stacked",
-            "bar_stacked_100",
-            "line",
-            "line_markers",
-            "pie",
-            "doughnut",
-            "area",
-            "area_stacked",
-            "area_stacked_100",
-            "scatter",
-            "scatter_lines",
-            "scatter_smooth",
-            "bubble",
-            "combo",
-        ]
-        if chart_type not in valid_chart_types:
-            raise ValueError(f"지원되지 않는 차트 타입: {chart_type}. 사용 가능한 타입: {', '.join(valid_chart_types)}")
+        # Enum 타입이므로 별도 검증 불필요 (chart_type은 ChartType Enum이므로 자동 검증됨)
+        # legend_position도 Enum 타입이므로 별도 검증 불필요
 
-        # legend_position 검증
-        if legend_position and legend_position not in ["top", "bottom", "left", "right", "none"]:
-            raise ValueError(f"잘못된 범례 위치: {legend_position}. 사용 가능한 위치: top, bottom, left, right, none")
-
-        # output_format 검증
-        if output_format not in ["json", "text"]:
-            raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+        # output_format도 Enum 타입이므로 별도 검증 불필요
 
         # 데이터 범위 파싱 및 검증
         data_sheet_name, data_range_part = parse_range(data_range)
@@ -309,7 +285,7 @@ def chart_add(
         # 범례 위치 설정
         if legend_position:
             try:
-                if legend_position == "none":
+                if legend_position == LegendPosition.NONE:
                     chart.api.HasLegend = False
                 else:
                     chart.api.HasLegend = True

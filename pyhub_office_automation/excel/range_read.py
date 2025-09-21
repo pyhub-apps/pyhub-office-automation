@@ -15,6 +15,8 @@ from pyhub_office_automation.version import get_version
 
 from .utils import (
     ExecutionTimer,
+    ExpandMode,
+    OutputFormat,
     create_error_response,
     create_success_response,
     format_output,
@@ -34,9 +36,9 @@ def range_read(
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
     range_str: str = typer.Option(..., "--range", help="읽을 셀 범위 (예: A1:C10, Sheet1!A1:C10)"),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="시트 이름 (범위에 시트가 지정되지 않은 경우)"),
-    expand: Optional[str] = typer.Option(None, "--expand", help="범위 확장 모드"),
+    expand: Optional[ExpandMode] = typer.Option(None, "--expand", help="범위 확장 모드"),
     include_formulas: bool = typer.Option(False, "--include-formulas", help="공식 포함 여부"),
-    output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
+    output_format: OutputFormat = typer.Option(OutputFormat.JSON, "--format", help="출력 형식 선택"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
 ):
     """
@@ -152,9 +154,9 @@ def range_read(
             )
 
             # 출력 형식에 따른 결과 반환
-            if output_format == "json":
+            if output_format == OutputFormat.JSON:
                 typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
-            elif output_format == "csv":
+            elif output_format == OutputFormat.CSV:
                 # CSV 형식으로 값만 출력
                 import csv
                 import io
@@ -197,7 +199,7 @@ def range_read(
 
     except FileNotFoundError as e:
         error_response = create_error_response(e, "range-read")
-        if output_format == "json":
+        if output_format == OutputFormat.JSON:
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 파일을 찾을 수 없습니다: {file_path}", err=True)
@@ -205,7 +207,7 @@ def range_read(
 
     except ValueError as e:
         error_response = create_error_response(e, "range-read")
-        if output_format == "json":
+        if output_format == OutputFormat.JSON:
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ {str(e)}", err=True)
@@ -213,7 +215,7 @@ def range_read(
 
     except RuntimeError as e:
         error_response = create_error_response(e, "range-read")
-        if output_format == "json":
+        if output_format == OutputFormat.JSON:
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ {str(e)}", err=True)
@@ -224,7 +226,7 @@ def range_read(
 
     except Exception as e:
         error_response = create_error_response(e, "range-read")
-        if output_format == "json":
+        if output_format == OutputFormat.JSON:
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)

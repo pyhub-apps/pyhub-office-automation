@@ -12,12 +12,95 @@ import platform
 import tempfile
 import time
 import unicodedata
+from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import xlwings as xw
 
 from pyhub_office_automation.version import get_version
+
+
+# CLI 명령어 인자를 위한 Enum 클래스들
+class OutputFormat(str, Enum):
+    """출력 형식 선택지"""
+
+    JSON = "json"
+    CSV = "csv"
+    TEXT = "text"
+    MARKDOWN = "markdown"
+
+
+class ExpandMode(str, Enum):
+    """범위 확장 모드 선택지"""
+
+    TABLE = "table"
+    DOWN = "down"
+    RIGHT = "right"
+
+
+class LegendPosition(str, Enum):
+    """차트 범례 위치 선택지"""
+
+    TOP = "top"
+    BOTTOM = "bottom"
+    LEFT = "left"
+    RIGHT = "right"
+    NONE = "none"
+
+
+class SlicerStyle(str, Enum):
+    """슬라이서 스타일 선택지"""
+
+    LIGHT = "light"
+    MEDIUM = "medium"
+    DARK = "dark"
+
+
+class ColorScheme(str, Enum):
+    """차트 색상 테마 선택지"""
+
+    COLORFUL = "colorful"
+    MONOCHROMATIC = "monochromatic"
+    OFFICE = "office"
+    GRAYSCALE = "grayscale"
+
+
+class DataLabelPosition(str, Enum):
+    """데이터 레이블 위치 선택지"""
+
+    CENTER = "center"
+    ABOVE = "above"
+    BELOW = "below"
+    LEFT = "left"
+    RIGHT = "right"
+    OUTSIDE = "outside"
+    INSIDE = "inside"
+
+
+class ChartType(str, Enum):
+    """차트 타입 선택지"""
+
+    # 기본 차트 타입들
+    COLUMN = "column"
+    COLUMN_CLUSTERED = "column_clustered"
+    COLUMN_STACKED = "column_stacked"
+    COLUMN_STACKED_100 = "column_stacked_100"
+    BAR = "bar"
+    BAR_CLUSTERED = "bar_clustered"
+    BAR_STACKED = "bar_stacked"
+    BAR_STACKED_100 = "bar_stacked_100"
+    LINE = "line"
+    LINE_MARKERS = "line_markers"
+    PIE = "pie"
+    DOUGHNUT = "doughnut"
+    AREA = "area"
+    AREA_STACKED = "area_stacked"
+    SCATTER = "scatter"
+    SCATTER_LINES = "scatter_lines"
+    SCATTER_SMOOTH = "scatter_smooth"
+    BUBBLE = "bubble"
+    COMBO = "combo"
 
 
 # PyInstaller 환경에서 win32com 초기화
@@ -158,7 +241,7 @@ def parse_range(range_str: str) -> Tuple[Optional[str], str]:
         return None, range_str
 
 
-def get_range(sheet: xw.Sheet, range_str: str, expand_mode: Optional[str] = None) -> xw.Range:
+def get_range(sheet: xw.Sheet, range_str: str, expand_mode: Optional[ExpandMode] = None) -> xw.Range:
     """
     시트에서 지정된 범위를 가져옵니다.
 
@@ -173,11 +256,11 @@ def get_range(sheet: xw.Sheet, range_str: str, expand_mode: Optional[str] = None
     range_obj = sheet.range(range_str)
 
     if expand_mode:
-        if expand_mode == "table":
+        if expand_mode == ExpandMode.TABLE:
             range_obj = range_obj.expand()
-        elif expand_mode == "down":
+        elif expand_mode == ExpandMode.DOWN:
             range_obj = range_obj.expand("down")
-        elif expand_mode == "right":
+        elif expand_mode == ExpandMode.RIGHT:
             range_obj = range_obj.expand("right")
 
     return range_obj
