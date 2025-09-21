@@ -60,8 +60,8 @@ extras_require = {
 setup(
     name="pyhub-office-automation",
     version=get_version(),
-    author="pyhub-apps",
-    author_email="admin@pyhub.kr",
+    author="Chinseok Lee",
+    author_email="me@pyhub.kr",
     description="Python-based Excel and HWP automation package for AI agents",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
