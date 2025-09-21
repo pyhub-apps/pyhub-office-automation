@@ -5,38 +5,27 @@ xlwings를 활용한 Excel 도형 정보 수집 기능
 
 import json
 import platform
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet, create_error_response, create_success_response,
     ExecutionTimer, get_shapes_info, normalize_path
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='도형을 조회할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='도형을 조회할 시트 이름 (지정하지 않으면 활성 시트)')
-@click.option('--detailed', is_flag=True,
-              help='상세 정보 포함 (색상, 투명도, 텍스트 등)')
-@click.option('--include-text', is_flag=True,
-              help='텍스트 내용 포함 (Windows 전용)')
-@click.option('--filter-type',
-              help='특정 도형 타입만 필터링 (예: rectangle, oval)')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.version_option(version=get_version(), prog_name="oa excel shape-list")
-def shape_list(file_path, use_active, workbook_name, sheet, detailed, include_text,
-               filter_type, output_format, visible):
+def shape_list(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 조회할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="도형을 조회할 시트 이름 (지정하지 않으면 활성 시트)"),
+    detailed: bool = typer.Option(False, "--detailed", help="상세 정보 포함 (색상, 투명도, 텍스트 등)"),
+    include_text: bool = typer.Option(False, "--include-text", help="텍스트 내용 포함 (Windows 전용)"),
+    filter_type: Optional[str] = typer.Option(None, "--filter-type", help="특정 도형 타입만 필터링 (예: rectangle, oval)"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)")
+):
     """
     Excel 시트의 모든 도형 정보를 조회합니다.
 

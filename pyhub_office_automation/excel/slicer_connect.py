@@ -5,49 +5,31 @@ xlwings를 활용한 Excel 슬라이서와 피벗테이블 연결 기능
 
 import json
 import platform
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet, create_error_response, create_success_response,
     ExecutionTimer, get_slicer_by_name, get_pivot_tables, normalize_path
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='슬라이서 연결을 관리할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--slicer-name', required=True,
-              help='연결을 관리할 슬라이서 이름')
-@click.option('--action',
-              type=click.Choice(['connect', 'disconnect', 'list']),
-              required=True,
-              help='작업 유형: connect(연결), disconnect(연결 해제), list(연결 상태 조회)')
-@click.option('--pivot-tables',
-              help='연결할 피벗테이블 이름들 (쉼표로 구분, 예: "Pivot1,Pivot2")')
-@click.option('--all-pivots', is_flag=True,
-              help='워크북의 모든 피벗테이블에 연결/해제')
-@click.option('--target-sheet',
-              help='특정 시트의 피벗테이블만 대상으로 지정')
-@click.option('--force', is_flag=True,
-              help='강제 연결/해제 (호환성 문제 무시)')
-@click.option('--dry-run', is_flag=True,
-              help='실제 연결하지 않고 대상만 확인')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='연결 변경 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel slicer-connect")
-def slicer_connect(file_path, use_active, workbook_name, slicer_name, action,
-                   pivot_tables, all_pivots, target_sheet, force, dry_run,
-                   output_format, visible, save):
+def slicer_connect(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서 연결을 관리할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    slicer_name: str = typer.Option(..., "--slicer-name", help="연결을 관리할 슬라이서 이름"),
+    action: str = typer.Option(..., "--action", help="작업 유형: connect(연결), disconnect(연결 해제), list(연결 상태 조회)"),
+    pivot_tables: Optional[str] = typer.Option(None, "--pivot-tables", help="연결할 피벗테이블 이름들 (쉼표로 구분, 예: \"Pivot1,Pivot2\")"),
+    all_pivots: bool = typer.Option(False, "--all-pivots", help="워크북의 모든 피벗테이블에 연결/해제"),
+    target_sheet: Optional[str] = typer.Option(None, "--target-sheet", help="특정 시트의 피벗테이블만 대상으로 지정"),
+    force: bool = typer.Option(False, "--force", help="강제 연결/해제 (호환성 문제 무시)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="실제 연결하지 않고 대상만 확인"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="연결 변경 후 파일 저장 여부 (기본값: True)")
+):
     """
     Excel 슬라이서와 피벗테이블의 연결을 관리합니다.
 
@@ -171,6 +153,10 @@ def slicer_connect(file_path, use_active, workbook_name, slicer_name, action,
     book = None
 
     try:
+        # action 검증
+        if action not in ['connect', 'disconnect', 'list']:
+            raise ValueError(f"action은 'connect', 'disconnect', 'list' 중 하나여야 합니다. 입력된 값: {action}")
+
         with ExecutionTimer() as timer:
             # Windows 플랫폼 확인
             if platform.system() != "Windows":

@@ -5,40 +5,28 @@ xlwings를 활용한 Excel 슬라이서 정보 수집 기능
 
 import json
 import platform
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, create_error_response, create_success_response,
     ExecutionTimer, get_slicers_info, normalize_path
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='슬라이서를 조회할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--detailed', is_flag=True,
-              help='상세 정보 포함 (슬라이서 항목, 연결된 피벗테이블 등)')
-@click.option('--include-items', is_flag=True,
-              help='슬라이서 항목 목록 포함')
-@click.option('--show-connections', is_flag=True,
-              help='연결된 피벗테이블 정보 표시')
-@click.option('--filter-field',
-              help='특정 필드의 슬라이서만 필터링')
-@click.option('--filter-sheet',
-              help='특정 시트의 슬라이서만 필터링')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.version_option(version=get_version(), prog_name="oa excel slicer-list")
-def slicer_list(file_path, use_active, workbook_name, detailed, include_items,
-                show_connections, filter_field, filter_sheet, output_format, visible):
+def slicer_list(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서를 조회할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    detailed: bool = typer.Option(False, "--detailed", help="상세 정보 포함 (슬라이서 항목, 연결된 피벗테이블 등)"),
+    include_items: bool = typer.Option(False, "--include-items", help="슬라이서 항목 목록 포함"),
+    show_connections: bool = typer.Option(False, "--show-connections", help="연결된 피벗테이블 정보 표시"),
+    filter_field: Optional[str] = typer.Option(None, "--filter-field", help="특정 필드의 슬라이서만 필터링"),
+    filter_sheet: Optional[str] = typer.Option(None, "--filter-sheet", help="특정 시트의 슬라이서만 필터링"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)")
+):
     """
     Excel 워크북의 모든 슬라이서 정보를 조회합니다.
 

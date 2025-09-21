@@ -6,9 +6,10 @@ xlwings를 활용한 Excel 슬라이서 생성 기능
 
 import json
 import platform
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet, create_error_response, create_success_response,
     ExecutionTimer, get_pivot_tables, validate_slicer_position,
@@ -16,52 +17,27 @@ from .utils import (
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='슬라이서를 추가할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='슬라이서를 배치할 시트 이름 (지정하지 않으면 활성 시트)')
-@click.option('--pivot-table', required=True,
-              help='슬라이서를 생성할 피벗테이블 이름')
-@click.option('--field', required=True,
-              help='슬라이서로 만들 피벗테이블 필드 이름')
-@click.option('--left', type=int, default=100,
-              help='슬라이서의 왼쪽 위치 (픽셀, 기본값: 100)')
-@click.option('--top', type=int, default=100,
-              help='슬라이서의 위쪽 위치 (픽셀, 기본값: 100)')
-@click.option('--width', type=int, default=200,
-              help='슬라이서의 너비 (픽셀, 기본값: 200)')
-@click.option('--height', type=int, default=150,
-              help='슬라이서의 높이 (픽셀, 기본값: 150)')
-@click.option('--name',
-              help='슬라이서 이름 (지정하지 않으면 자동 생성)')
-@click.option('--caption',
-              help='슬라이서 제목 (지정하지 않으면 필드명 사용)')
-@click.option('--style',
-              type=click.Choice(['light', 'medium', 'dark']),
-              default='light',
-              help='슬라이서 스타일 (기본값: light)')
-@click.option('--columns', type=int, default=1,
-              help='슬라이서 항목 열 개수 (기본값: 1)')
-@click.option('--item-height', type=int,
-              help='슬라이서 항목 높이 (픽셀)')
-@click.option('--show-header', is_flag=True, default=True,
-              help='슬라이서 헤더 표시 (기본값: True)')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='생성 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel slicer-add")
-def slicer_add(file_path, use_active, workbook_name, sheet, pivot_table, field,
-               left, top, width, height, name, caption, style, columns, item_height,
-               show_header, output_format, visible, save):
+def slicer_add(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서를 추가할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="슬라이서를 배치할 시트 이름 (지정하지 않으면 활성 시트)"),
+    pivot_table: str = typer.Option(..., "--pivot-table", help="슬라이서를 생성할 피벗테이블 이름"),
+    field: str = typer.Option(..., "--field", help="슬라이서로 만들 피벗테이블 필드 이름"),
+    left: int = typer.Option(100, "--left", help="슬라이서의 왼쪽 위치 (픽셀, 기본값: 100)"),
+    top: int = typer.Option(100, "--top", help="슬라이서의 위쪽 위치 (픽셀, 기본값: 100)"),
+    width: int = typer.Option(200, "--width", help="슬라이서의 너비 (픽셀, 기본값: 200)"),
+    height: int = typer.Option(150, "--height", help="슬라이서의 높이 (픽셀, 기본값: 150)"),
+    name: Optional[str] = typer.Option(None, "--name", help="슬라이서 이름 (지정하지 않으면 자동 생성)"),
+    caption: Optional[str] = typer.Option(None, "--caption", help="슬라이서 제목 (지정하지 않으면 필드명 사용)"),
+    style: str = typer.Option("light", "--style", help="슬라이서 스타일 (light/medium/dark, 기본값: light)"),
+    columns: int = typer.Option(1, "--columns", help="슬라이서 항목 열 개수 (기본값: 1)"),
+    item_height: Optional[int] = typer.Option(None, "--item-height", help="슬라이서 항목 높이 (픽셀)"),
+    show_header: bool = typer.Option(True, "--show-header", help="슬라이서 헤더 표시 (기본값: True)"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)")
+):
     """
     Excel 피벗테이블 기반 슬라이서를 생성합니다.
 
@@ -162,6 +138,10 @@ def slicer_add(file_path, use_active, workbook_name, sheet, pivot_table, field,
     book = None
 
     try:
+        # style 검증
+        if style not in ['light', 'medium', 'dark']:
+            raise ValueError(f"style은 'light', 'medium', 'dark' 중 하나여야 합니다. 입력된 값: {style}")
+
         with ExecutionTimer() as timer:
             # Windows 플랫폼 확인
             if platform.system() != "Windows":

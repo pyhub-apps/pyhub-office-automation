@@ -6,9 +6,10 @@ xlwings를 활용한 Excel 도형 포맷팅 기능
 
 import json
 import platform
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet, create_error_response, create_success_response,
     ExecutionTimer, get_shape_by_name, hex_to_rgb, apply_neumorphism_style,
@@ -16,60 +17,30 @@ from .utils import (
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='도형을 포맷팅할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='도형이 있는 시트 이름 (지정하지 않으면 활성 시트)')
-@click.option('--shape-name', required=True,
-              help='포맷팅할 도형 이름')
-@click.option('--style-preset',
-              type=click.Choice(['none', 'background', 'title-box', 'chart-box', 'slicer-box']),
-              help='뉴모피즘 스타일 프리셋 적용')
-@click.option('--fill-color',
-              help='채우기 색상 (HEX 형식, 예: #FFFFFF)')
-@click.option('--transparency', type=int,
-              help='투명도 (0-100, 0=불투명)')
-@click.option('--line-color',
-              help='테두리 색상 (HEX 형식)')
-@click.option('--line-width', type=float,
-              help='테두리 두께 (포인트 단위)')
-@click.option('--no-line', is_flag=True,
-              help='테두리 제거')
-@click.option('--shadow-type',
-              type=click.Choice(['none', 'drop', 'inner', 'outer']),
-              help='그림자 타입')
-@click.option('--shadow-color',
-              help='그림자 색상 (HEX 형식)')
-@click.option('--shadow-transparency', type=int,
-              help='그림자 투명도 (0-100)')
-@click.option('--shadow-blur', type=int,
-              help='그림자 흐림 정도 (포인트)')
-@click.option('--shadow-distance', type=int,
-              help='그림자 거리 (포인트)')
-@click.option('--shadow-angle', type=int,
-              help='그림자 각도 (도, 0-360)')
-@click.option('--gradient', is_flag=True,
-              help='그라데이션 적용 (Windows 전용)')
-@click.option('--gradient-color2',
-              help='그라데이션 두 번째 색상 (HEX 형식)')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='포맷팅 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel shape-format")
-def shape_format(file_path, use_active, workbook_name, sheet, shape_name, style_preset,
-                 fill_color, transparency, line_color, line_width, no_line,
-                 shadow_type, shadow_color, shadow_transparency, shadow_blur,
-                 shadow_distance, shadow_angle, gradient, gradient_color2,
-                 output_format, visible, save):
+def shape_format(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 포맷팅할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="도형이 있는 시트 이름 (지정하지 않으면 활성 시트)"),
+    shape_name: str = typer.Option(..., "--shape-name", help="포맷팅할 도형 이름"),
+    style_preset: str = typer.Option("none", "--style-preset", help="뉴모피즘 스타일 프리셋 적용 (none, background, title-box, chart-box, slicer-box)"),
+    fill_color: Optional[str] = typer.Option(None, "--fill-color", help="채우기 색상 (HEX 형식, 예: #FFFFFF)"),
+    transparency: Optional[int] = typer.Option(None, "--transparency", help="투명도 (0-100, 0=불투명)"),
+    line_color: Optional[str] = typer.Option(None, "--line-color", help="테두리 색상 (HEX 형식)"),
+    line_width: Optional[float] = typer.Option(None, "--line-width", help="테두리 두께 (포인트 단위)"),
+    no_line: bool = typer.Option(False, "--no-line", help="테두리 제거"),
+    shadow_type: str = typer.Option("none", "--shadow-type", help="그림자 타입 (none, drop, inner, outer)"),
+    shadow_color: Optional[str] = typer.Option(None, "--shadow-color", help="그림자 색상 (HEX 형식)"),
+    shadow_transparency: Optional[int] = typer.Option(None, "--shadow-transparency", help="그림자 투명도 (0-100)"),
+    shadow_blur: Optional[int] = typer.Option(None, "--shadow-blur", help="그림자 흐림 정도 (포인트)"),
+    shadow_distance: Optional[int] = typer.Option(None, "--shadow-distance", help="그림자 거리 (포인트)"),
+    shadow_angle: Optional[int] = typer.Option(None, "--shadow-angle", help="그림자 각도 (도, 0-360)"),
+    gradient: bool = typer.Option(False, "--gradient", help="그라데이션 적용 (Windows 전용)"),
+    gradient_color2: Optional[str] = typer.Option(None, "--gradient-color2", help="그라데이션 두 번째 색상 (HEX 형식)"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="포맷팅 후 파일 저장 여부 (기본값: True)")
+):
     """
     Excel 도형의 스타일과 포맷을 설정합니다.
 

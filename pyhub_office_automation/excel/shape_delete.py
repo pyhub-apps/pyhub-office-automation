@@ -4,44 +4,30 @@ xlwings를 활용한 Excel 도형 삭제 기능
 """
 
 import json
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet, create_error_response, create_success_response,
     ExecutionTimer, get_shape_by_name, normalize_path
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='도형을 삭제할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='도형을 삭제할 시트 이름 (지정하지 않으면 활성 시트)')
-@click.option('--shape-name',
-              help='삭제할 도형 이름')
-@click.option('--shape-index', type=int,
-              help='삭제할 도형 인덱스 (1부터 시작)')
-@click.option('--all-shapes', is_flag=True,
-              help='시트의 모든 도형 삭제 (위험: 확인 없이 삭제됨)')
-@click.option('--confirm-all', is_flag=True,
-              help='모든 도형 삭제 시 확인 (--all-shapes와 함께 사용)')
-@click.option('--dry-run', is_flag=True,
-              help='실제 삭제하지 않고 삭제 대상만 확인')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='삭제 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel shape-delete")
-def shape_delete(file_path, use_active, workbook_name, sheet, shape_name, shape_index,
-                 all_shapes, confirm_all, dry_run, output_format, visible, save):
+def shape_delete(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 삭제할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="도형을 삭제할 시트 이름 (지정하지 않으면 활성 시트)"),
+    shape_name: Optional[str] = typer.Option(None, "--shape-name", help="삭제할 도형 이름"),
+    shape_index: Optional[int] = typer.Option(None, "--shape-index", help="삭제할 도형 인덱스 (1부터 시작)"),
+    all_shapes: bool = typer.Option(False, "--all-shapes", help="시트의 모든 도형 삭제 (위험: 확인 없이 삭제됨)"),
+    confirm_all: bool = typer.Option(False, "--confirm-all", help="모든 도형 삭제 시 확인 (--all-shapes와 함께 사용)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="실제 삭제하지 않고 삭제 대상만 확인"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="삭제 후 파일 저장 여부 (기본값: True)")
+):
     """
     Excel 시트에서 도형을 삭제합니다.
 
@@ -213,8 +199,8 @@ def shape_delete(file_path, use_active, workbook_name, sheet, shape_name, shape_
                     book=book
                 )
 
-                print(json.dumps(response, ensure_ascii=False, indent=2))
-                return 0
+                typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
+                raise typer.Exit(0)
 
             # 실제 삭제 수행
             deleted_count = 0
@@ -265,12 +251,12 @@ def shape_delete(file_path, use_active, workbook_name, sheet, shape_name, shape_
                 shapes_deleted=deleted_count
             )
 
-            print(json.dumps(response, ensure_ascii=False, indent=2))
+            typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
 
     except Exception as e:
         error_response = create_error_response(e, "shape-delete")
-        print(json.dumps(error_response, ensure_ascii=False, indent=2))
-        return 1
+        typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
+        raise typer.Exit(1)
 
     finally:
         # 새로 생성한 워크북인 경우에만 정리
@@ -285,8 +271,4 @@ def shape_delete(file_path, use_active, workbook_name, sheet, shape_name, shape_
             except:
                 pass
 
-    return 0
-
-
-if __name__ == '__main__':
-    shape_delete()
+    raise typer.Exit(0)

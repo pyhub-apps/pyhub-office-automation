@@ -7,9 +7,10 @@ import json
 import sys
 import platform
 from pathlib import Path
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_workbook, get_sheet,
     format_output, create_error_response, create_success_response,
@@ -17,25 +18,15 @@ from .utils import (
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='조회할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='특정 시트의 피벗테이블만 조회 (지정하지 않으면 전체 워크북)')
-@click.option('--include-details', default=False, type=bool,
-              help='피벗테이블 상세 정보 포함 여부 (기본값: False)')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.version_option(version=get_version(), prog_name="oa excel pivot-list")
-def pivot_list(file_path, use_active, workbook_name, sheet, include_details,
-               output_format, visible):
+def pivot_list(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="조회할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="특정 시트의 피벗테이블만 조회 (지정하지 않으면 전체 워크북)"),
+    include_details: bool = typer.Option(False, "--include-details", help="피벗테이블 상세 정보 포함 여부 (기본값: False)"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)")
+):
     """
     워크북 내 모든 피벗테이블의 목록과 정보를 조회합니다.
 
@@ -166,66 +157,66 @@ def pivot_list(file_path, use_active, workbook_name, sheet, include_details,
 
         # 출력 형식에 따른 결과 반환
         if output_format == 'json':
-            click.echo(json.dumps(response, ensure_ascii=False, indent=2))
+            typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
         else:  # text 형식
-            click.echo(f"✅ 피벗테이블 목록 조회 완료")
-            click.echo(f"📄 파일: {data_content['file_info']['name']}")
-            click.echo(f"📊 총 피벗테이블: {data_content['total_count']}개")
-            click.echo(f"🔍 조회 시트: {', '.join(data_content['scanned_sheets'])}")
+            typer.echo(f"✅ 피벗테이블 목록 조회 완료")
+            typer.echo(f"📄 파일: {data_content['file_info']['name']}")
+            typer.echo(f"📊 총 피벗테이블: {data_content['total_count']}개")
+            typer.echo(f"🔍 조회 시트: {', '.join(data_content['scanned_sheets'])}")
 
             if platform.system() != "Windows":
-                click.echo("⚠️ macOS에서는 피벗테이블 정확한 감지가 제한적입니다")
+                typer.echo("⚠️ macOS에서는 피벗테이블 정확한 감지가 제한적입니다")
 
-            click.echo()
+            typer.echo()
 
             if data_content['total_count'] > 0:
                 for i, pivot in enumerate([pt for pt in pivot_tables if "error" not in pt], 1):
-                    click.echo(f"{i}. 📋 {pivot['name']}")
-                    click.echo(f"   📍 위치: {pivot['sheet']}!{pivot.get('location', 'Unknown')}")
+                    typer.echo(f"{i}. 📋 {pivot['name']}")
+                    typer.echo(f"   📍 위치: {pivot['sheet']}!{pivot.get('location', 'Unknown')}")
 
                     if include_details and 'row_fields' in pivot:
                         if pivot['row_fields']:
-                            click.echo(f"   📊 행 필드: {', '.join(pivot['row_fields'])}")
+                            typer.echo(f"   📊 행 필드: {', '.join(pivot['row_fields'])}")
                         if pivot['column_fields']:
-                            click.echo(f"   📊 열 필드: {', '.join(pivot['column_fields'])}")
+                            typer.echo(f"   📊 열 필드: {', '.join(pivot['column_fields'])}")
                         if pivot['data_fields']:
-                            click.echo(f"   📊 값 필드: {', '.join(pivot['data_fields'])}")
+                            typer.echo(f"   📊 값 필드: {', '.join(pivot['data_fields'])}")
                         if pivot.get('refresh_date'):
-                            click.echo(f"   🔄 마지막 새로고침: {pivot['refresh_date']}")
+                            typer.echo(f"   🔄 마지막 새로고침: {pivot['refresh_date']}")
 
-                    click.echo()
+                    typer.echo()
             else:
-                click.echo("📭 피벗테이블이 없습니다")
+                typer.echo("📭 피벗테이블이 없습니다")
 
             if data_content['error_count'] > 0:
-                click.echo("❌ 오류가 발생한 시트:")
+                typer.echo("❌ 오류가 발생한 시트:")
                 for error_pt in [pt for pt in pivot_tables if "error" in pt]:
-                    click.echo(f"   {error_pt['sheet']}: {error_pt['error']}")
+                    typer.echo(f"   {error_pt['sheet']}: {error_pt['error']}")
 
     except ValueError as e:
         error_response = create_error_response(e, "pivot-list")
         if output_format == 'json':
-            click.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
+            typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ {str(e)}", err=True)
-        sys.exit(1)
+            typer.echo(f"❌ {str(e)}", err=True)
+        raise typer.Exit(1)
 
     except RuntimeError as e:
         error_response = create_error_response(e, "pivot-list")
         if output_format == 'json':
-            click.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
+            typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ {str(e)}", err=True)
-            click.echo("💡 Excel이 설치되어 있는지 확인하고, 파일이 다른 프로그램에서 사용 중이지 않은지 확인하세요.", err=True)
-        sys.exit(1)
+            typer.echo(f"❌ {str(e)}", err=True)
+            typer.echo("💡 Excel이 설치되어 있는지 확인하고, 파일이 다른 프로그램에서 사용 중이지 않은지 확인하세요.", err=True)
+        raise typer.Exit(1)
 
     except Exception as e:
         error_response = create_error_response(e, "pivot-list")
         if output_format == 'json':
-            click.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
+            typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)
-        sys.exit(1)
+            typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)
+        raise typer.Exit(1)
 
     finally:
         # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
@@ -236,5 +227,3 @@ def pivot_list(file_path, use_active, workbook_name, sheet, include_details,
                 pass
 
 
-if __name__ == '__main__':
-    pivot_list()

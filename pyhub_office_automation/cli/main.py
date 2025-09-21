@@ -38,6 +38,9 @@ from pyhub_office_automation.excel.chart_position import chart_position
 # Pivot 명령어 import
 from pyhub_office_automation.excel.pivot_configure import pivot_configure
 from pyhub_office_automation.excel.pivot_create import pivot_create
+from pyhub_office_automation.excel.pivot_delete import pivot_delete
+from pyhub_office_automation.excel.pivot_list import pivot_list
+from pyhub_office_automation.excel.pivot_refresh import pivot_refresh
 
 # Shape 명령어 import
 from pyhub_office_automation.excel.shape_add import shape_add
@@ -101,20 +104,23 @@ excel_app.command("chart-position")(chart_position)
 # Pivot Commands
 excel_app.command("pivot-configure")(pivot_configure)
 excel_app.command("pivot-create")(pivot_create)
+excel_app.command("pivot-delete")(pivot_delete)
+excel_app.command("pivot-list")(pivot_list)
+excel_app.command("pivot-refresh")(pivot_refresh)
 
-# Shape Commands (Click 기반이므로 Typer 변환 필요)
-# excel_app.command("shape-add")(shape_add)
-# excel_app.command("shape-delete")(shape_delete)
-# excel_app.command("shape-format")(shape_format)
-# excel_app.command("shape-group")(shape_group)
-# excel_app.command("shape-list")(shape_list)
-# excel_app.command("textbox-add")(textbox_add)
+# Shape Commands (이제 Typer로 전환 완료)
+excel_app.command("shape-add")(shape_add)
+excel_app.command("shape-delete")(shape_delete)
+excel_app.command("shape-format")(shape_format)
+excel_app.command("shape-group")(shape_group)
+excel_app.command("shape-list")(shape_list)
+excel_app.command("textbox-add")(textbox_add)
 
-# Slicer Commands (임시 주석 - typing.Any 에러)
-# excel_app.command("slicer-add")(slicer_add)
-# excel_app.command("slicer-connect")(slicer_connect)
-# excel_app.command("slicer-list")(slicer_list)
-# excel_app.command("slicer-position")(slicer_position)
+# Slicer Commands (이제 Typer로 전환 완료)
+excel_app.command("slicer-add")(slicer_add)
+excel_app.command("slicer-connect")(slicer_connect)
+excel_app.command("slicer-list")(slicer_list)
+excel_app.command("slicer-position")(slicer_position)
 
 # Excel list command
 @excel_app.command("list")
@@ -155,6 +161,9 @@ def excel_list_temp(
         # Pivot Commands
         {"name": "pivot-configure", "description": "피벗테이블 설정", "category": "pivot"},
         {"name": "pivot-create", "description": "피벗테이블 생성", "category": "pivot"},
+        {"name": "pivot-delete", "description": "피벗테이블 삭제", "category": "pivot"},
+        {"name": "pivot-list", "description": "피벗테이블 목록 조회", "category": "pivot"},
+        {"name": "pivot-refresh", "description": "피벗테이블 새로고침", "category": "pivot"},
 
         # Shape Commands
         {"name": "shape-add", "description": "도형 추가", "category": "shape"},

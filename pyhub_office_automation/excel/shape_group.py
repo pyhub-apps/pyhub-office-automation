@@ -5,51 +5,32 @@ xlwings를 활용한 Excel 도형 그룹화 및 해제 기능
 
 import json
 import platform
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet, create_error_response, create_success_response,
     ExecutionTimer, get_shape_by_name, generate_unique_shape_name, normalize_path
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='도형을 그룹화할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='도형이 있는 시트 이름 (지정하지 않으면 활성 시트)')
-@click.option('--action',
-              type=click.Choice(['group', 'ungroup']),
-              required=True,
-              help='작업 유형: group(그룹화) 또는 ungroup(그룹 해제)')
-@click.option('--shape-names',
-              help='그룹화할 도형 이름들 (쉼표로 구분, 예: "Shape1,Shape2,Shape3")')
-@click.option('--group-name',
-              help='그룹 이름 (그룹화 시, 지정하지 않으면 자동 생성)')
-@click.option('--target-group',
-              help='해제할 그룹 이름 (ungroup 시 필수)')
-@click.option('--all-groups', is_flag=True,
-              help='시트의 모든 그룹 해제 (ungroup 시)')
-@click.option('--include-nested', is_flag=True,
-              help='중첩된 그룹도 포함하여 처리')
-@click.option('--dry-run', is_flag=True,
-              help='실제 작업하지 않고 대상만 확인')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='작업 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel shape-group")
-def shape_group(file_path, use_active, workbook_name, sheet, action, shape_names,
-                group_name, target_group, all_groups, include_nested, dry_run,
-                output_format, visible, save):
+def shape_group(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 그룹화할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="도형이 있는 시트 이름 (지정하지 않으면 활성 시트)"),
+    action: str = typer.Option(..., "--action", help="작업 유형: group(그룹화) 또는 ungroup(그룹 해제)"),
+    shape_names: Optional[str] = typer.Option(None, "--shape-names", help="그룹화할 도형 이름들 (쉼표로 구분, 예: \"Shape1,Shape2,Shape3\")"),
+    group_name: Optional[str] = typer.Option(None, "--group-name", help="그룹 이름 (그룹화 시, 지정하지 않으면 자동 생성)"),
+    target_group: Optional[str] = typer.Option(None, "--target-group", help="해제할 그룹 이름 (ungroup 시 필수)"),
+    all_groups: bool = typer.Option(False, "--all-groups", help="시트의 모든 그룹 해제 (ungroup 시)"),
+    include_nested: bool = typer.Option(False, "--include-nested", help="중첩된 그룹도 포함하여 처리"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="실제 작업하지 않고 대상만 확인"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="작업 후 파일 저장 여부 (기본값: True)")
+):
     """
     Excel 도형을 그룹화하거나 그룹을 해제합니다.
 
@@ -147,6 +128,10 @@ def shape_group(file_path, use_active, workbook_name, sheet, action, shape_names
     book = None
 
     try:
+        # action 값 검증
+        if action not in ['group', 'ungroup']:
+            raise ValueError(f"action은 'group' 또는 'ungroup'이어야 합니다. 입력된 값: {action}")
+
         with ExecutionTimer() as timer:
             # 워크북 연결
             book = get_or_open_workbook(

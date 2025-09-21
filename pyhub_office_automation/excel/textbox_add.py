@@ -5,9 +5,10 @@ xlwings를 활용한 Excel 텍스트 박스 생성 및 스타일링 기능
 
 import json
 import platform
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, get_sheet, create_error_response, create_success_response,
     ExecutionTimer, validate_position_and_size, generate_unique_shape_name,
@@ -15,71 +16,35 @@ from .utils import (
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='텍스트 박스를 추가할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--sheet',
-              help='텍스트 박스를 추가할 시트 이름 (지정하지 않으면 활성 시트)')
-@click.option('--text', required=True,
-              help='텍스트 박스에 입력할 텍스트 내용')
-@click.option('--left', type=int, default=100,
-              help='텍스트 박스의 왼쪽 위치 (픽셀, 기본값: 100)')
-@click.option('--top', type=int, default=100,
-              help='텍스트 박스의 위쪽 위치 (픽셀, 기본값: 100)')
-@click.option('--width', type=int, default=200,
-              help='텍스트 박스의 너비 (픽셀, 기본값: 200)')
-@click.option('--height', type=int, default=50,
-              help='텍스트 박스의 높이 (픽셀, 기본값: 50)')
-@click.option('--name',
-              help='텍스트 박스 이름 (지정하지 않으면 자동 생성)')
-@click.option('--font-size', type=int, default=12,
-              help='글꼴 크기 (포인트, 기본값: 12)')
-@click.option('--font-color', default='#000000',
-              help='글꼴 색상 (HEX 형식, 기본값: #000000)')
-@click.option('--font-name', default='Arial',
-              help='글꼴 이름 (기본값: Arial)')
-@click.option('--bold', is_flag=True,
-              help='굵은 글꼴')
-@click.option('--italic', is_flag=True,
-              help='기울임 글꼴')
-@click.option('--alignment',
-              type=click.Choice(['left', 'center', 'right']),
-              default='left',
-              help='텍스트 정렬 (기본값: left)')
-@click.option('--vertical-alignment',
-              type=click.Choice(['top', 'middle', 'bottom']),
-              default='top',
-              help='수직 정렬 (기본값: top)')
-@click.option('--fill-color',
-              help='배경 색상 (HEX 형식, 지정하지 않으면 투명)')
-@click.option('--transparency', type=int,
-              help='배경 투명도 (0-100)')
-@click.option('--border-color',
-              help='테두리 색상 (HEX 형식)')
-@click.option('--border-width', type=float,
-              help='테두리 두께 (포인트)')
-@click.option('--no-border', is_flag=True,
-              help='테두리 제거')
-@click.option('--word-wrap', is_flag=True, default=True,
-              help='자동 줄바꿈 (기본값: True)')
-@click.option('--auto-size', is_flag=True,
-              help='내용에 맞게 크기 자동 조정')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='생성 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel textbox-add")
-def textbox_add(file_path, use_active, workbook_name, sheet, text, left, top,
-                width, height, name, font_size, font_color, font_name, bold, italic,
-                alignment, vertical_alignment, fill_color, transparency, border_color,
-                border_width, no_border, word_wrap, auto_size, output_format, visible, save):
+def textbox_add(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="텍스트 박스를 추가할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="텍스트 박스를 추가할 시트 이름 (지정하지 않으면 활성 시트)"),
+    text: str = typer.Option(..., "--text", help="텍스트 박스에 입력할 텍스트 내용"),
+    left: int = typer.Option(100, "--left", help="텍스트 박스의 왼쪽 위치 (픽셀, 기본값: 100)"),
+    top: int = typer.Option(100, "--top", help="텍스트 박스의 위쪽 위치 (픽셀, 기본값: 100)"),
+    width: int = typer.Option(200, "--width", help="텍스트 박스의 너비 (픽셀, 기본값: 200)"),
+    height: int = typer.Option(50, "--height", help="텍스트 박스의 높이 (픽셀, 기본값: 50)"),
+    name: Optional[str] = typer.Option(None, "--name", help="텍스트 박스 이름 (지정하지 않으면 자동 생성)"),
+    font_size: int = typer.Option(12, "--font-size", help="글꼴 크기 (포인트, 기본값: 12)"),
+    font_color: str = typer.Option("#000000", "--font-color", help="글꼴 색상 (HEX 형식, 기본값: #000000)"),
+    font_name: str = typer.Option("Arial", "--font-name", help="글꼴 이름 (기본값: Arial)"),
+    bold: bool = typer.Option(False, "--bold", help="굵은 글꼴"),
+    italic: bool = typer.Option(False, "--italic", help="기울임 글꼴"),
+    alignment: str = typer.Option("left", "--alignment", help="텍스트 정렬 (left/center/right, 기본값: left)"),
+    vertical_alignment: str = typer.Option("top", "--vertical-alignment", help="수직 정렬 (top/middle/bottom, 기본값: top)"),
+    fill_color: Optional[str] = typer.Option(None, "--fill-color", help="배경 색상 (HEX 형식, 지정하지 않으면 투명)"),
+    transparency: Optional[int] = typer.Option(None, "--transparency", help="배경 투명도 (0-100)"),
+    border_color: Optional[str] = typer.Option(None, "--border-color", help="테두리 색상 (HEX 형식)"),
+    border_width: Optional[float] = typer.Option(None, "--border-width", help="테두리 두께 (포인트)"),
+    no_border: bool = typer.Option(False, "--no-border", help="테두리 제거"),
+    word_wrap: bool = typer.Option(True, "--word-wrap", help="자동 줄바꿈 (기본값: True)"),
+    auto_size: bool = typer.Option(False, "--auto-size", help="내용에 맞게 크기 자동 조정"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)")
+):
     """
     Excel 시트에 텍스트 박스를 추가합니다.
 
@@ -182,6 +147,13 @@ def textbox_add(file_path, use_active, workbook_name, sheet, text, left, top,
     book = None
 
     try:
+        # 매개변수 검증
+        if alignment not in ['left', 'center', 'right']:
+            raise ValueError(f"alignment는 'left', 'center', 'right' 중 하나여야 합니다. 입력된 값: {alignment}")
+
+        if vertical_alignment not in ['top', 'middle', 'bottom']:
+            raise ValueError(f"vertical_alignment는 'top', 'middle', 'bottom' 중 하나여야 합니다. 입력된 값: {vertical_alignment}")
+
         with ExecutionTimer() as timer:
             # 위치와 크기 검증
             is_valid, error_msg = validate_position_and_size(left, top, width, height)

@@ -5,64 +5,38 @@ xlwings를 활용한 Excel 슬라이서 위치 및 크기 조정 기능
 
 import json
 import platform
-import click
+from typing import Optional
+import typer
 import xlwings as xw
-from ..version import get_version
+from pyhub_office_automation.version import get_version
 from .utils import (
     get_or_open_workbook, create_error_response, create_success_response,
     ExecutionTimer, get_slicer_by_name, validate_slicer_position, normalize_path
 )
 
 
-@click.command()
-@click.option('--file-path',
-              help='슬라이서 위치를 조정할 Excel 파일의 절대 경로')
-@click.option('--use-active', is_flag=True,
-              help='현재 활성 워크북 사용')
-@click.option('--workbook-name',
-              help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")')
-@click.option('--slicer-name', required=True,
-              help='위치를 조정할 슬라이서 이름')
-@click.option('--left', type=int,
-              help='새로운 왼쪽 위치 (픽셀)')
-@click.option('--top', type=int,
-              help='새로운 위쪽 위치 (픽셀)')
-@click.option('--width', type=int,
-              help='새로운 너비 (픽셀)')
-@click.option('--height', type=int,
-              help='새로운 높이 (픽셀)')
-@click.option('--move-by-x', type=int,
-              help='X축 상대 이동 거리 (픽셀, 양수=오른쪽, 음수=왼쪽)')
-@click.option('--move-by-y', type=int,
-              help='Y축 상대 이동 거리 (픽셀, 양수=아래, 음수=위)')
-@click.option('--resize-by-width', type=int,
-              help='너비 상대 조정 (픽셀, 양수=확대, 음수=축소)')
-@click.option('--resize-by-height', type=int,
-              help='높이 상대 조정 (픽셀, 양수=확대, 음수=축소)')
-@click.option('--align-to',
-              type=click.Choice(['left', 'center', 'right', 'top', 'middle', 'bottom']),
-              help='정렬 기준 (워크시트 기준)')
-@click.option('--align-with',
-              help='다른 슬라이서와 정렬 (슬라이서 이름)')
-@click.option('--preset-layout',
-              type=click.Choice(['horizontal', 'vertical', 'grid-2x2', 'grid-3x1', 'sidebar']),
-              help='미리 정의된 레이아웃 적용')
-@click.option('--snap-to-grid', type=int,
-              help='그리드에 맞춤 (픽셀 단위, 예: 10)')
-@click.option('--auto-arrange', is_flag=True,
-              help='다른 슬라이서와 겹치지 않도록 자동 배치')
-@click.option('--format', 'output_format', default='json',
-              type=click.Choice(['json', 'text']),
-              help='출력 형식 선택')
-@click.option('--visible', default=False, type=bool,
-              help='Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)')
-@click.option('--save', default=True, type=bool,
-              help='위치 조정 후 파일 저장 여부 (기본값: True)')
-@click.version_option(version=get_version(), prog_name="oa excel slicer-position")
-def slicer_position(file_path, use_active, workbook_name, slicer_name, left, top,
-                    width, height, move_by_x, move_by_y, resize_by_width, resize_by_height,
-                    align_to, align_with, preset_layout, snap_to_grid, auto_arrange,
-                    output_format, visible, save):
+def slicer_position(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서 위치를 조정할 Excel 파일의 절대 경로"),
+    use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    slicer_name: str = typer.Option(..., "--slicer-name", help="위치를 조정할 슬라이서 이름"),
+    left: Optional[int] = typer.Option(None, "--left", help="새로운 왼쪽 위치 (픽셀)"),
+    top: Optional[int] = typer.Option(None, "--top", help="새로운 위쪽 위치 (픽셀)"),
+    width: Optional[int] = typer.Option(None, "--width", help="새로운 너비 (픽셀)"),
+    height: Optional[int] = typer.Option(None, "--height", help="새로운 높이 (픽셀)"),
+    move_by_x: Optional[int] = typer.Option(None, "--move-by-x", help="X축 상대 이동 거리 (픽셀, 양수=오른쪽, 음수=왼쪽)"),
+    move_by_y: Optional[int] = typer.Option(None, "--move-by-y", help="Y축 상대 이동 거리 (픽셀, 양수=아래, 음수=위)"),
+    resize_by_width: Optional[int] = typer.Option(None, "--resize-by-width", help="너비 상대 조정 (픽셀, 양수=확대, 음수=축소)"),
+    resize_by_height: Optional[int] = typer.Option(None, "--resize-by-height", help="높이 상대 조정 (픽셀, 양수=확대, 음수=축소)"),
+    align_to: Optional[str] = typer.Option(None, "--align-to", help="정렬 기준 (left/center/right/top/middle/bottom, 워크시트 기준)"),
+    align_with: Optional[str] = typer.Option(None, "--align-with", help="다른 슬라이서와 정렬 (슬라이서 이름)"),
+    preset_layout: Optional[str] = typer.Option(None, "--preset-layout", help="미리 정의된 레이아웃 적용 (horizontal/vertical/grid-2x2/grid-3x1/sidebar)"),
+    snap_to_grid: Optional[int] = typer.Option(None, "--snap-to-grid", help="그리드에 맞춤 (픽셀 단위, 예: 10)"),
+    auto_arrange: bool = typer.Option(False, "--auto-arrange", help="다른 슬라이서와 겹치지 않도록 자동 배치"),
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
+    save: bool = typer.Option(True, "--save", help="위치 조정 후 파일 저장 여부 (기본값: True)")
+):
     """
     Excel 슬라이서의 위치와 크기를 조정합니다.
 
@@ -218,6 +192,13 @@ def slicer_position(file_path, use_active, workbook_name, slicer_name, left, top
     book = None
 
     try:
+        # 매개변수 검증
+        if align_to and align_to not in ['left', 'center', 'right', 'top', 'middle', 'bottom']:
+            raise ValueError(f"align_to는 'left', 'center', 'right', 'top', 'middle', 'bottom' 중 하나여야 합니다. 입력된 값: {align_to}")
+
+        if preset_layout and preset_layout not in ['horizontal', 'vertical', 'grid-2x2', 'grid-3x1', 'sidebar']:
+            raise ValueError(f"preset_layout은 'horizontal', 'vertical', 'grid-2x2', 'grid-3x1', 'sidebar' 중 하나여야 합니다. 입력된 값: {preset_layout}")
+
         with ExecutionTimer() as timer:
             # Windows 플랫폼 확인
             if platform.system() != "Windows":
