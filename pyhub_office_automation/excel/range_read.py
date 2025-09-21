@@ -7,15 +7,24 @@ import json
 import sys
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
 
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_workbook, get_sheet, parse_range, get_range,
-    format_output, create_error_response, create_success_response,
-    validate_range_string, get_or_open_workbook, normalize_path,
-    ExecutionTimer
+    ExecutionTimer,
+    create_error_response,
+    create_success_response,
+    format_output,
+    get_or_open_workbook,
+    get_range,
+    get_sheet,
+    get_workbook,
+    normalize_path,
+    parse_range,
+    validate_range_string,
 )
 
 
@@ -57,10 +66,7 @@ def range_read(
 
             # 워크북 연결 (새로운 통합 함수 사용)
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 시트 및 범위 파싱
@@ -90,70 +96,49 @@ def range_read(
                     # 공식 읽기 실패시 None으로 설정
                     formulas = None
 
-                data_content = {
-                    "values": values,
-                    "formulas": formulas,
-                    "range": range_obj.address,
-                    "sheet": target_sheet.name
-                }
+                data_content = {"values": values, "formulas": formulas, "range": range_obj.address, "sheet": target_sheet.name}
             else:
                 # 값만 읽기
                 values = range_obj.value
-                data_content = {
-                    "values": values,
-                    "range": range_obj.address,
-                    "sheet": target_sheet.name
-                }
+                data_content = {"values": values, "range": range_obj.address, "sheet": target_sheet.name}
 
             # 범위 정보 추가
             try:
                 if range_obj.count == 1:
                     # 단일 셀
-                    data_content["range_info"] = {
-                        "cells_count": 1,
-                        "is_single_cell": True,
-                        "row_count": 1,
-                        "column_count": 1
-                    }
+                    data_content["range_info"] = {"cells_count": 1, "is_single_cell": True, "row_count": 1, "column_count": 1}
                 else:
                     # 다중 셀
                     data_content["range_info"] = {
                         "cells_count": range_obj.count,
                         "is_single_cell": False,
                         "row_count": range_obj.rows.count,
-                        "column_count": range_obj.columns.count
+                        "column_count": range_obj.columns.count,
                     }
             except:
                 # 범위 정보 수집 실패시 기본값 설정
-                data_content["range_info"] = {
-                    "cells_count": "unknown",
-                    "is_single_cell": False
-                }
+                data_content["range_info"] = {"cells_count": "unknown", "is_single_cell": False}
 
             # 파일 정보 추가 (file_path가 제공된 경우에만)
             if file_path:
                 normalized_path = normalize_path(file_path)
                 path_obj = Path(normalized_path)
-                file_info = {
-                    "path": str(path_obj.resolve()),
-                    "name": path_obj.name,
-                    "sheet_name": target_sheet.name
-                }
+                file_info = {"path": str(path_obj.resolve()), "name": path_obj.name, "sheet_name": target_sheet.name}
                 data_content["file_info"] = file_info
             else:
                 # 활성 워크북이나 이름으로 접근한 경우
                 data_content["file_info"] = {
-                    "path": normalize_path(book.fullname) if hasattr(book, 'fullname') else None,
+                    "path": normalize_path(book.fullname) if hasattr(book, "fullname") else None,
                     "name": normalize_path(book.name),
-                    "sheet_name": target_sheet.name
+                    "sheet_name": target_sheet.name,
                 }
 
             # 데이터 크기 계산 (통계용)
             data_size = 0
             if isinstance(values, list):
-                data_size = len(str(values).encode('utf-8'))
+                data_size = len(str(values).encode("utf-8"))
             else:
-                data_size = len(str(values).encode('utf-8'))
+                data_size = len(str(values).encode("utf-8"))
 
             # 성공 응답 생성 (AI 에이전트 호환성 향상)
             response = create_success_response(
@@ -163,16 +148,16 @@ def range_read(
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
                 range_obj=range_obj,
-                data_size=data_size
+                data_size=data_size,
             )
 
             # 출력 형식에 따른 결과 반환
-            if output_format == 'json':
+            if output_format == "json":
                 typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
-            elif output_format == 'csv':
+            elif output_format == "csv":
                 # CSV 형식으로 값만 출력
-                import io
                 import csv
+                import io
 
                 output = io.StringIO()
                 writer = csv.writer(output)
@@ -197,7 +182,9 @@ def range_read(
                 if data_content.get("range_info", {}).get("is_single_cell"):
                     typer.echo(f"💾 값: {values}")
                 else:
-                    typer.echo(f"📊 데이터 크기: {data_content.get('range_info', {}).get('row_count', '?')}행 × {data_content.get('range_info', {}).get('column_count', '?')}열")
+                    typer.echo(
+                        f"📊 데이터 크기: {data_content.get('range_info', {}).get('row_count', '?')}행 × {data_content.get('range_info', {}).get('column_count', '?')}열"
+                    )
                     typer.echo("💾 데이터:")
                     if isinstance(values, list):
                         for i, row in enumerate(values):
@@ -210,7 +197,7 @@ def range_read(
 
     except FileNotFoundError as e:
         error_response = create_error_response(e, "range-read")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 파일을 찾을 수 없습니다: {file_path}", err=True)
@@ -218,7 +205,7 @@ def range_read(
 
     except ValueError as e:
         error_response = create_error_response(e, "range-read")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ {str(e)}", err=True)
@@ -226,16 +213,18 @@ def range_read(
 
     except RuntimeError as e:
         error_response = create_error_response(e, "range-read")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ {str(e)}", err=True)
-            typer.echo("💡 Excel이 설치되어 있는지 확인하고, 파일이 다른 프로그램에서 사용 중이지 않은지 확인하세요.", err=True)
+            typer.echo(
+                "💡 Excel이 설치되어 있는지 확인하고, 파일이 다른 프로그램에서 사용 중이지 않은지 확인하세요.", err=True
+            )
         raise typer.Exit(1)
 
     except Exception as e:
         error_response = create_error_response(e, "range-read")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)

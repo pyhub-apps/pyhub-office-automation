@@ -6,25 +6,10 @@ PyInstaller 호환성을 위한 정적 명령어 등록
 import json
 import sys
 from typing import Optional
+
 import typer
 from rich.console import Console
 from rich.table import Table
-
-from pyhub_office_automation.version import get_version_info, get_version
-
-# Excel 명령어 import
-from pyhub_office_automation.excel.range_read import range_read
-from pyhub_office_automation.excel.range_write import range_write
-from pyhub_office_automation.excel.workbook_list import workbook_list
-from pyhub_office_automation.excel.workbook_open import workbook_open
-from pyhub_office_automation.excel.workbook_create import workbook_create
-from pyhub_office_automation.excel.workbook_info import workbook_info
-from pyhub_office_automation.excel.sheet_activate import sheet_activate
-from pyhub_office_automation.excel.sheet_add import sheet_add
-from pyhub_office_automation.excel.sheet_delete import sheet_delete
-from pyhub_office_automation.excel.sheet_rename import sheet_rename
-from pyhub_office_automation.excel.table_read import table_read
-from pyhub_office_automation.excel.table_write import table_write
 
 # Chart 명령어 import
 from pyhub_office_automation.excel.chart_add import chart_add
@@ -42,22 +27,38 @@ from pyhub_office_automation.excel.pivot_delete import pivot_delete
 from pyhub_office_automation.excel.pivot_list import pivot_list
 from pyhub_office_automation.excel.pivot_refresh import pivot_refresh
 
+# Excel 명령어 import
+from pyhub_office_automation.excel.range_read import range_read
+from pyhub_office_automation.excel.range_write import range_write
+
 # Shape 명령어 import
 from pyhub_office_automation.excel.shape_add import shape_add
 from pyhub_office_automation.excel.shape_delete import shape_delete
 from pyhub_office_automation.excel.shape_format import shape_format
 from pyhub_office_automation.excel.shape_group import shape_group
 from pyhub_office_automation.excel.shape_list import shape_list
-from pyhub_office_automation.excel.textbox_add import textbox_add
+from pyhub_office_automation.excel.sheet_activate import sheet_activate
+from pyhub_office_automation.excel.sheet_add import sheet_add
+from pyhub_office_automation.excel.sheet_delete import sheet_delete
+from pyhub_office_automation.excel.sheet_rename import sheet_rename
 
 # Slicer 명령어 import
 from pyhub_office_automation.excel.slicer_add import slicer_add
 from pyhub_office_automation.excel.slicer_connect import slicer_connect
 from pyhub_office_automation.excel.slicer_list import slicer_list
 from pyhub_office_automation.excel.slicer_position import slicer_position
+from pyhub_office_automation.excel.table_read import table_read
+from pyhub_office_automation.excel.table_write import table_write
+from pyhub_office_automation.excel.textbox_add import textbox_add
+from pyhub_office_automation.excel.workbook_create import workbook_create
+from pyhub_office_automation.excel.workbook_info import workbook_info
+from pyhub_office_automation.excel.workbook_list import workbook_list
+from pyhub_office_automation.excel.workbook_open import workbook_open
+from pyhub_office_automation.version import get_version, get_version_info
 
 # Typer 앱 생성
 app = typer.Typer(help="pyhub-office-automation: AI 에이전트를 위한 Office 자동화 도구")
+
 
 # version 명령어 추가
 @app.command()
@@ -65,6 +66,8 @@ def version():
     """버전 정보 출력"""
     version_info = get_version_info()
     typer.echo(f"pyhub-office-automation version {version_info['version']}")
+
+
 excel_app = typer.Typer(help="Excel 자동화 명령어들", no_args_is_help=True)
 hwp_app = typer.Typer(help="HWP 자동화 명령어들 (Windows 전용)", no_args_is_help=True)
 
@@ -122,6 +125,7 @@ excel_app.command("slicer-connect")(slicer_connect)
 excel_app.command("slicer-list")(slicer_list)
 excel_app.command("slicer-position")(slicer_position)
 
+
 # Excel list command
 @excel_app.command("list")
 def excel_list_temp(
@@ -134,21 +138,17 @@ def excel_list_temp(
         {"name": "workbook-open", "description": "Excel 워크북 열기", "category": "workbook"},
         {"name": "workbook-create", "description": "새 Excel 워크북 생성", "category": "workbook"},
         {"name": "workbook-info", "description": "워크북 정보 조회", "category": "workbook"},
-
         # Sheet Commands
         {"name": "sheet-activate", "description": "시트 활성화", "category": "sheet"},
         {"name": "sheet-add", "description": "새 시트 추가", "category": "sheet"},
         {"name": "sheet-delete", "description": "시트 삭제", "category": "sheet"},
         {"name": "sheet-rename", "description": "시트 이름 변경", "category": "sheet"},
-
         # Range Commands
         {"name": "range-read", "description": "셀 범위 데이터 읽기", "category": "range"},
         {"name": "range-write", "description": "셀 범위에 데이터 쓰기", "category": "range"},
-
         # Table Commands
         {"name": "table-read", "description": "테이블 데이터를 DataFrame으로 읽기", "category": "table"},
         {"name": "table-write", "description": "DataFrame을 Excel 테이블로 쓰기", "category": "table"},
-
         # Chart Commands
         {"name": "chart-add", "description": "차트 추가", "category": "chart"},
         {"name": "chart-configure", "description": "차트 설정", "category": "chart"},
@@ -157,14 +157,12 @@ def excel_list_temp(
         {"name": "chart-list", "description": "차트 목록 조회", "category": "chart"},
         {"name": "chart-pivot-create", "description": "피벗 차트 생성", "category": "chart"},
         {"name": "chart-position", "description": "차트 위치 설정", "category": "chart"},
-
         # Pivot Commands
         {"name": "pivot-configure", "description": "피벗테이블 설정", "category": "pivot"},
         {"name": "pivot-create", "description": "피벗테이블 생성", "category": "pivot"},
         {"name": "pivot-delete", "description": "피벗테이블 삭제", "category": "pivot"},
         {"name": "pivot-list", "description": "피벗테이블 목록 조회", "category": "pivot"},
         {"name": "pivot-refresh", "description": "피벗테이블 새로고침", "category": "pivot"},
-
         # Shape Commands
         {"name": "shape-add", "description": "도형 추가", "category": "shape"},
         {"name": "shape-delete", "description": "도형 삭제", "category": "shape"},
@@ -172,7 +170,6 @@ def excel_list_temp(
         {"name": "shape-group", "description": "도형 그룹화", "category": "shape"},
         {"name": "shape-list", "description": "도형 목록 조회", "category": "shape"},
         {"name": "textbox-add", "description": "텍스트 상자 추가", "category": "shape"},
-
         # Slicer Commands
         {"name": "slicer-add", "description": "슬라이서 추가", "category": "slicer"},
         {"name": "slicer-connect", "description": "슬라이서 연결", "category": "slicer"},
@@ -186,10 +183,10 @@ def excel_list_temp(
         "platform_requirement": "Windows (전체 기능) / macOS (제한적)",
         "commands": commands,
         "total_commands": len(commands),
-        "package_version": get_version()
+        "package_version": get_version(),
     }
 
-    if output_format == 'json':
+    if output_format == "json":
         try:
             json_output = json.dumps(excel_data, ensure_ascii=False, indent=2)
             typer.echo(json_output)
@@ -204,7 +201,7 @@ def excel_list_temp(
 
         categories = {}
         for cmd in commands:
-            category = cmd['category']
+            category = cmd["category"]
             if category not in categories:
                 categories[category] = []
             categories[category].append(cmd)
@@ -215,6 +212,7 @@ def excel_list_temp(
                 console.print(f"  • oa excel {cmd['name']}")
                 console.print(f"    {cmd['description']}")
             console.print()
+
 
 # Excel 앱을 메인 앱에 등록
 app.add_typer(excel_app, name="excel")
@@ -236,10 +234,10 @@ def info(
             "platform": sys.platform,
             "python_version": sys.version,
             "dependencies": dependencies,
-            "status": "installed"
+            "status": "installed",
         }
 
-        if output_format == 'json':
+        if output_format == "json":
             try:
                 json_output = json.dumps(info_data, ensure_ascii=False, indent=2)
                 typer.echo(json_output)
@@ -258,19 +256,15 @@ def info(
             table.add_column("Status", style="green")
             table.add_column("Version")
 
-            for dep, status in info_data['dependencies'].items():
-                status_mark = "✓" if status['available'] else "✗"
-                version = status['version'] or 'Not installed'
+            for dep, status in info_data["dependencies"].items():
+                status_mark = "✓" if status["available"] else "✗"
+                version = status["version"] or "Not installed"
                 table.add_row(dep, status_mark, version)
 
             console.print(table)
 
     except Exception as e:
-        error_data = {
-            "error": str(e),
-            "command": "info",
-            "version": get_version()
-        }
+        error_data = {"error": str(e), "command": "info", "version": get_version()}
         typer.echo(json.dumps(error_data, ensure_ascii=False, indent=2), err=True)
         raise typer.Exit(1)
 
@@ -286,32 +280,27 @@ def install_guide(
             "title": "Python 설치",
             "description": "Python 3.13 이상을 설치하세요",
             "url": "https://www.python.org/downloads/",
-            "command": None
+            "command": None,
         },
         {
             "step": 2,
             "title": "패키지 설치",
             "description": "pip를 사용하여 pyhub-office-automation을 설치하세요",
-            "command": "pip install pyhub-office-automation"
+            "command": "pip install pyhub-office-automation",
         },
-        {
-            "step": 3,
-            "title": "설치 확인",
-            "description": "oa 명령어가 정상 동작하는지 확인하세요",
-            "command": "oa info"
-        },
+        {"step": 3, "title": "설치 확인", "description": "oa 명령어가 정상 동작하는지 확인하세요", "command": "oa info"},
         {
             "step": 4,
             "title": "Excel 사용 시 (선택사항)",
             "description": "Microsoft Excel이 설치되어 있어야 합니다",
-            "note": "xlwings는 Excel이 설치된 환경에서 동작합니다"
+            "note": "xlwings는 Excel이 설치된 환경에서 동작합니다",
         },
         {
             "step": 5,
             "title": "HWP 사용 시 (선택사항, Windows 전용)",
             "description": "한글(HWP) 프로그램이 설치되어 있어야 합니다",
-            "note": "pyhwpx는 Windows COM을 통해 HWP와 연동됩니다"
-        }
+            "note": "pyhwpx는 Windows COM을 통해 HWP와 연동됩니다",
+        },
     ]
 
     guide_data = {
@@ -319,10 +308,10 @@ def install_guide(
         "version": get_version(),
         "platform_requirement": "Windows 10/11 (추천)",
         "python_requirement": "Python 3.13+",
-        "steps": guide_steps
+        "steps": guide_steps,
     }
 
-    if output_format == 'json':
+    if output_format == "json":
         try:
             # JSON 출력 시 한글 인코딩 문제 해결
             json_output = json.dumps(guide_data, ensure_ascii=False, indent=2)
@@ -341,14 +330,13 @@ def install_guide(
         for step in guide_steps:
             console.print(f"Step {step['step']}: {step['title']}", style="bold yellow")
             console.print(f"  {step['description']}")
-            if step.get('command'):
+            if step.get("command"):
                 console.print(f"  Command: [green]{step['command']}[/green]")
-            if step.get('url'):
+            if step.get("url"):
                 console.print(f"  URL: [blue]{step['url']}[/blue]")
-            if step.get('note'):
+            if step.get("note"):
                 console.print(f"  Note: [dim]{step['note']}[/dim]")
             console.print()
-
 
 
 @hwp_app.command("list")
@@ -357,18 +345,8 @@ def hwp_list(
 ):
     """HWP 자동화 명령어 목록 출력"""
     commands = [
-        {
-            "name": "open-hwp",
-            "description": "HWP 파일 열기",
-            "version": "1.0.0",
-            "status": "planned"
-        },
-        {
-            "name": "save-hwp",
-            "description": "HWP 파일 저장",
-            "version": "1.0.0",
-            "status": "planned"
-        }
+        {"name": "open-hwp", "description": "HWP 파일 열기", "version": "1.0.0", "status": "planned"},
+        {"name": "save-hwp", "description": "HWP 파일 저장", "version": "1.0.0", "status": "planned"},
     ]
 
     hwp_data = {
@@ -377,10 +355,10 @@ def hwp_list(
         "platform_requirement": "Windows + HWP 프로그램 설치 필요",
         "commands": commands,
         "total_commands": len(commands),
-        "package_version": get_version()
+        "package_version": get_version(),
     }
 
-    if output_format == 'json':
+    if output_format == "json":
         try:
             json_output = json.dumps(hwp_data, ensure_ascii=False, indent=2)
             typer.echo(json_output)
@@ -394,7 +372,7 @@ def hwp_list(
         console.print()
 
         for cmd in commands:
-            status_mark = "✓" if cmd['status'] == 'available' else "○"
+            status_mark = "✓" if cmd["status"] == "available" else "○"
             console.print(f"  {status_mark} oa hwp {cmd['name']}")
             console.print(f"     {cmd['description']} (v{cmd['version']})")
 
@@ -412,10 +390,10 @@ def get_help(
         "help": f"oa {category} {command_name} 명령어 도움말 (구현 예정)",
         "usage": f"oa {category} {command_name} [OPTIONS]",
         "status": "planned",
-        "version": get_version()
+        "version": get_version(),
     }
 
-    if output_format == 'json':
+    if output_format == "json":
         try:
             json_output = json.dumps(help_data, ensure_ascii=False, indent=2)
             typer.echo(json_output)
@@ -427,9 +405,7 @@ def get_help(
         console.print(f"Usage: {help_data['usage']}")
         console.print(f"Status: {help_data['status']}")
         console.print()
-        console.print(help_data['help'])
-
-
+        console.print(help_data["help"])
 
 
 def check_dependencies():
@@ -439,41 +415,26 @@ def check_dependencies():
     # xlwings 확인
     try:
         import xlwings
-        dependencies['xlwings'] = {
-            'available': True,
-            'version': xlwings.__version__
-        }
+
+        dependencies["xlwings"] = {"available": True, "version": xlwings.__version__}
     except ImportError:
-        dependencies['xlwings'] = {
-            'available': False,
-            'version': None
-        }
+        dependencies["xlwings"] = {"available": False, "version": None}
 
     # pyhwpx 확인 (Windows 전용)
     try:
         import pyhwpx
-        dependencies['pyhwpx'] = {
-            'available': True,
-            'version': getattr(pyhwpx, '__version__', 'unknown')
-        }
+
+        dependencies["pyhwpx"] = {"available": True, "version": getattr(pyhwpx, "__version__", "unknown")}
     except ImportError:
-        dependencies['pyhwpx'] = {
-            'available': False,
-            'version': None
-        }
+        dependencies["pyhwpx"] = {"available": False, "version": None}
 
     # pandas 확인
     try:
         import pandas
-        dependencies['pandas'] = {
-            'available': True,
-            'version': pandas.__version__
-        }
+
+        dependencies["pandas"] = {"available": True, "version": pandas.__version__}
     except ImportError:
-        dependencies['pandas'] = {
-            'available': False,
-            'version': None
-        }
+        dependencies["pandas"] = {"available": False, "version": None}
 
     return dependencies
 
@@ -483,5 +444,5 @@ def main():
     app()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

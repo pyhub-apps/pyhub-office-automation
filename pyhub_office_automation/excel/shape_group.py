@@ -6,22 +6,33 @@ xlwings를 활용한 Excel 도형 그룹화 및 해제 기능
 import json
 import platform
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_or_open_workbook, get_sheet, create_error_response, create_success_response,
-    ExecutionTimer, get_shape_by_name, generate_unique_shape_name, normalize_path
+    ExecutionTimer,
+    create_error_response,
+    create_success_response,
+    generate_unique_shape_name,
+    get_or_open_workbook,
+    get_shape_by_name,
+    get_sheet,
+    normalize_path,
 )
 
 
 def shape_group(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 그룹화할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="도형이 있는 시트 이름 (지정하지 않으면 활성 시트)"),
     action: str = typer.Option(..., "--action", help="작업 유형: group(그룹화) 또는 ungroup(그룹 해제)"),
-    shape_names: Optional[str] = typer.Option(None, "--shape-names", help="그룹화할 도형 이름들 (쉼표로 구분, 예: \"Shape1,Shape2,Shape3\")"),
+    shape_names: Optional[str] = typer.Option(
+        None, "--shape-names", help='그룹화할 도형 이름들 (쉼표로 구분, 예: "Shape1,Shape2,Shape3")'
+    ),
     group_name: Optional[str] = typer.Option(None, "--group-name", help="그룹 이름 (그룹화 시, 지정하지 않으면 자동 생성)"),
     target_group: Optional[str] = typer.Option(None, "--target-group", help="해제할 그룹 이름 (ungroup 시 필수)"),
     all_groups: bool = typer.Option(False, "--all-groups", help="시트의 모든 그룹 해제 (ungroup 시)"),
@@ -29,7 +40,7 @@ def shape_group(
     dry_run: bool = typer.Option(False, "--dry-run", help="실제 작업하지 않고 대상만 확인"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="작업 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="작업 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     Excel 도형을 그룹화하거나 그룹을 해제합니다.
@@ -129,30 +140,23 @@ def shape_group(
 
     try:
         # action 값 검증
-        if action not in ['group', 'ungroup']:
+        if action not in ["group", "ungroup"]:
             raise ValueError(f"action은 'group' 또는 'ungroup'이어야 합니다. 입력된 값: {action}")
 
         with ExecutionTimer() as timer:
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
 
             # 작업별 검증 및 실행
-            if action == 'group':
-                result = handle_group_action(
-                    target_sheet, shape_names, group_name, dry_run
-                )
+            if action == "group":
+                result = handle_group_action(target_sheet, shape_names, group_name, dry_run)
             else:  # ungroup
-                result = handle_ungroup_action(
-                    target_sheet, target_group, all_groups, include_nested, dry_run
-                )
+                result = handle_ungroup_action(target_sheet, target_group, all_groups, include_nested, dry_run)
 
             # 파일 저장
             if save and file_path and not dry_run:
@@ -165,7 +169,7 @@ def shape_group(
                 "sheet": target_sheet.name,
                 "workbook": normalize_path(book.name),
                 "platform_support": "full" if platform.system() == "Windows" else "limited",
-                **result
+                **result,
             }
 
             message = result.get("message", f"{action} 작업이 완료되었습니다")
@@ -179,7 +183,7 @@ def shape_group(
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
                 action=action,
-                affected_shapes=result.get("affected_shapes_count", 0)
+                affected_shapes=result.get("affected_shapes_count", 0),
             )
 
             print(json.dumps(response, ensure_ascii=False, indent=2))
@@ -211,7 +215,7 @@ def handle_group_action(sheet, shape_names, group_name, dry_run):
         raise ValueError("그룹화할 도형 이름들을 지정해야 합니다 (--shape-names)")
 
     # 도형 이름 파싱
-    shape_name_list = [name.strip() for name in shape_names.split(',') if name.strip()]
+    shape_name_list = [name.strip() for name in shape_names.split(",") if name.strip()]
 
     if len(shape_name_list) < 2:
         raise ValueError("그룹화하려면 최소 2개 이상의 도형이 필요합니다")
@@ -242,17 +246,13 @@ def handle_group_action(sheet, shape_names, group_name, dry_run):
     # 도형 정보 수집
     shape_details = []
     for shape_obj in shapes_to_group:
-        shape_details.append({
-            "name": shape_obj.name,
-            "position": {
-                "left": getattr(shape_obj, 'left', 0),
-                "top": getattr(shape_obj, 'top', 0)
-            },
-            "size": {
-                "width": getattr(shape_obj, 'width', 0),
-                "height": getattr(shape_obj, 'height', 0)
+        shape_details.append(
+            {
+                "name": shape_obj.name,
+                "position": {"left": getattr(shape_obj, "left", 0), "top": getattr(shape_obj, "top", 0)},
+                "size": {"width": getattr(shape_obj, "width", 0), "height": getattr(shape_obj, "height", 0)},
             }
-        })
+        )
 
     if dry_run:
         return {
@@ -260,7 +260,7 @@ def handle_group_action(sheet, shape_names, group_name, dry_run):
             "group_name": group_name,
             "total_shapes": len(shapes_to_group),
             "affected_shapes_count": len(shapes_to_group),
-            "message": f"{len(shapes_to_group)}개의 도형이 '{group_name}' 그룹으로 묶일 예정입니다"
+            "message": f"{len(shapes_to_group)}개의 도형이 '{group_name}' 그룹으로 묶일 예정입니다",
         }
 
     # 실제 그룹화 수행 (Windows에서만 완전 지원)
@@ -280,11 +280,11 @@ def handle_group_action(sheet, shape_names, group_name, dry_run):
                 "group_created": {
                     "name": group_name,
                     "member_count": len(shapes_to_group),
-                    "members": [s["name"] for s in shape_details]
+                    "members": [s["name"] for s in shape_details],
                 },
                 "grouped_shapes": shape_details,
                 "affected_shapes_count": len(shapes_to_group),
-                "message": f"'{group_name}' 그룹이 성공적으로 생성되었습니다 ({len(shapes_to_group)}개 도형)"
+                "message": f"'{group_name}' 그룹이 성공적으로 생성되었습니다 ({len(shapes_to_group)}개 도형)",
             }
 
         except Exception as e:
@@ -296,7 +296,7 @@ def handle_group_action(sheet, shape_names, group_name, dry_run):
             "group_name": group_name,
             "affected_shapes_count": len(shapes_to_group),
             "platform_limitation": "macOS에서는 그룹화 기능이 제한됩니다",
-            "message": f"macOS에서는 그룹화가 제한적으로 지원됩니다"
+            "message": f"macOS에서는 그룹화가 제한적으로 지원됩니다",
         }
 
 
@@ -346,11 +346,7 @@ def handle_ungroup_action(sheet, target_group, all_groups, include_nested, dry_r
 
     # 그룹 정보 수집
     for group_shape in groups_to_ungroup:
-        group_info = {
-            "group_name": group_shape.name,
-            "member_shapes": [],
-            "member_count": 0
-        }
+        group_info = {"group_name": group_shape.name, "member_shapes": [], "member_count": 0}
 
         # Windows에서 그룹 멤버 정보 수집
         if platform.system() == "Windows":
@@ -360,10 +356,7 @@ def handle_ungroup_action(sheet, target_group, all_groups, include_nested, dry_r
 
                 for i in range(1, group_items.Count + 1):
                     member = group_items(i)
-                    group_info["member_shapes"].append({
-                        "name": member.Name,
-                        "type": member.Type
-                    })
+                    group_info["member_shapes"].append({"name": member.Name, "type": member.Type})
 
                 # 중첩 그룹 처리
                 if include_nested:
@@ -379,8 +372,7 @@ def handle_ungroup_action(sheet, target_group, all_groups, include_nested, dry_r
 
     if dry_run:
         total_affected = sum(
-            info.get("member_count", 0) for info in ungrouped_details
-            if isinstance(info.get("member_count"), int)
+            info.get("member_count", 0) for info in ungrouped_details if isinstance(info.get("member_count"), int)
         )
 
         return {
@@ -388,7 +380,7 @@ def handle_ungroup_action(sheet, target_group, all_groups, include_nested, dry_r
             "total_groups": len(groups_to_ungroup),
             "affected_shapes_count": total_affected,
             "include_nested": include_nested,
-            "message": f"{len(groups_to_ungroup)}개의 그룹이 해제될 예정입니다"
+            "message": f"{len(groups_to_ungroup)}개의 그룹이 해제될 예정입니다",
         }
 
     # 실제 그룹 해제 수행
@@ -409,14 +401,10 @@ def handle_ungroup_action(sheet, target_group, all_groups, include_nested, dry_r
                 ungrouped_count += 1
 
             except Exception as e:
-                failed_ungroups.append({
-                    "group_name": group_shape.name,
-                    "error": str(e)
-                })
+                failed_ungroups.append({"group_name": group_shape.name, "error": str(e)})
 
         total_affected = sum(
-            info.get("member_count", 0) for info in ungrouped_details
-            if isinstance(info.get("member_count"), int)
+            info.get("member_count", 0) for info in ungrouped_details if isinstance(info.get("member_count"), int)
         )
 
         result = {
@@ -424,7 +412,7 @@ def handle_ungroup_action(sheet, target_group, all_groups, include_nested, dry_r
             "total_ungrouped": ungrouped_count,
             "affected_shapes_count": total_affected,
             "include_nested": include_nested,
-            "message": f"{ungrouped_count}개의 그룹이 성공적으로 해제되었습니다"
+            "message": f"{ungrouped_count}개의 그룹이 성공적으로 해제되었습니다",
         }
 
         if failed_ungroups:
@@ -439,7 +427,7 @@ def handle_ungroup_action(sheet, target_group, all_groups, include_nested, dry_r
             "target_groups": [g.name for g in groups_to_ungroup],
             "affected_shapes_count": len(groups_to_ungroup),
             "platform_limitation": "macOS에서는 그룹 해제 기능이 제한됩니다",
-            "message": "macOS에서는 그룹 해제가 제한적으로 지원됩니다"
+            "message": "macOS에서는 그룹 해제가 제한적으로 지원됩니다",
         }
 
 
@@ -467,5 +455,5 @@ def ungroup_recursively(group_shape):
         group_shape.api.Ungroup()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     shape_group()

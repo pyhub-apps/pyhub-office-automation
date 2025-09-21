@@ -6,25 +6,33 @@ xlwings를 활용한 Excel 도형 정보 수집 기능
 import json
 import platform
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_or_open_workbook, get_sheet, create_error_response, create_success_response,
-    ExecutionTimer, get_shapes_info, normalize_path
+    ExecutionTimer,
+    create_error_response,
+    create_success_response,
+    get_or_open_workbook,
+    get_shapes_info,
+    get_sheet,
+    normalize_path,
 )
 
 
 def shape_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 조회할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="도형을 조회할 시트 이름 (지정하지 않으면 활성 시트)"),
     detailed: bool = typer.Option(False, "--detailed", help="상세 정보 포함 (색상, 투명도, 텍스트 등)"),
     include_text: bool = typer.Option(False, "--include-text", help="텍스트 내용 포함 (Windows 전용)"),
     filter_type: Optional[str] = typer.Option(None, "--filter-type", help="특정 도형 타입만 필터링 (예: rectangle, oval)"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
-    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)")
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
 ):
     """
     Excel 시트의 모든 도형 정보를 조회합니다.
@@ -109,10 +117,7 @@ def shape_list(
         with ExecutionTimer() as timer:
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 시트 가져오기
@@ -126,7 +131,7 @@ def shape_list(
                 filtered_shapes = []
                 for shape_info in shapes_info:
                     # 타입 이름으로 필터링 (대소문자 무시)
-                    if filter_type.lower() in str(shape_info.get('type', '')).lower():
+                    if filter_type.lower() in str(shape_info.get("type", "")).lower():
                         filtered_shapes.append(shape_info)
                 shapes_info = filtered_shapes
 
@@ -134,7 +139,7 @@ def shape_list(
             if (detailed or include_text) and platform.system() == "Windows":
                 try:
                     for i, shape_info in enumerate(shapes_info):
-                        shape_name = shape_info['name']
+                        shape_name = shape_info["name"]
 
                         # 실제 도형 객체 찾기
                         shape_obj = None
@@ -147,7 +152,7 @@ def shape_list(
                             # 텍스트 정보 추가
                             if include_text:
                                 try:
-                                    if hasattr(shape_obj.api, 'TextFrame'):
+                                    if hasattr(shape_obj.api, "TextFrame"):
                                         if shape_obj.api.TextFrame.HasText:
                                             shape_info["text_content"] = shape_obj.api.TextFrame.Characters().Text
                                         else:
@@ -159,14 +164,15 @@ def shape_list(
                             if detailed:
                                 try:
                                     # 그림자 정보
-                                    if hasattr(shape_obj.api, 'Shadow'):
+                                    if hasattr(shape_obj.api, "Shadow"):
                                         shape_info["has_shadow"] = shape_obj.api.Shadow.Type != 0
                                         if shape_info["has_shadow"]:
                                             from .utils import rgb_to_hex
+
                                             shape_info["shadow_color"] = rgb_to_hex(shape_obj.api.Shadow.ForeColor.RGB)
 
                                     # 테두리 정보
-                                    if hasattr(shape_obj.api, 'Line'):
+                                    if hasattr(shape_obj.api, "Line"):
                                         shape_info["has_border"] = shape_obj.api.Line.Visible
                                         if shape_info["has_border"]:
                                             shape_info["border_color"] = rgb_to_hex(shape_obj.api.Line.ForeColor.RGB)
@@ -184,11 +190,7 @@ def shape_list(
                 "total_shapes": len(shapes_info),
                 "sheet": target_sheet.name,
                 "workbook": normalize_path(book.name),
-                "options": {
-                    "detailed": detailed,
-                    "include_text": include_text,
-                    "filter_type": filter_type
-                }
+                "options": {"detailed": detailed, "include_text": include_text, "filter_type": filter_type},
             }
 
             # 플랫폼별 기능 지원 정보
@@ -198,9 +200,9 @@ def shape_list(
             # 통계 정보
             if shapes_info:
                 response_data["statistics"] = {
-                    "unique_types": len(set(str(s.get('type', 'unknown')) for s in shapes_info)),
-                    "has_text_count": sum(1 for s in shapes_info if s.get('has_text', False)),
-                    "visible_count": sum(1 for s in shapes_info if s.get('visible', True))
+                    "unique_types": len(set(str(s.get("type", "unknown")) for s in shapes_info)),
+                    "has_text_count": sum(1 for s in shapes_info if s.get("has_text", False)),
+                    "visible_count": sum(1 for s in shapes_info if s.get("visible", True)),
                 }
 
             response = create_success_response(
@@ -209,7 +211,7 @@ def shape_list(
                 message=f"{len(shapes_info)}개의 도형 정보를 조회했습니다",
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
-                shapes_count=len(shapes_info)
+                shapes_count=len(shapes_info),
             )
 
             print(json.dumps(response, ensure_ascii=False, indent=2))
@@ -235,5 +237,5 @@ def shape_list(
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     shape_list()

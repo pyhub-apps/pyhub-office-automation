@@ -4,18 +4,17 @@
 """
 
 import json
-import platform
 import os
+import platform
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
-from .utils import (
-    get_or_open_workbook, get_sheet,
-    create_error_response, create_success_response,
-    normalize_path
-)
+
+from .utils import create_error_response, create_success_response, get_or_open_workbook, get_sheet, normalize_path
 
 
 def find_chart_by_name_or_index(sheet, chart_name=None, chart_index=None):
@@ -43,11 +42,11 @@ def get_image_format_constant(image_format):
     """이미지 형식에 해당하는 xlwings 상수를 반환"""
     # 이미지 형식 상수값 (Windows Excel에서 사용하는 값들)
     format_values = {
-        'png': -4142,  # xlPNG
-        'jpg': -4141,  # xlJPEG
-        'jpeg': -4141,  # xlJPEG
-        'gif': -4140,  # xlGIF
-        'bmp': -4147   # xlBMP
+        "png": -4142,  # xlPNG
+        "jpg": -4141,  # xlJPEG
+        "jpeg": -4141,  # xlJPEG
+        "gif": -4140,  # xlGIF
+        "bmp": -4147,  # xlBMP
     }
 
     format_lower = image_format.lower()
@@ -58,12 +57,8 @@ def get_image_format_constant(image_format):
         # Windows에서는 xlwings 상수를 시도하고, 실패하면 숫자값 사용
         try:
             from xlwings.constants import FileFormat
-            const_map = {
-                -4142: 'xlPNG',
-                -4141: 'xlJPEG',
-                -4140: 'xlGIF',
-                -4147: 'xlBMP'
-            }
+
+            const_map = {-4142: "xlPNG", -4141: "xlJPEG", -4140: "xlGIF", -4147: "xlBMP"}
 
             format_value = format_values[format_lower]
             const_name = const_map.get(format_value)
@@ -94,8 +89,8 @@ def validate_output_path(output_path, image_format):
 
     # 확장자가 지정된 형식과 다르면 경고
     expected_ext = f".{image_format.lower()}"
-    if image_format.lower() == 'jpeg':
-        expected_ext = '.jpg'  # JPEG는 보통 .jpg 확장자 사용
+    if image_format.lower() == "jpeg":
+        expected_ext = ".jpg"  # JPEG는 보통 .jpg 확장자 사용
 
     if output_path.suffix.lower() != expected_ext:
         # 확장자를 형식에 맞게 변경
@@ -112,19 +107,13 @@ def get_chart_export_info(chart):
     try:
         chart_info = {
             "name": chart.name,
-            "position": {
-                "left": chart.left,
-                "top": chart.top
-            },
-            "dimensions": {
-                "width": chart.width,
-                "height": chart.height
-            }
+            "position": {"left": chart.left, "top": chart.top},
+            "dimensions": {"width": chart.width, "height": chart.height},
         }
 
         # 차트 제목 (가능한 경우)
         try:
-            if hasattr(chart, 'api') and chart.api.HasTitle:
+            if hasattr(chart, "api") and chart.api.HasTitle:
                 chart_info["title"] = chart.api.ChartTitle.Text
         except:
             chart_info["title"] = None
@@ -132,13 +121,13 @@ def get_chart_export_info(chart):
         return chart_info
 
     except Exception:
-        return {"name": getattr(chart, 'name', 'unknown'), "info_extraction_failed": True}
+        return {"name": getattr(chart, "name", "unknown"), "info_extraction_failed": True}
 
 
 def chart_export(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트가 있는 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
     chart_name: Optional[str] = typer.Option(None, "--chart-name", help="내보낼 차트의 이름"),
     chart_index: Optional[int] = typer.Option(None, "--chart-index", help="내보낼 차트의 인덱스 (0부터 시작)"),
@@ -150,7 +139,7 @@ def chart_export(
     transparent_bg: bool = typer.Option(False, "--transparent-bg", help="투명 배경으로 내보내기 (PNG 형식에서만 지원)"),
     overwrite: bool = typer.Option(False, "--overwrite", help="기존 파일이 있으면 덮어쓰기"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
-    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)")
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
 ):
     """
     Excel 차트를 이미지 파일로 내보냅니다.
@@ -281,22 +270,17 @@ def chart_export(
     • 백업 고려: 중요한 차트는 여러 형식으로 저장
     """
     # 입력 값 검증
-    if image_format not in ['png', 'jpg', 'jpeg', 'gif', 'bmp']:
+    if image_format not in ["png", "jpg", "jpeg", "gif", "bmp"]:
         raise ValueError(f"잘못된 이미지 형식: {image_format}. 사용 가능한 형식: png, jpg, jpeg, gif, bmp")
 
-    if output_format not in ['json', 'text']:
+    if output_format not in ["json", "text"]:
         raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
 
     book = None
 
     try:
         # 워크북 연결
-        book = get_or_open_workbook(
-            file_path=file_path,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
 
         # 시트 가져오기
         target_sheet = get_sheet(book, sheet)
@@ -337,7 +321,7 @@ def chart_export(
                 # Windows에서는 COM API 사용
                 try:
                     # 투명 배경 설정 (PNG에서만)
-                    if transparent_bg and image_format.lower() == 'png':
+                    if transparent_bg and image_format.lower() == "png":
                         try:
                             chart.api.ChartArea.Format.Fill.Transparency = 1.0
                             chart.api.PlotArea.Format.Fill.Transparency = 1.0
@@ -381,7 +365,7 @@ def chart_export(
             "size_bytes": file_stats.st_size,
             "size_mb": round(file_stats.st_size / (1024 * 1024), 2),
             "format": image_format,
-            "exists": True
+            "exists": True,
         }
 
         # 응답 데이터 구성
@@ -390,38 +374,28 @@ def chart_export(
             "export_settings": {
                 "format": image_format,
                 "dpi": dpi,
-                "transparent_background": transparent_bg and image_format.lower() == 'png',
-                "custom_size": {
-                    "width": width,
-                    "height": height
-                } if (width or height) else None,
-                "original_size": {
-                    "width": original_width,
-                    "height": original_height
-                }
+                "transparent_background": transparent_bg and image_format.lower() == "png",
+                "custom_size": {"width": width, "height": height} if (width or height) else None,
+                "original_size": {"width": original_width, "height": original_height},
             },
             "output_file": file_info,
             "sheet": target_sheet.name,
             "workbook": book.name,
-            "platform": platform.system()
+            "platform": platform.system(),
         }
 
         message = f"차트 '{chart.name}'을 '{validated_output_path.name}'으로 내보냈습니다"
 
-        response = create_success_response(
-            data=response_data,
-            command="chart-export",
-            message=message
-        )
+        response = create_success_response(data=response_data, command="chart-export", message=message)
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(response, ensure_ascii=False, indent=2))
         else:
             # 텍스트 형식 출력
             print(f"=== 차트 내보내기 결과 ===")
             print(f"차트: {chart.name}")
             print(f"시트: {target_sheet.name}")
-            if chart_info.get('title'):
+            if chart_info.get("title"):
                 print(f"제목: {chart_info['title']}")
             print()
 
@@ -439,7 +413,7 @@ def chart_export(
             else:
                 print(f"   크기: 원본 ({original_width} x {original_height})")
 
-            if transparent_bg and image_format.lower() == 'png':
+            if transparent_bg and image_format.lower() == "png":
                 print(f"   배경: 투명")
             elif transparent_bg:
                 print(f"   배경: 투명 (PNG가 아닌 형식에서는 지원되지 않음)")
@@ -448,7 +422,7 @@ def chart_export(
 
     except Exception as e:
         error_response = create_error_response(e, "chart-export")
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(error_response, ensure_ascii=False, indent=2))
         else:
             print(f"오류: {str(e)}")
@@ -470,5 +444,5 @@ def chart_export(
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     chart_export()

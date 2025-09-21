@@ -4,9 +4,12 @@ Excel 워크시트 추가 명령어 (Typer 버전)
 
 import json
 from typing import Optional
+
 import typer
+
 from pyhub_office_automation.version import get_version
-from .utils import get_or_open_workbook, create_error_response, create_success_response, ExecutionTimer
+
+from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook
 
 
 def sheet_add(
@@ -17,15 +20,14 @@ def sheet_add(
     before: Optional[str] = typer.Option(None, "--before", help="이 시트 앞에 추가"),
     after: Optional[str] = typer.Option(None, "--after", help="이 시트 뒤에 추가"),
     visible: bool = typer.Option(True, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
-    output_format: str = typer.Option("json", "--format", help="출력 형식 선택")
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
     """Excel 워크북에 새 워크시트를 추가합니다."""
     book = None
     try:
         with ExecutionTimer() as timer:
             book = get_or_open_workbook(
-                file_path=workbook, workbook_name=workbook_name,
-                use_active=use_active, visible=visible
+                file_path=workbook, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 기존 시트명 중복 확인
@@ -43,23 +45,25 @@ def sheet_add(
 
             data_content = {
                 "added_sheet": {"name": new_sheet.name, "index": new_sheet.index},
-                "workbook": {"name": book.name, "total_sheets": len(book.sheets)}
+                "workbook": {"name": book.name, "total_sheets": len(book.sheets)},
             }
 
             response = create_success_response(
-                data=data_content, command="sheet-add",
+                data=data_content,
+                command="sheet-add",
                 message=f"시트 '{name}'을(를) 추가했습니다",
-                execution_time_ms=timer.execution_time_ms, book=book
+                execution_time_ms=timer.execution_time_ms,
+                book=book,
             )
 
-            if output_format == 'json':
+            if output_format == "json":
                 typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
             else:
                 typer.echo(f"✅ 시트 '{name}'을(를) 추가했습니다")
 
     except Exception as e:
         error_response = create_error_response(e, "sheet-add")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ {str(e)}", err=True)

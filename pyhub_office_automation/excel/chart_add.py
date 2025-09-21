@@ -7,38 +7,45 @@ import json
 import platform
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
-from pyhub_office_automation.version import get_version
-from .utils import (
-    get_or_open_workbook, get_sheet, parse_range, get_range,
-    create_error_response, create_success_response,
-    validate_range_string, normalize_path
-)
 
+from pyhub_office_automation.version import get_version
+
+from .utils import (
+    create_error_response,
+    create_success_response,
+    get_or_open_workbook,
+    get_range,
+    get_sheet,
+    normalize_path,
+    parse_range,
+    validate_range_string,
+)
 
 # 차트 타입 매핑 (xlwings ChartType 상수값)
 CHART_TYPE_MAP = {
-    'column': 51,  # xlColumnClustered
-    'column_clustered': 51,
-    'column_stacked': 52,  # xlColumnStacked
-    'column_stacked_100': 53,  # xlColumnStacked100
-    'bar': 57,  # xlBarClustered
-    'bar_clustered': 57,
-    'bar_stacked': 58,  # xlBarStacked
-    'bar_stacked_100': 59,  # xlBarStacked100
-    'line': 4,  # xlLine
-    'line_markers': 65,  # xlLineMarkers
-    'pie': 5,  # xlPie
-    'doughnut': -4120,  # xlDoughnut
-    'area': 1,  # xlArea
-    'area_stacked': 76,  # xlAreaStacked
-    'area_stacked_100': 77,  # xlAreaStacked100
-    'scatter': -4169,  # xlXYScatter
-    'scatter_lines': 74,  # xlXYScatterLines
-    'scatter_smooth': 72,  # xlXYScatterSmooth
-    'bubble': 15,  # xlBubble
-    'combo': -4111  # xlCombination
+    "column": 51,  # xlColumnClustered
+    "column_clustered": 51,
+    "column_stacked": 52,  # xlColumnStacked
+    "column_stacked_100": 53,  # xlColumnStacked100
+    "bar": 57,  # xlBarClustered
+    "bar_clustered": 57,
+    "bar_stacked": 58,  # xlBarStacked
+    "bar_stacked_100": 59,  # xlBarStacked100
+    "line": 4,  # xlLine
+    "line_markers": 65,  # xlLineMarkers
+    "pie": 5,  # xlPie
+    "doughnut": -4120,  # xlDoughnut
+    "area": 1,  # xlArea
+    "area_stacked": 76,  # xlAreaStacked
+    "area_stacked_100": 77,  # xlAreaStacked100
+    "scatter": -4169,  # xlXYScatter
+    "scatter_lines": 74,  # xlXYScatterLines
+    "scatter_smooth": 72,  # xlXYScatterSmooth
+    "bubble": 15,  # xlBubble
+    "combo": -4111,  # xlCombination
 }
 
 
@@ -51,26 +58,27 @@ def get_chart_type_constant(chart_type: str):
     # xlwings 상수를 시도하고, 실패하면 숫자값 직접 사용
     try:
         from xlwings.constants import ChartType
+
         # xlwings 상수명 시도
         const_map = {
-            51: 'xlColumnClustered',
-            52: 'xlColumnStacked',
-            53: 'xlColumnStacked100',
-            57: 'xlBarClustered',
-            58: 'xlBarStacked',
-            59: 'xlBarStacked100',
-            4: 'xlLine',
-            65: 'xlLineMarkers',
-            5: 'xlPie',
-            -4120: 'xlDoughnut',
-            1: 'xlArea',
-            76: 'xlAreaStacked',
-            77: 'xlAreaStacked100',
-            -4169: 'xlXYScatter',
-            74: 'xlXYScatterLines',
-            72: 'xlXYScatterSmooth',
-            15: 'xlBubble',
-            -4111: 'xlCombination'
+            51: "xlColumnClustered",
+            52: "xlColumnStacked",
+            53: "xlColumnStacked100",
+            57: "xlBarClustered",
+            58: "xlBarStacked",
+            59: "xlBarStacked100",
+            4: "xlLine",
+            65: "xlLineMarkers",
+            5: "xlPie",
+            -4120: "xlDoughnut",
+            1: "xlArea",
+            76: "xlAreaStacked",
+            77: "xlAreaStacked100",
+            -4169: "xlXYScatter",
+            74: "xlXYScatterLines",
+            72: "xlXYScatterSmooth",
+            15: "xlBubble",
+            -4111: "xlCombination",
         }
 
         chart_type_value = CHART_TYPE_MAP[chart_type_lower]
@@ -90,8 +98,8 @@ def get_chart_type_constant(chart_type: str):
 def chart_add(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 생성할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
-    data_range: str = typer.Option(..., "--data-range", help="차트 데이터 범위 (예: \"A1:C10\" 또는 \"Sheet1!A1:C10\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
+    data_range: str = typer.Option(..., "--data-range", help='차트 데이터 범위 (예: "A1:C10" 또는 "Sheet1!A1:C10")'),
     chart_type: str = typer.Option("column", "--chart-type", help="차트 유형 (기본값: column)"),
     title: Optional[str] = typer.Option(None, "--title", help="차트 제목"),
     position: str = typer.Option("E1", "--position", help="차트 생성 위치 (셀 주소, 기본값: E1)"),
@@ -103,7 +111,7 @@ def chart_add(
     show_data_labels: bool = typer.Option(False, "--show-data-labels", help="데이터 레이블 표시"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     지정된 데이터 범위에서 Excel 차트를 생성합니다.
@@ -179,20 +187,37 @@ def chart_add(
 
     try:
         # chart_type 검증
-        valid_chart_types = ['column', 'column_clustered', 'column_stacked', 'column_stacked_100',
-                           'bar', 'bar_clustered', 'bar_stacked', 'bar_stacked_100',
-                           'line', 'line_markers', 'pie', 'doughnut', 'area', 'area_stacked',
-                           'area_stacked_100', 'scatter', 'scatter_lines', 'scatter_smooth',
-                           'bubble', 'combo']
+        valid_chart_types = [
+            "column",
+            "column_clustered",
+            "column_stacked",
+            "column_stacked_100",
+            "bar",
+            "bar_clustered",
+            "bar_stacked",
+            "bar_stacked_100",
+            "line",
+            "line_markers",
+            "pie",
+            "doughnut",
+            "area",
+            "area_stacked",
+            "area_stacked_100",
+            "scatter",
+            "scatter_lines",
+            "scatter_smooth",
+            "bubble",
+            "combo",
+        ]
         if chart_type not in valid_chart_types:
             raise ValueError(f"지원되지 않는 차트 타입: {chart_type}. 사용 가능한 타입: {', '.join(valid_chart_types)}")
 
         # legend_position 검증
-        if legend_position and legend_position not in ['top', 'bottom', 'left', 'right', 'none']:
+        if legend_position and legend_position not in ["top", "bottom", "left", "right", "none"]:
             raise ValueError(f"잘못된 범례 위치: {legend_position}. 사용 가능한 위치: top, bottom, left, right, none")
 
         # output_format 검증
-        if output_format not in ['json', 'text']:
+        if output_format not in ["json", "text"]:
             raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
 
         # 데이터 범위 파싱 및 검증
@@ -201,12 +226,7 @@ def chart_add(
             raise ValueError(f"잘못된 데이터 범위 형식입니다: {data_range}")
 
         # 워크북 연결
-        book = get_or_open_workbook(
-            file_path=file_path,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
 
         # 데이터 시트 가져오기
         data_sheet = get_sheet(book, data_sheet_name)
@@ -289,17 +309,18 @@ def chart_add(
         # 범례 위치 설정
         if legend_position:
             try:
-                if legend_position == 'none':
+                if legend_position == "none":
                     chart.api.HasLegend = False
                 else:
                     chart.api.HasLegend = True
                     if platform.system() == "Windows":
                         from xlwings.constants import LegendPosition
+
                         legend_map = {
-                            'top': LegendPosition.xlLegendPositionTop,
-                            'bottom': LegendPosition.xlLegendPositionBottom,
-                            'left': LegendPosition.xlLegendPositionLeft,
-                            'right': LegendPosition.xlLegendPositionRight
+                            "top": LegendPosition.xlLegendPositionTop,
+                            "bottom": LegendPosition.xlLegendPositionBottom,
+                            "left": LegendPosition.xlLegendPositionLeft,
+                            "right": LegendPosition.xlLegendPositionRight,
                         }
                         if legend_position in legend_map:
                             chart.api.Legend.Position = legend_map[legend_position]
@@ -323,21 +344,16 @@ def chart_add(
             "chart_type": chart_type,
             "data_range": data_range,
             "position": position,
-            "dimensions": {
-                "width": width,
-                "height": height
-            },
+            "dimensions": {"width": width, "height": height},
             "sheet": target_sheet.name,
-            "workbook": book.name
+            "workbook": book.name,
         }
 
         if title:
             response_data["title"] = title
 
         response = create_success_response(
-            data=response_data,
-            command="chart-add",
-            message=f"차트 '{chart_name}'이 성공적으로 생성되었습니다"
+            data=response_data, command="chart-add", message=f"차트 '{chart_name}'이 성공적으로 생성되었습니다"
         )
 
         print(json.dumps(response, ensure_ascii=False, indent=2))
@@ -363,5 +379,5 @@ def chart_add(
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     chart_add()

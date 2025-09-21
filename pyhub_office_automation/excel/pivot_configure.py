@@ -4,35 +4,51 @@
 """
 
 import json
-import sys
 import platform
+import sys
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_workbook, get_sheet,
-    format_output, create_error_response, create_success_response,
-    get_or_open_workbook, normalize_path, load_data_from_file
+    create_error_response,
+    create_success_response,
+    format_output,
+    get_or_open_workbook,
+    get_sheet,
+    get_workbook,
+    load_data_from_file,
+    normalize_path,
 )
 
 
 def pivot_configure(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="피벗테이블이 있는 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     pivot_name: str = typer.Option(..., "--pivot-name", help="구성할 피벗테이블 이름"),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="피벗테이블이 있는 시트 이름 (지정하지 않으면 자동 검색)"),
     config_file: Optional[str] = typer.Option(None, "--config-file", help="피벗테이블 구성 JSON 파일 경로"),
-    row_fields: Optional[str] = typer.Option(None, "--row-fields", help="행 필드 목록 (콤마로 구분, 예: \"Region,Product\")"),
-    column_fields: Optional[str] = typer.Option(None, "--column-fields", help="열 필드 목록 (콤마로 구분, 예: \"Year,Quarter\")"),
-    value_fields: Optional[str] = typer.Option(None, "--value-fields", help="값 필드 설정 JSON 문자열 (예: '[{\"field\":\"Sales\",\"function\":\"Sum\"}]')"),
-    filter_fields: Optional[str] = typer.Option(None, "--filter-fields", help="필터 필드 목록 (콤마로 구분, 예: \"Category,Status\")"),
-    clear_existing: bool = typer.Option(False, "--clear-existing", help="기존 필드 설정을 모두 지우고 새로 설정 (기본값: False)"),
+    row_fields: Optional[str] = typer.Option(None, "--row-fields", help='행 필드 목록 (콤마로 구분, 예: "Region,Product")'),
+    column_fields: Optional[str] = typer.Option(
+        None, "--column-fields", help='열 필드 목록 (콤마로 구분, 예: "Year,Quarter")'
+    ),
+    value_fields: Optional[str] = typer.Option(
+        None, "--value-fields", help='값 필드 설정 JSON 문자열 (예: \'[{"field":"Sales","function":"Sum"}]\')'
+    ),
+    filter_fields: Optional[str] = typer.Option(
+        None, "--filter-fields", help='필터 필드 목록 (콤마로 구분, 예: "Category,Status")'
+    ),
+    clear_existing: bool = typer.Option(
+        False, "--clear-existing", help="기존 필드 설정을 모두 지우고 새로 설정 (기본값: False)"
+    ),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="구성 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="구성 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     피벗테이블의 필드 배치와 집계 함수를 구성합니다.
@@ -64,7 +80,7 @@ def pivot_configure(
     집계 함수 옵션: Sum, Count, Average, Max, Min, Product, CountNums, StdDev, StdDevp, Var, Varp
     """
     # 입력 값 검증
-    if output_format not in ['json', 'text']:
+    if output_format not in ["json", "text"]:
         raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
 
     book = None
@@ -75,12 +91,7 @@ def pivot_configure(
             raise RuntimeError("피벗테이블 구성은 Windows에서만 지원됩니다. macOS에서는 수동으로 피벗테이블을 구성해주세요.")
 
         # 워크북 연결
-        book = get_or_open_workbook(
-            file_path=file_path,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
 
         # 구성 데이터 로드
         config_data = {}
@@ -96,10 +107,10 @@ def pivot_configure(
 
         # 개별 옵션들로 구성 데이터 업데이트
         if row_fields:
-            config_data["row_fields"] = [field.strip() for field in row_fields.split(',')]
+            config_data["row_fields"] = [field.strip() for field in row_fields.split(",")]
 
         if column_fields:
-            config_data["column_fields"] = [field.strip() for field in column_fields.split(',')]
+            config_data["column_fields"] = [field.strip() for field in column_fields.split(",")]
 
         if value_fields:
             try:
@@ -112,7 +123,7 @@ def pivot_configure(
                 raise ValueError(f"value_fields JSON 파싱 실패: {str(e)}")
 
         if filter_fields:
-            config_data["filter_fields"] = [field.strip() for field in filter_fields.split(',')]
+            config_data["filter_fields"] = [field.strip() for field in filter_fields.split(",")]
 
         # 구성 데이터 검증
         if not config_data:
@@ -144,7 +155,7 @@ def pivot_configure(
 
         # xlwings constants import
         try:
-            from xlwings.constants import PivotFieldOrientation, ConsolidationFunction
+            from xlwings.constants import ConsolidationFunction, PivotFieldOrientation
         except ImportError:
             raise RuntimeError("xlwings.constants 모듈을 가져올 수 없습니다. xlwings 최신 버전이 필요합니다.")
 
@@ -160,7 +171,7 @@ def pivot_configure(
             "StdDev": ConsolidationFunction.xlStdDev,
             "StdDevp": ConsolidationFunction.xlStdDevP,
             "Var": ConsolidationFunction.xlVar,
-            "Varp": ConsolidationFunction.xlVarP
+            "Varp": ConsolidationFunction.xlVarP,
         }
 
         configuration_results = {
@@ -168,7 +179,7 @@ def pivot_configure(
             "sheet": target_sheet.name,
             "configured_fields": {},
             "errors": [],
-            "warnings": []
+            "warnings": [],
         }
 
         # 기존 필드 정리 (선택적)
@@ -248,20 +259,14 @@ def pivot_configure(
 
                 try:
                     # 값 필드 추가
-                    data_field = pivot_table.AddDataField(
-                        pivot_table.PivotFields(field_name)
-                    )
+                    data_field = pivot_table.AddDataField(pivot_table.PivotFields(field_name))
                     data_field.Function = function_map[function_name]
 
                     # 사용자 지정 이름 설정 (선택적)
                     if "name" in value_config:
                         data_field.Name = value_config["name"]
 
-                    configured_value_fields.append({
-                        "field": field_name,
-                        "function": function_name,
-                        "name": data_field.Name
-                    })
+                    configured_value_fields.append({"field": field_name, "function": function_name, "name": data_field.Name})
 
                 except Exception as e:
                     configuration_results["errors"].append(f"값 필드 '{field_name}' 설정 실패: {str(e)}")
@@ -289,15 +294,21 @@ def pivot_configure(
         data_content = {
             "configuration": configuration_results,
             "input_config": config_data,
-            "success_count": sum(len(fields) if isinstance(fields, list) else 1
-                                for fields in configuration_results["configured_fields"].values()),
+            "success_count": sum(
+                len(fields) if isinstance(fields, list) else 1
+                for fields in configuration_results["configured_fields"].values()
+            ),
             "error_count": len(configuration_results["errors"]),
             "warning_count": len(configuration_results["warnings"]),
             "file_info": {
-                "path": str(Path(normalize_path(file_path)).resolve()) if file_path else (normalize_path(book.fullname) if hasattr(book, 'fullname') else None),
+                "path": (
+                    str(Path(normalize_path(file_path)).resolve())
+                    if file_path
+                    else (normalize_path(book.fullname) if hasattr(book, "fullname") else None)
+                ),
                 "name": Path(normalize_path(file_path)).name if file_path else normalize_path(book.name),
-                "saved": save_success
-            }
+                "saved": save_success,
+            },
         }
 
         if save_error:
@@ -305,81 +316,79 @@ def pivot_configure(
 
         # 성공 메시지 구성
         message = f"피벗테이블 '{pivot_name}' 구성 완료: {data_content['success_count']}개 필드 설정됨"
-        if data_content['error_count'] > 0:
+        if data_content["error_count"] > 0:
             message += f" ({data_content['error_count']}개 오류)"
 
-        response = create_success_response(
-            data=data_content,
-            command="pivot-configure",
-            message=message
-        )
+        response = create_success_response(data=data_content, command="pivot-configure", message=message)
 
         # 출력 형식에 따른 결과 반환
-        if output_format == 'json':
-            click.echo(json.dumps(response, ensure_ascii=False, indent=2))
+        if output_format == "json":
+            typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
         else:  # text 형식
-            click.echo(f"✅ 피벗테이블 구성 완료")
-            click.echo(f"📋 피벗테이블 이름: {pivot_name}")
-            click.echo(f"📄 파일: {data_content['file_info']['name']}")
-            click.echo(f"📍 시트: {target_sheet.name}")
-            click.echo(f"✅ 설정된 필드: {data_content['success_count']}개")
+            typer.echo(f"✅ 피벗테이블 구성 완료")
+            typer.echo(f"📋 피벗테이블 이름: {pivot_name}")
+            typer.echo(f"📄 파일: {data_content['file_info']['name']}")
+            typer.echo(f"📍 시트: {target_sheet.name}")
+            typer.echo(f"✅ 설정된 필드: {data_content['success_count']}개")
 
             # 구성된 필드들 표시
             config_fields = configuration_results["configured_fields"]
             if config_fields.get("row_fields"):
-                click.echo(f"   📊 행 필드: {', '.join(config_fields['row_fields'])}")
+                typer.echo(f"   📊 행 필드: {', '.join(config_fields['row_fields'])}")
             if config_fields.get("column_fields"):
-                click.echo(f"   📊 열 필드: {', '.join(config_fields['column_fields'])}")
+                typer.echo(f"   📊 열 필드: {', '.join(config_fields['column_fields'])}")
             if config_fields.get("filter_fields"):
-                click.echo(f"   🔍 필터 필드: {', '.join(config_fields['filter_fields'])}")
+                typer.echo(f"   🔍 필터 필드: {', '.join(config_fields['filter_fields'])}")
             if config_fields.get("value_fields"):
-                value_info = [f"{vf['field']} ({vf['function']})" for vf in config_fields['value_fields']]
-                click.echo(f"   📈 값 필드: {', '.join(value_info)}")
+                value_info = [f"{vf['field']} ({vf['function']})" for vf in config_fields["value_fields"]]
+                typer.echo(f"   📈 값 필드: {', '.join(value_info)}")
 
             # 오류 및 경고 표시
             if configuration_results["errors"]:
-                click.echo(f"\n❌ 오류 ({len(configuration_results['errors'])}개):")
+                typer.echo(f"\n❌ 오류 ({len(configuration_results['errors'])}개):")
                 for error in configuration_results["errors"]:
-                    click.echo(f"   {error}")
+                    typer.echo(f"   {error}")
 
             if configuration_results["warnings"]:
-                click.echo(f"\n⚠️ 경고 ({len(configuration_results['warnings'])}개):")
+                typer.echo(f"\n⚠️ 경고 ({len(configuration_results['warnings'])}개):")
                 for warning in configuration_results["warnings"]:
-                    click.echo(f"   {warning}")
+                    typer.echo(f"   {warning}")
 
             if save_success:
-                click.echo("\n💾 파일이 저장되었습니다")
+                typer.echo("\n💾 파일이 저장되었습니다")
             elif save:
-                click.echo(f"\n⚠️ 저장 실패: {save_error}")
+                typer.echo(f"\n⚠️ 저장 실패: {save_error}")
 
-            click.echo("\n💡 피벗테이블 새로고침은 'oa excel pivot-refresh' 명령어를 사용하세요")
+            typer.echo("\n💡 피벗테이블 새로고침은 'oa excel pivot-refresh' 명령어를 사용하세요")
 
     except ValueError as e:
         error_response = create_error_response(e, "pivot-configure")
-        if output_format == 'json':
-            click.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
+        if output_format == "json":
+            typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ {str(e)}", err=True)
+            typer.echo(f"❌ {str(e)}", err=True)
         sys.exit(1)
 
     except RuntimeError as e:
         error_response = create_error_response(e, "pivot-configure")
-        if output_format == 'json':
-            click.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
+        if output_format == "json":
+            typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ {str(e)}", err=True)
+            typer.echo(f"❌ {str(e)}", err=True)
             if "Windows" in str(e):
-                click.echo("💡 피벗테이블 구성은 Windows에서만 지원됩니다. macOS에서는 Excel의 수동 기능을 사용해주세요.", err=True)
+                typer.echo(
+                    "💡 피벗테이블 구성은 Windows에서만 지원됩니다. macOS에서는 Excel의 수동 기능을 사용해주세요.", err=True
+                )
             else:
-                click.echo("💡 Excel이 설치되어 있는지 확인하고, xlwings 최신 버전을 사용하는지 확인하세요.", err=True)
+                typer.echo("💡 Excel이 설치되어 있는지 확인하고, xlwings 최신 버전을 사용하는지 확인하세요.", err=True)
         sys.exit(1)
 
     except Exception as e:
         error_response = create_error_response(e, "pivot-configure")
-        if output_format == 'json':
-            click.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
+        if output_format == "json":
+            typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            click.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)
+            typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)
         sys.exit(1)
 
     finally:
@@ -391,5 +400,5 @@ def pivot_configure(
                 pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pivot_configure()

@@ -6,19 +6,27 @@ xlwings를 활용한 Excel 슬라이서 위치 및 크기 조정 기능
 import json
 import platform
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_or_open_workbook, create_error_response, create_success_response,
-    ExecutionTimer, get_slicer_by_name, validate_slicer_position, normalize_path
+    ExecutionTimer,
+    create_error_response,
+    create_success_response,
+    get_or_open_workbook,
+    get_slicer_by_name,
+    normalize_path,
+    validate_slicer_position,
 )
 
 
 def slicer_position(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서 위치를 조정할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     slicer_name: str = typer.Option(..., "--slicer-name", help="위치를 조정할 슬라이서 이름"),
     left: Optional[int] = typer.Option(None, "--left", help="새로운 왼쪽 위치 (픽셀)"),
     top: Optional[int] = typer.Option(None, "--top", help="새로운 위쪽 위치 (픽셀)"),
@@ -26,16 +34,24 @@ def slicer_position(
     height: Optional[int] = typer.Option(None, "--height", help="새로운 높이 (픽셀)"),
     move_by_x: Optional[int] = typer.Option(None, "--move-by-x", help="X축 상대 이동 거리 (픽셀, 양수=오른쪽, 음수=왼쪽)"),
     move_by_y: Optional[int] = typer.Option(None, "--move-by-y", help="Y축 상대 이동 거리 (픽셀, 양수=아래, 음수=위)"),
-    resize_by_width: Optional[int] = typer.Option(None, "--resize-by-width", help="너비 상대 조정 (픽셀, 양수=확대, 음수=축소)"),
-    resize_by_height: Optional[int] = typer.Option(None, "--resize-by-height", help="높이 상대 조정 (픽셀, 양수=확대, 음수=축소)"),
-    align_to: Optional[str] = typer.Option(None, "--align-to", help="정렬 기준 (left/center/right/top/middle/bottom, 워크시트 기준)"),
+    resize_by_width: Optional[int] = typer.Option(
+        None, "--resize-by-width", help="너비 상대 조정 (픽셀, 양수=확대, 음수=축소)"
+    ),
+    resize_by_height: Optional[int] = typer.Option(
+        None, "--resize-by-height", help="높이 상대 조정 (픽셀, 양수=확대, 음수=축소)"
+    ),
+    align_to: Optional[str] = typer.Option(
+        None, "--align-to", help="정렬 기준 (left/center/right/top/middle/bottom, 워크시트 기준)"
+    ),
     align_with: Optional[str] = typer.Option(None, "--align-with", help="다른 슬라이서와 정렬 (슬라이서 이름)"),
-    preset_layout: Optional[str] = typer.Option(None, "--preset-layout", help="미리 정의된 레이아웃 적용 (horizontal/vertical/grid-2x2/grid-3x1/sidebar)"),
+    preset_layout: Optional[str] = typer.Option(
+        None, "--preset-layout", help="미리 정의된 레이아웃 적용 (horizontal/vertical/grid-2x2/grid-3x1/sidebar)"
+    ),
     snap_to_grid: Optional[int] = typer.Option(None, "--snap-to-grid", help="그리드에 맞춤 (픽셀 단위, 예: 10)"),
     auto_arrange: bool = typer.Option(False, "--auto-arrange", help="다른 슬라이서와 겹치지 않도록 자동 배치"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="위치 조정 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="위치 조정 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     Excel 슬라이서의 위치와 크기를 조정합니다.
@@ -193,11 +209,15 @@ def slicer_position(
 
     try:
         # 매개변수 검증
-        if align_to and align_to not in ['left', 'center', 'right', 'top', 'middle', 'bottom']:
-            raise ValueError(f"align_to는 'left', 'center', 'right', 'top', 'middle', 'bottom' 중 하나여야 합니다. 입력된 값: {align_to}")
+        if align_to and align_to not in ["left", "center", "right", "top", "middle", "bottom"]:
+            raise ValueError(
+                f"align_to는 'left', 'center', 'right', 'top', 'middle', 'bottom' 중 하나여야 합니다. 입력된 값: {align_to}"
+            )
 
-        if preset_layout and preset_layout not in ['horizontal', 'vertical', 'grid-2x2', 'grid-3x1', 'sidebar']:
-            raise ValueError(f"preset_layout은 'horizontal', 'vertical', 'grid-2x2', 'grid-3x1', 'sidebar' 중 하나여야 합니다. 입력된 값: {preset_layout}")
+        if preset_layout and preset_layout not in ["horizontal", "vertical", "grid-2x2", "grid-3x1", "sidebar"]:
+            raise ValueError(
+                f"preset_layout은 'horizontal', 'vertical', 'grid-2x2', 'grid-3x1', 'sidebar' 중 하나여야 합니다. 입력된 값: {preset_layout}"
+            )
 
         with ExecutionTimer() as timer:
             # Windows 플랫폼 확인
@@ -206,10 +226,7 @@ def slicer_position(
 
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 슬라이서 찾기
@@ -228,21 +245,32 @@ def slicer_position(
                 "left": slicer_obj.Left,
                 "top": slicer_obj.Top,
                 "width": slicer_obj.Width,
-                "height": slicer_obj.Height
+                "height": slicer_obj.Height,
             }
 
             # 새로운 위치 및 크기 계산
             new_position = calculate_new_position(
-                current_position, left, top, width, height,
-                move_by_x, move_by_y, resize_by_width, resize_by_height,
-                align_to, align_with, preset_layout, snap_to_grid,
-                auto_arrange, slicer_obj, book
+                current_position,
+                left,
+                top,
+                width,
+                height,
+                move_by_x,
+                move_by_y,
+                resize_by_width,
+                resize_by_height,
+                align_to,
+                align_with,
+                preset_layout,
+                snap_to_grid,
+                auto_arrange,
+                slicer_obj,
+                book,
             )
 
             # 위치 및 크기 유효성 검증
             is_valid, error_msg = validate_slicer_position(
-                new_position["left"], new_position["top"],
-                new_position["width"], new_position["height"]
+                new_position["left"], new_position["top"], new_position["width"], new_position["height"]
             )
             if not is_valid:
                 raise ValueError(error_msg)
@@ -281,7 +309,7 @@ def slicer_position(
                 "changes_made": changes_made,
                 "total_changes": len([c for c in changes_made if "→" in c]),
                 "workbook": normalize_path(book.name),
-                "sheet": slicer_obj.Parent.Parent.Name
+                "sheet": slicer_obj.Parent.Parent.Name,
             }
 
             # 조정 방법 정보
@@ -314,7 +342,7 @@ def slicer_position(
                 message=message,
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
-                changes_count=len([c for c in changes_made if "→" in c])
+                changes_count=len([c for c in changes_made if "→" in c]),
             )
 
             print(json.dumps(response, ensure_ascii=False, indent=2))
@@ -340,10 +368,24 @@ def slicer_position(
     return 0
 
 
-def calculate_new_position(current_position, left, top, width, height,
-                          move_by_x, move_by_y, resize_by_width, resize_by_height,
-                          align_to, align_with, preset_layout, snap_to_grid,
-                          auto_arrange, slicer_obj, book):
+def calculate_new_position(
+    current_position,
+    left,
+    top,
+    width,
+    height,
+    move_by_x,
+    move_by_y,
+    resize_by_width,
+    resize_by_height,
+    align_to,
+    align_with,
+    preset_layout,
+    snap_to_grid,
+    auto_arrange,
+    slicer_obj,
+    book,
+):
     """새로운 위치와 크기를 계산합니다."""
 
     new_position = current_position.copy()
@@ -372,7 +414,7 @@ def calculate_new_position(current_position, left, top, width, height,
     if align_to:
         sheet = slicer_obj.Parent.Parent
         sheet_width = sheet.Cells.SpecialCells(11).Column * 64  # 대략적인 시트 너비
-        sheet_height = sheet.Cells.SpecialCells(11).Row * 20    # 대략적인 시트 높이
+        sheet_height = sheet.Cells.SpecialCells(11).Row * 20  # 대략적인 시트 높이
 
         if align_to == "left":
             new_position["left"] = 50  # 왼쪽 여백
@@ -462,12 +504,14 @@ def avoid_overlap(position, slicer_obj, book):
             if slicer_cache.Name != slicer_obj.Parent.Name:
                 if slicer_cache.Slicers().Count > 0:
                     other_slicer = slicer_cache.Slicers(1)
-                    other_slicers.append({
-                        "left": other_slicer.Left,
-                        "top": other_slicer.Top,
-                        "width": other_slicer.Width,
-                        "height": other_slicer.Height
-                    })
+                    other_slicers.append(
+                        {
+                            "left": other_slicer.Left,
+                            "top": other_slicer.Top,
+                            "width": other_slicer.Width,
+                            "height": other_slicer.Height,
+                        }
+                    )
 
         # 겹침 검사 및 위치 조정
         adjusted = False
@@ -504,11 +548,13 @@ def avoid_overlap(position, slicer_obj, book):
 
 def is_overlapping(pos1, pos2):
     """두 영역이 겹치는지 확인합니다."""
-    return not (pos1["left"] + pos1["width"] <= pos2["left"] or
-                pos2["left"] + pos2["width"] <= pos1["left"] or
-                pos1["top"] + pos1["height"] <= pos2["top"] or
-                pos2["top"] + pos2["height"] <= pos1["top"])
+    return not (
+        pos1["left"] + pos1["width"] <= pos2["left"]
+        or pos2["left"] + pos2["width"] <= pos1["left"]
+        or pos1["top"] + pos1["height"] <= pos2["top"]
+        or pos2["top"] + pos2["height"] <= pos1["top"]
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     slicer_position()

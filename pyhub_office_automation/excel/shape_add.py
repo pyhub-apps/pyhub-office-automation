@@ -7,33 +7,50 @@ xlwings를 활용한 Excel 도형 생성 기능
 import json
 import platform
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_or_open_workbook, get_sheet, create_error_response, create_success_response,
-    ExecutionTimer, SHAPE_TYPES, NEUMORPHISM_STYLES, apply_neumorphism_style,
-    validate_position_and_size, generate_unique_shape_name, normalize_path
+    NEUMORPHISM_STYLES,
+    SHAPE_TYPES,
+    ExecutionTimer,
+    apply_neumorphism_style,
+    create_error_response,
+    create_success_response,
+    generate_unique_shape_name,
+    get_or_open_workbook,
+    get_sheet,
+    normalize_path,
+    validate_position_and_size,
 )
 
 
 def shape_add(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 추가할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="도형을 추가할 시트 이름 (지정하지 않으면 활성 시트)"),
-    shape_type: str = typer.Option("rectangle", "--shape-type", help="도형 유형 (기본값: rectangle) - rectangle, oval, line, arrow, textbox 등 사용 가능"),
+    shape_type: str = typer.Option(
+        "rectangle", "--shape-type", help="도형 유형 (기본값: rectangle) - rectangle, oval, line, arrow, textbox 등 사용 가능"
+    ),
     left: int = typer.Option(100, "--left", help="도형의 왼쪽 위치 (픽셀, 기본값: 100)"),
     top: int = typer.Option(100, "--top", help="도형의 위쪽 위치 (픽셀, 기본값: 100)"),
     width: int = typer.Option(200, "--width", help="도형의 너비 (픽셀, 기본값: 200)"),
     height: int = typer.Option(100, "--height", help="도형의 높이 (픽셀, 기본값: 100)"),
     name: Optional[str] = typer.Option(None, "--name", help="도형 이름 (지정하지 않으면 자동 생성)"),
-    style_preset: str = typer.Option("none", "--style-preset", help="뉴모피즘 스타일 프리셋 (기본값: none) - none, background, title-box, chart-box, slicer-box 사용 가능"),
+    style_preset: str = typer.Option(
+        "none",
+        "--style-preset",
+        help="뉴모피즘 스타일 프리셋 (기본값: none) - none, background, title-box, chart-box, slicer-box 사용 가능",
+    ),
     fill_color: Optional[str] = typer.Option(None, "--fill-color", help="채우기 색상 (HEX 형식, 예: #FFFFFF)"),
     transparency: Optional[int] = typer.Option(None, "--transparency", help="투명도 (0-100, 0=불투명)"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     Excel 시트에 도형을 추가합니다.
@@ -114,10 +131,7 @@ def shape_add(
 
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 시트 가져오기
@@ -152,11 +166,7 @@ def shape_add(
                 if platform.system() == "Windows":
                     # Windows에서는 COM API 사용
                     shape = target_sheet.api.Shapes.AddShape(
-                        Type=shape_type_value,
-                        Left=left,
-                        Top=top,
-                        Width=width,
-                        Height=height
+                        Type=shape_type_value, Left=left, Top=top, Width=width, Height=height
                     )
                     shape.Name = shape_name
                     # xlwings 객체로 래핑
@@ -175,7 +185,7 @@ def shape_add(
 
             # 스타일 적용
             style_applied = False
-            if style_preset != 'none':
+            if style_preset != "none":
                 style_applied = apply_neumorphism_style(shape_obj, style_preset)
 
             # 개별 색상 설정 (프리셋보다 우선)
@@ -183,6 +193,7 @@ def shape_add(
                 try:
                     if platform.system() == "Windows":
                         from .utils import hex_to_rgb
+
                         shape_obj.api.Fill.ForeColor.RGB = hex_to_rgb(fill_color)
                         style_applied = True
                 except Exception:
@@ -205,20 +216,14 @@ def shape_add(
             response_data = {
                 "shape_name": shape_name,
                 "shape_type": shape_type,
-                "position": {
-                    "left": left,
-                    "top": top
-                },
-                "size": {
-                    "width": width,
-                    "height": height
-                },
+                "position": {"left": left, "top": top},
+                "size": {"width": width, "height": height},
                 "sheet": target_sheet.name,
-                "workbook": normalize_path(book.name)
+                "workbook": normalize_path(book.name),
             }
 
             # 스타일 정보 추가
-            if style_preset != 'none':
+            if style_preset != "none":
                 response_data["style_preset"] = style_preset
                 response_data["style_applied"] = style_applied
 
@@ -234,7 +239,7 @@ def shape_add(
                 message=f"도형 '{shape_name}'이 성공적으로 생성되었습니다",
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
-                shape_count=len(target_sheet.shapes)
+                shape_count=len(target_sheet.shapes),
             )
 
             typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
@@ -258,5 +263,3 @@ def shape_add(
                 pass
 
     return 0
-
-

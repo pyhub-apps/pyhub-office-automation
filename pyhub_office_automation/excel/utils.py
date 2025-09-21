@@ -3,18 +3,20 @@ Excel 자동화를 위한 공통 유틸리티 함수들
 xlwings 기반 Excel 조작 및 데이터 처리 지원
 """
 
-import json
 import csv
-import io
-import tempfile
-import os
-import unicodedata
-import platform
-import time
 import datetime
+import io
+import json
+import os
+import platform
+import tempfile
+import time
+import unicodedata
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
+
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
 
 
@@ -34,7 +36,7 @@ def normalize_path(path: str) -> str:
     # macOS에서 한글 자소분리 문제 해결
     if platform.system() == "Darwin":
         # NFD -> NFC 정규화 (자소 결합)
-        return unicodedata.normalize('NFC', path)
+        return unicodedata.normalize("NFC", path)
 
     return path
 
@@ -113,8 +115,8 @@ def parse_range(range_str: str) -> Tuple[Optional[str], str]:
     Returns:
         (시트명, 범위) 튜플
     """
-    if '!' in range_str:
-        sheet_name, range_part = range_str.split('!', 1)
+    if "!" in range_str:
+        sheet_name, range_part = range_str.split("!", 1)
         return sheet_name, range_part
     else:
         return None, range_str
@@ -138,9 +140,9 @@ def get_range(sheet: xw.Sheet, range_str: str, expand_mode: Optional[str] = None
         if expand_mode == "table":
             range_obj = range_obj.expand()
         elif expand_mode == "down":
-            range_obj = range_obj.expand('down')
+            range_obj = range_obj.expand("down")
         elif expand_mode == "right":
-            range_obj = range_obj.expand('right')
+            range_obj = range_obj.expand("right")
 
     return range_obj
 
@@ -166,12 +168,7 @@ def handle_temp_file(data: Union[str, list, dict], file_format: str = "json") ->
         suffix = ".txt"
         mode = "w"
 
-    temp_file = tempfile.NamedTemporaryFile(
-        mode=mode,
-        suffix=suffix,
-        delete=False,
-        encoding='utf-8'
-    )
+    temp_file = tempfile.NamedTemporaryFile(mode=mode, suffix=suffix, delete=False, encoding="utf-8")
 
     try:
         if file_format == "json":
@@ -260,14 +257,14 @@ def load_data_from_file(file_path: str) -> Union[str, list, dict]:
 
     try:
         if suffix == ".json":
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         elif suffix == ".csv":
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 reader = csv.reader(f)
                 return [row for row in reader]
         else:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 return f.read()
     except Exception as e:
         raise ValueError(f"데이터 파일 로드 실패: {str(e)}")
@@ -286,13 +283,13 @@ def validate_range_string(range_str: str) -> bool:
     import re
 
     # Sheet!Range 형태 처리
-    if '!' in range_str:
-        _, range_part = range_str.split('!', 1)
+    if "!" in range_str:
+        _, range_part = range_str.split("!", 1)
     else:
         range_part = range_str
 
     # A1:B10 형태의 범위 패턴
-    range_pattern = r'^[A-Z]+\d+(:[A-Z]+\d+)?$'
+    range_pattern = r"^[A-Z]+\d+(:[A-Z]+\d+)?$"
     return bool(re.match(range_pattern, range_part.upper()))
 
 
@@ -309,13 +306,7 @@ def create_error_response(error: Exception, command: str) -> Dict[str, Union[str
     """
     error_type = type(error).__name__
 
-    response = {
-        "success": False,
-        "error_type": error_type,
-        "error": str(error),
-        "command": command,
-        "version": get_version()
-    }
+    response = {"success": False, "error_type": error_type, "error": str(error), "command": command, "version": get_version()}
 
     # 특정 에러에 대한 제안사항 추가
     if error_type == "FileNotFoundError":
@@ -334,7 +325,7 @@ def create_success_response(
     message: str = None,
     execution_time_ms: float = None,
     book: Optional[xw.Book] = None,
-    **stats_kwargs
+    **stats_kwargs,
 ) -> Dict[str, Union[str, int, float, list, dict]]:
     """
     AI 에이전트 호환성이 향상된 표준 성공 응답을 생성합니다.
@@ -350,12 +341,7 @@ def create_success_response(
     Returns:
         성공 응답 딕셔너리
     """
-    response = {
-        "success": True,
-        "command": command,
-        "version": get_version(),
-        "data": data
-    }
+    response = {"success": True, "command": command, "version": get_version(), "data": data}
 
     if message:
         response["message"] = message
@@ -364,7 +350,7 @@ def create_success_response(
     metadata = {
         "command_category": COMMAND_CATEGORIES.get(command, "unknown"),
         "operation_type": OPERATION_TYPES.get(command, "unknown"),
-        "timestamp": datetime.datetime.now().isoformat()
+        "timestamp": datetime.datetime.now().isoformat(),
     }
 
     if execution_time_ms is not None:
@@ -389,15 +375,13 @@ def create_success_response(
 
     except Exception:
         # 컨텍스트 수집 실패 시 기본 정보만 포함
-        response["current_context"] = {
-            "total_open_workbooks": len(xw.books) if xw.books else 0,
-            "collection_failed": True
-        }
+        response["current_context"] = {"total_open_workbooks": len(xw.books) if xw.books else 0, "collection_failed": True}
 
     return response
 
 
 # ========== 활성 워크북 연결 기능 (Issue #14) ==========
+
 
 def get_active_app(visible: bool = True) -> Optional[xw.App]:
     """
@@ -482,10 +466,7 @@ def get_workbook_by_name(workbook_name: str) -> xw.Book:
 
 
 def get_or_open_workbook(
-    file_path: Optional[str] = None,
-    workbook_name: Optional[str] = None,
-    use_active: bool = False,
-    visible: bool = True
+    file_path: Optional[str] = None, workbook_name: Optional[str] = None, use_active: bool = False, visible: bool = True
 ) -> xw.Book:
     """
     여러 방법으로 워크북을 가져오는 통합 함수입니다.
@@ -504,11 +485,7 @@ def get_or_open_workbook(
         RuntimeError: 워크북을 찾거나 열 수 없는 경우
     """
     # 옵션 검증 - 정확히 하나만 지정되어야 함
-    options_count = sum([
-        bool(file_path),
-        bool(workbook_name),
-        use_active
-    ])
+    options_count = sum([bool(file_path), bool(workbook_name), use_active])
 
     if options_count == 0:
         raise ValueError("file_path, workbook_name, use_active 중 하나는 반드시 지정해야 합니다")
@@ -544,102 +521,102 @@ COMMAND_SUGGESTIONS = {
     "workbook-open": [
         {"command": "workbook-info", "reason": "워크북의 상세 정보를 확인합니다"},
         {"command": "workbook-list", "reason": "다른 열린 워크북들을 확인합니다"},
-        {"command": "range-read", "reason": "워크북의 데이터를 읽습니다"}
+        {"command": "range-read", "reason": "워크북의 데이터를 읽습니다"},
     ],
     "workbook-list": [
         {"command": "workbook-info", "reason": "특정 워크북의 상세 정보를 확인합니다"},
-        {"command": "workbook-open", "reason": "새 워크북을 엽니다"}
+        {"command": "workbook-open", "reason": "새 워크북을 엽니다"},
     ],
     "workbook-info": [
         {"command": "range-read", "reason": "시트의 데이터를 확인합니다"},
-        {"command": "sheet-activate", "reason": "특정 시트로 이동합니다"}
+        {"command": "sheet-activate", "reason": "특정 시트로 이동합니다"},
     ],
     "range-read": [
         {"command": "range-write", "reason": "데이터를 수정하거나 추가합니다"},
-        {"command": "table-read", "reason": "테이블 형태로 더 많은 데이터를 읽습니다"}
+        {"command": "table-read", "reason": "테이블 형태로 더 많은 데이터를 읽습니다"},
     ],
     "range-write": [
         {"command": "range-read", "reason": "작성한 데이터를 확인합니다"},
-        {"command": "workbook-save", "reason": "변경사항을 저장합니다"}
+        {"command": "workbook-save", "reason": "변경사항을 저장합니다"},
     ],
     "table-read": [
         {"command": "table-write", "reason": "테이블 데이터를 수정합니다"},
-        {"command": "pivot-create", "reason": "피벗 테이블을 생성합니다"}
+        {"command": "pivot-create", "reason": "피벗 테이블을 생성합니다"},
     ],
     "table-write": [
         {"command": "table-read", "reason": "작성한 테이블을 확인합니다"},
-        {"command": "chart-add", "reason": "차트를 생성합니다"}
+        {"command": "chart-add", "reason": "차트를 생성합니다"},
     ],
     "sheet-add": [
         {"command": "sheet-activate", "reason": "새 시트로 이동합니다"},
         {"command": "range-write", "reason": "새 시트에 데이터를 입력합니다"},
-        {"command": "sheet-rename", "reason": "시트 이름을 변경합니다"}
+        {"command": "sheet-rename", "reason": "시트 이름을 변경합니다"},
     ],
     "sheet-activate": [
         {"command": "range-read", "reason": "활성 시트의 데이터를 확인합니다"},
-        {"command": "sheet-add", "reason": "새 시트를 추가합니다"}
+        {"command": "sheet-add", "reason": "새 시트를 추가합니다"},
     ],
     "sheet-rename": [
         {"command": "sheet-activate", "reason": "이름이 변경된 시트로 이동합니다"},
-        {"command": "workbook-info", "reason": "전체 시트 목록을 확인합니다"}
+        {"command": "workbook-info", "reason": "전체 시트 목록을 확인합니다"},
     ],
     "sheet-delete": [
         {"command": "workbook-info", "reason": "남은 시트들을 확인합니다"},
-        {"command": "sheet-add", "reason": "새 시트를 추가합니다"}
+        {"command": "sheet-add", "reason": "새 시트를 추가합니다"},
     ],
     "pivot-create": [
         {"command": "pivot-configure", "reason": "피벗 테이블을 설정합니다"},
         {"command": "chart-pivot-create", "reason": "피벗 차트를 생성합니다"},
-        {"command": "slicer-add", "reason": "피벗 테이블용 슬라이서를 생성합니다"}
+        {"command": "slicer-add", "reason": "피벗 테이블용 슬라이서를 생성합니다"},
     ],
     "chart-add": [
         {"command": "chart-configure", "reason": "차트를 설정합니다"},
-        {"command": "chart-position", "reason": "차트 위치를 조정합니다"}
+        {"command": "chart-position", "reason": "차트 위치를 조정합니다"},
     ],
     "shape-add": [
         {"command": "shape-format", "reason": "도형 스타일을 설정합니다"},
         {"command": "shape-list", "reason": "생성된 도형을 확인합니다"},
-        {"command": "textbox-add", "reason": "텍스트 박스를 추가합니다"}
+        {"command": "textbox-add", "reason": "텍스트 박스를 추가합니다"},
     ],
     "shape-format": [
         {"command": "shape-list", "reason": "스타일이 적용된 도형을 확인합니다"},
-        {"command": "shape-group", "reason": "여러 도형을 그룹화합니다"}
+        {"command": "shape-group", "reason": "여러 도형을 그룹화합니다"},
     ],
     "shape-list": [
         {"command": "shape-format", "reason": "도형 스타일을 변경합니다"},
         {"command": "shape-delete", "reason": "불필요한 도형을 삭제합니다"},
-        {"command": "shape-group", "reason": "도형들을 그룹화합니다"}
+        {"command": "shape-group", "reason": "도형들을 그룹화합니다"},
     ],
     "shape-delete": [
         {"command": "shape-list", "reason": "남은 도형들을 확인합니다"},
-        {"command": "shape-add", "reason": "새로운 도형을 추가합니다"}
+        {"command": "shape-add", "reason": "새로운 도형을 추가합니다"},
     ],
     "shape-group": [
         {"command": "shape-list", "reason": "그룹화된 도형을 확인합니다"},
-        {"command": "shape-format", "reason": "그룹 스타일을 조정합니다"}
+        {"command": "shape-format", "reason": "그룹 스타일을 조정합니다"},
     ],
     "textbox-add": [
         {"command": "shape-list", "reason": "생성된 텍스트 박스를 확인합니다"},
         {"command": "shape-format", "reason": "텍스트 박스 스타일을 변경합니다"},
-        {"command": "shape-group", "reason": "다른 도형과 그룹화합니다"}
+        {"command": "shape-group", "reason": "다른 도형과 그룹화합니다"},
     ],
     "slicer-add": [
         {"command": "slicer-connect", "reason": "다른 피벗테이블에 연결합니다"},
         {"command": "slicer-position", "reason": "슬라이서 위치를 조정합니다"},
-        {"command": "slicer-list", "reason": "생성된 슬라이서를 확인합니다"}
+        {"command": "slicer-list", "reason": "생성된 슬라이서를 확인합니다"},
     ],
     "slicer-list": [
         {"command": "slicer-connect", "reason": "슬라이서 연결을 관리합니다"},
-        {"command": "slicer-position", "reason": "슬라이서 위치를 조정합니다"}
+        {"command": "slicer-position", "reason": "슬라이서 위치를 조정합니다"},
     ],
     "slicer-connect": [
         {"command": "slicer-list", "reason": "연결 상태를 확인합니다"},
-        {"command": "slicer-position", "reason": "슬라이서 레이아웃을 정리합니다"}
+        {"command": "slicer-position", "reason": "슬라이서 레이아웃을 정리합니다"},
     ],
     "slicer-position": [
         {"command": "slicer-list", "reason": "배치된 슬라이서를 확인합니다"},
-        {"command": "shape-add", "reason": "슬라이서 배경 도형을 추가합니다"}
-    ]
+        {"command": "shape-add", "reason": "슬라이서 배경 도형을 추가합니다"},
+    ],
 }
 
 # 명령어 카테고리 정의
@@ -677,7 +654,7 @@ COMMAND_CATEGORIES = {
     "slicer-add": "slicer",
     "slicer-connect": "slicer",
     "slicer-position": "slicer",
-    "slicer-list": "slicer"
+    "slicer-list": "slicer",
 }
 
 # 작업 타입 정의
@@ -715,7 +692,7 @@ OPERATION_TYPES = {
     "slicer-add": "create",
     "slicer-connect": "modify",
     "slicer-position": "modify",
-    "slicer-list": "read"
+    "slicer-list": "read",
 }
 
 
@@ -729,28 +706,26 @@ def get_execution_context(book: Optional[xw.Book] = None) -> Dict[str, Union[str
     Returns:
         컨텍스트 정보 딕셔너리
     """
-    context = {
-        "total_open_workbooks": len(xw.books) if xw.books else 0,
-        "excel_app_visible": None,
-        "current_workbook": None
-    }
+    context = {"total_open_workbooks": len(xw.books) if xw.books else 0, "excel_app_visible": None, "current_workbook": None}
 
     try:
         if book is None and len(xw.books) > 0:
             book = xw.books.active
 
         if book:
-            context.update({
-                "current_workbook": {
-                    "name": normalize_path(book.name),
-                    "full_name": normalize_path(book.fullname),
-                    "saved": getattr(book, 'saved', True),
-                    "total_sheets": len(book.sheets),
-                    "active_sheet": book.sheets.active.name if book.sheets else None,
-                    "sheet_names": [sheet.name for sheet in book.sheets]
-                },
-                "excel_app_visible": book.app.visible if hasattr(book, 'app') else None
-            })
+            context.update(
+                {
+                    "current_workbook": {
+                        "name": normalize_path(book.name),
+                        "full_name": normalize_path(book.fullname),
+                        "saved": getattr(book, "saved", True),
+                        "total_sheets": len(book.sheets),
+                        "active_sheet": book.sheets.active.name if book.sheets else None,
+                        "sheet_names": [sheet.name for sheet in book.sheets],
+                    },
+                    "excel_app_visible": book.app.visible if hasattr(book, "app") else None,
+                }
+            )
 
             # 저장되지 않은 워크북 체크
             unsaved_workbooks = []
@@ -782,22 +757,21 @@ def calculate_operation_stats(command: str, **kwargs) -> Dict[str, Union[str, in
     Returns:
         작업 통계 딕셔너리
     """
-    stats = {
-        "command": command,
-        "timestamp": datetime.datetime.now().isoformat()
-    }
+    stats = {"command": command, "timestamp": datetime.datetime.now().isoformat()}
 
     # 명령어별 특화 통계
     if command in ["range-read", "range-write"]:
         if "range_obj" in kwargs:
             range_obj = kwargs["range_obj"]
             try:
-                stats.update({
-                    "cells_count": range_obj.count if hasattr(range_obj, 'count') else 1,
-                    "rows_count": range_obj.rows.count if hasattr(range_obj, 'rows') else 1,
-                    "columns_count": range_obj.columns.count if hasattr(range_obj, 'columns') else 1,
-                    "range_address": range_obj.address if hasattr(range_obj, 'address') else None
-                })
+                stats.update(
+                    {
+                        "cells_count": range_obj.count if hasattr(range_obj, "count") else 1,
+                        "rows_count": range_obj.rows.count if hasattr(range_obj, "rows") else 1,
+                        "columns_count": range_obj.columns.count if hasattr(range_obj, "columns") else 1,
+                        "range_address": range_obj.address if hasattr(range_obj, "address") else None,
+                    }
+                )
             except:
                 pass
 
@@ -825,7 +799,9 @@ def calculate_operation_stats(command: str, **kwargs) -> Dict[str, Union[str, in
     return stats
 
 
-def suggest_next_commands(command: str, context: Dict[str, Union[str, int, float, list, dict]], **kwargs) -> List[Dict[str, str]]:
+def suggest_next_commands(
+    command: str, context: Dict[str, Union[str, int, float, list, dict]], **kwargs
+) -> List[Dict[str, str]]:
     """
     현재 명령어와 컨텍스트를 기반으로 후속 명령어를 추천합니다.
 
@@ -849,24 +825,19 @@ def suggest_next_commands(command: str, context: Dict[str, Union[str, int, float
 
         # 저장되지 않은 변경사항이 있는 경우
         if not workbook_info.get("saved", True):
-            suggestions.insert(0, {
-                "command": "workbook-save",
-                "reason": "워크북에 저장되지 않은 변경사항이 있습니다"
-            })
+            suggestions.insert(0, {"command": "workbook-save", "reason": "워크북에 저장되지 않은 변경사항이 있습니다"})
 
         # 시트가 많은 경우 시트 관리 명령어 추천
         if workbook_info.get("total_sheets", 0) > 5:
-            suggestions.append({
-                "command": "workbook-info",
-                "reason": "많은 시트가 있으므로 전체 구조를 확인하는 것이 좋습니다"
-            })
+            suggestions.append(
+                {"command": "workbook-info", "reason": "많은 시트가 있으므로 전체 구조를 확인하는 것이 좋습니다"}
+            )
 
     # 저장되지 않은 다른 워크북이 있는 경우
     if context.get("unsaved_workbooks"):
-        suggestions.append({
-            "command": "workbook-list",
-            "reason": f"저장되지 않은 워크북이 {len(context['unsaved_workbooks'])}개 있습니다"
-        })
+        suggestions.append(
+            {"command": "workbook-list", "reason": f"저장되지 않은 워크북이 {len(context['unsaved_workbooks'])}개 있습니다"}
+        )
 
     # 중복 제거 및 최대 5개까지만 반환
     seen_commands = set()
@@ -907,65 +878,44 @@ class ExecutionTimer:
 
 # 뉴모피즘 스타일 정의
 NEUMORPHISM_STYLES = {
-    "background": {
-        "fill_color": "#F2EDF3",
-        "transparency": 0,
-        "has_line": False
-    },
+    "background": {"fill_color": "#F2EDF3", "transparency": 0, "has_line": False},
     "title-box": {
         "fill_color": "#1D2433",
         "transparency": 0,
         "has_line": False,
-        "shadow": {
-            "color": "#1D2433",
-            "transparency": 85,
-            "blur": 30,
-            "angle": 45,
-            "distance": 10
-        }
+        "shadow": {"color": "#1D2433", "transparency": 85, "blur": 30, "angle": 45, "distance": 10},
     },
     "chart-box": {
         "fill_color": "#FFFFFF",
         "transparency": 0,
         "has_line": False,
-        "shadow": {
-            "color": "#1D2433",
-            "transparency": 85,
-            "blur": 30,
-            "angle": 45,
-            "distance": 10
-        }
+        "shadow": {"color": "#1D2433", "transparency": 85, "blur": 30, "angle": 45, "distance": 10},
     },
     "slicer-box": {
         "fill_color": "#FFFFFF",
         "transparency": 0,
         "has_line": True,
         "line_color": "#E0E0E0",
-        "shadow": {
-            "color": "#1D2433",
-            "transparency": 90,
-            "blur": 20,
-            "angle": 45,
-            "distance": 5
-        }
-    }
+        "shadow": {"color": "#1D2433", "transparency": 90, "blur": 20, "angle": 45, "distance": 5},
+    },
 }
 
 # Excel Shape Type 상수 (xlwings 호환)
 SHAPE_TYPES = {
-    'rectangle': 1,  # msoShapeRectangle
-    'oval': 9,  # msoShapeOval
-    'line': 9,  # msoShapeLine (실제로는 20)
-    'arrow': 4,  # msoShapeRightArrow
-    'rounded_rectangle': 5,  # msoShapeRoundedRectangle
-    'diamond': 4,  # msoShapeDiamond (실제로는 4)
-    'triangle': 3,  # msoShapeIsoscelesTriangle
-    'pentagon': 7,  # msoShapePentagon
-    'hexagon': 8,  # msoShapeHexagon
-    'star': 12,  # msoShape5pointStar
-    'callout_rectangle': 61,  # msoShapeRectangularCallout
-    'text_box': 17  # msoTextBox
+    "rectangle": 1,  # msoShapeRectangle
+    "oval": 9,  # msoShapeOval
+    "line": 9,  # msoShapeLine (실제로는 20)
+    "arrow": 4,  # msoShapeRightArrow
+    "rounded_rectangle": 5,  # msoShapeRoundedRectangle
+    "diamond": 4,  # msoShapeDiamond (실제로는 4)
+    "triangle": 3,  # msoShapeIsoscelesTriangle
+    "pentagon": 7,  # msoShapePentagon
+    "hexagon": 8,  # msoShapeHexagon
+    "star": 12,  # msoShape5pointStar
+    "callout_rectangle": 61,  # msoShapeRectangularCallout
+    "text_box": 17,  # msoTextBox
 }
+
 
 # 색상 유틸리티 함수
 def hex_to_rgb(hex_color: str) -> int:
@@ -978,7 +928,7 @@ def hex_to_rgb(hex_color: str) -> int:
     Returns:
         Excel에서 사용하는 RGB 정수값
     """
-    if hex_color.startswith('#'):
+    if hex_color.startswith("#"):
         hex_color = hex_color[1:]
 
     # RGB 값 추출
@@ -1098,27 +1048,23 @@ def get_shapes_info(sheet: xw.Sheet) -> List[Dict[str, Union[str, int, float]]]:
             shape_info = {
                 "name": shape.name,
                 "type": "unknown",
-                "position": {
-                    "left": getattr(shape, 'left', 0),
-                    "top": getattr(shape, 'top', 0)
-                },
-                "size": {
-                    "width": getattr(shape, 'width', 0),
-                    "height": getattr(shape, 'height', 0)
-                }
+                "position": {"left": getattr(shape, "left", 0), "top": getattr(shape, "top", 0)},
+                "size": {"width": getattr(shape, "width", 0), "height": getattr(shape, "height", 0)},
             }
 
             # Windows에서 추가 정보 수집
             if platform.system() == "Windows":
                 try:
-                    shape_info.update({
-                        "type": shape.api.Type,
-                        "visible": shape.api.Visible,
-                        "has_text": hasattr(shape.api, 'TextFrame') and shape.api.TextFrame.HasText
-                    })
+                    shape_info.update(
+                        {
+                            "type": shape.api.Type,
+                            "visible": shape.api.Visible,
+                            "has_text": hasattr(shape.api, "TextFrame") and shape.api.TextFrame.HasText,
+                        }
+                    )
 
                     # 색상 정보
-                    if hasattr(shape.api, 'Fill'):
+                    if hasattr(shape.api, "Fill"):
                         shape_info["fill_color"] = rgb_to_hex(shape.api.Fill.ForeColor.RGB)
                         shape_info["transparency"] = shape.api.Fill.Transparency * 100
 
@@ -1194,6 +1140,7 @@ def generate_unique_shape_name(sheet: xw.Sheet, base_name: str = "Shape") -> str
 
 # ========== Slicer 관리 기능 추가 ==========
 
+
 def get_pivot_tables(sheet: xw.Sheet) -> List[Dict[str, Union[str, int, float]]]:
     """
     시트의 모든 피벗테이블 정보를 수집합니다.
@@ -1212,17 +1159,14 @@ def get_pivot_tables(sheet: xw.Sheet) -> List[Dict[str, Union[str, int, float]]]
                 pivot_info = {
                     "name": pivot_table.Name,
                     "location": pivot_table.TableRange1.Address,
-                    "source_data": getattr(pivot_table, 'SourceData', 'Unknown'),
-                    "fields": []
+                    "source_data": getattr(pivot_table, "SourceData", "Unknown"),
+                    "fields": [],
                 }
 
                 # 피벗테이블 필드 정보 수집
                 try:
                     for field in pivot_table.PivotFields():
-                        field_info = {
-                            "name": field.Name,
-                            "orientation": field.Orientation
-                        }
+                        field_info = {"name": field.Name, "orientation": field.Orientation}
                         pivot_info["fields"].append(field_info)
                 except Exception:
                     pass
@@ -1274,18 +1218,15 @@ def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Union[str, int, float]
                 slicer_info = {
                     "name": slicer_cache.Name,
                     "source_name": slicer_cache.SourceName,
-                    "field_name": getattr(slicer_cache, 'OLAP', {}).get('SourceField', 'Unknown'),
+                    "field_name": getattr(slicer_cache, "OLAP", {}).get("SourceField", "Unknown"),
                     "slicer_items": [],
-                    "connected_pivot_tables": []
+                    "connected_pivot_tables": [],
                 }
 
                 # 슬라이서 아이템 정보
                 try:
                     for item in slicer_cache.SlicerItems():
-                        item_info = {
-                            "name": item.Name,
-                            "selected": item.Selected
-                        }
+                        item_info = {"name": item.Name, "selected": item.Selected}
                         slicer_info["slicer_items"].append(item_info)
                 except Exception:
                     pass
@@ -1301,14 +1242,8 @@ def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Union[str, int, float]
                 try:
                     if slicer_cache.Slicers().Count > 0:
                         first_slicer = slicer_cache.Slicers(1)
-                        slicer_info["position"] = {
-                            "left": first_slicer.Left,
-                            "top": first_slicer.Top
-                        }
-                        slicer_info["size"] = {
-                            "width": first_slicer.Width,
-                            "height": first_slicer.Height
-                        }
+                        slicer_info["position"] = {"left": first_slicer.Left, "top": first_slicer.Top}
+                        slicer_info["size"] = {"width": first_slicer.Width, "height": first_slicer.Height}
                         slicer_info["sheet"] = first_slicer.Parent.Parent.Name
                 except Exception:
                     pass

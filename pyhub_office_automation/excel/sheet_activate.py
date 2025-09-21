@@ -7,11 +7,13 @@ import json
 import sys
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
 
 from pyhub_office_automation.version import get_version
-from .utils import get_workbook, create_error_response, create_success_response, get_or_open_workbook, ExecutionTimer
+
+from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook, get_workbook
 
 
 def sheet_activate(
@@ -21,7 +23,7 @@ def sheet_activate(
     name: Optional[str] = typer.Option(None, "--name", help="활성화할 시트의 이름"),
     index: Optional[int] = typer.Option(None, "--index", help="활성화할 시트의 인덱스 (1부터 시작)"),
     visible: bool = typer.Option(True, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
-    output_format: str = typer.Option("json", "--format", help="출력 형식 선택")
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
     """
     Excel 워크북의 특정 시트를 활성화합니다.
@@ -52,27 +54,17 @@ def sheet_activate(
         with ExecutionTimer() as timer:
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=workbook,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=workbook, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 기존 활성 시트 정보 수집
             old_active_sheet = book.sheets.active
-            old_active_info = {
-                "name": old_active_sheet.name,
-                "index": old_active_sheet.index
-            }
+            old_active_info = {"name": old_active_sheet.name, "index": old_active_sheet.index}
 
             # 시트 목록 수집
             all_sheets = []
             for sheet in book.sheets:
-                all_sheets.append({
-                    "name": sheet.name,
-                    "index": sheet.index,
-                    "is_active": sheet == old_active_sheet
-                })
+                all_sheets.append({"name": sheet.name, "index": sheet.index, "is_active": sheet == old_active_sheet})
 
             # 대상 시트 찾기 및 활성화
             target_sheet = None
@@ -98,20 +90,17 @@ def sheet_activate(
 
             # 활성화 후 정보 수집
             new_active_sheet = book.sheets.active
-            new_active_info = {
-                "name": new_active_sheet.name,
-                "index": new_active_sheet.index
-            }
+            new_active_info = {"name": new_active_sheet.name, "index": new_active_sheet.index}
 
             # 시트 정보 업데이트
             for sheet_info in all_sheets:
-                sheet_info["is_active"] = (sheet_info["name"] == new_active_sheet.name)
+                sheet_info["is_active"] = sheet_info["name"] == new_active_sheet.name
 
             # 활성화된 시트의 추가 정보
             activated_sheet_info = {
                 "name": target_sheet.name,
                 "index": target_sheet.index,
-                "is_visible": getattr(target_sheet, 'visible', True)
+                "is_visible": getattr(target_sheet, "visible", True),
             }
 
             # 사용된 범위 정보 추가 (가능한 경우)
@@ -122,7 +111,7 @@ def sheet_activate(
                         "address": used_range.address,
                         "last_cell": used_range.last_cell.address,
                         "row_count": used_range.rows.count,
-                        "column_count": used_range.columns.count
+                        "column_count": used_range.columns.count,
                     }
                 else:
                     activated_sheet_info["used_range"] = None
@@ -130,18 +119,14 @@ def sheet_activate(
                 activated_sheet_info["used_range"] = None
 
             # 워크북 정보
-            workbook_info = {
-                "name": book.name,
-                "full_name": book.fullname,
-                "total_sheets": len(book.sheets)
-            }
+            workbook_info = {"name": book.name, "full_name": book.fullname, "total_sheets": len(book.sheets)}
 
             # 데이터 구성
             data_content = {
                 "activated_sheet": activated_sheet_info,
                 "previous_active": old_active_info,
                 "workbook": workbook_info,
-                "all_sheets": all_sheets
+                "all_sheets": all_sheets,
             }
 
             # 성공 메시지
@@ -156,11 +141,11 @@ def sheet_activate(
                 command="sheet-activate",
                 message=message,
                 execution_time_ms=timer.execution_time_ms,
-                book=book
+                book=book,
             )
 
             # 출력 형식에 따른 결과 반환
-            if output_format == 'json':
+            if output_format == "json":
                 typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
             else:  # text 형식
                 activated = activated_sheet_info
@@ -171,8 +156,8 @@ def sheet_activate(
                 typer.echo(f"📁 워크북: {wb['name']}")
                 typer.echo(f"📄 활성 시트: {activated['name']} (인덱스: {activated['index']})")
 
-                if activated.get('used_range'):
-                    used = activated['used_range']
+                if activated.get("used_range"):
+                    used = activated["used_range"]
                     typer.echo(f"📊 사용된 범위: {used['address']} ({used['row_count']}행 × {used['column_count']}열)")
                 else:
                     typer.echo(f"📊 사용된 범위: 없음 (빈 시트)")
@@ -180,12 +165,12 @@ def sheet_activate(
                 typer.echo()
                 typer.echo(f"📋 전체 시트 목록 ({wb['total_sheets']}개):")
                 for i, sheet in enumerate(all_sheets, 1):
-                    active_mark = " ← 현재 활성" if sheet['is_active'] else ""
+                    active_mark = " ← 현재 활성" if sheet["is_active"] else ""
                     typer.echo(f"  {i}. {sheet['name']}{active_mark}")
 
     except ValueError as e:
         error_response = create_error_response(e, "sheet-activate")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ {str(e)}", err=True)
@@ -193,7 +178,7 @@ def sheet_activate(
 
     except Exception as e:
         error_response = create_error_response(e, "sheet-activate")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)

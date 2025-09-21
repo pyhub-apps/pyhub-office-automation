@@ -2,51 +2,59 @@
 setup.py for pyhub-office-automation package
 """
 
-from setuptools import setup, find_packages
-import sys
 import os
+import sys
+
+from setuptools import find_packages, setup
 
 # Add the package directory to the path to import version
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'pyhub_office_automation'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pyhub_office_automation"))
 from version import get_version, get_version_info
+
 
 # Read README
 def read_readme():
     try:
-        with open('README.md', 'r', encoding='utf-8') as f:
+        with open("README.md", "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         return "Python-based Excel and HWP automation package for AI agents"
 
+
 # Read requirements
 def read_requirements():
-    with open('requirements.txt', 'r', encoding='utf-8') as f:
+    with open("requirements.txt", "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     requirements = []
     for line in lines:
         line = line.strip()
-        if line and not line.startswith('#'):
+        if line and not line.startswith("#"):
             # Handle conditional dependencies
-            if '; sys_platform' in line:
+            if "; sys_platform" in line:
                 requirements.append(line)
             else:
-                requirements.append(line.split(';')[0].strip())
+                requirements.append(line.split(";")[0].strip())
     return requirements
+
 
 # Platform-specific dependencies
 install_requires = read_requirements()
 
 # Development dependencies
 extras_require = {
-    'dev': [
-        'pytest>=7.0.0',
-        'pytest-cov>=4.0.0',
-        'pytest-mock>=3.10.0',
+    "dev": [
+        "pytest>=7.0.0",
+        "pytest-cov>=4.0.0",
+        "pytest-mock>=3.10.0",
+        "black>=24.0.0",
+        "isort>=5.13.0",
+        "flake8>=7.0.0",
+        "pre-commit>=3.0.0",
     ],
-    'build': [
+    "build": [
         'PyInstaller>=5.0.0; sys_platform == "win32"',
-    ]
+    ],
 }
 
 setup(

@@ -6,26 +6,33 @@ xlwings를 활용한 Excel 슬라이서 정보 수집 기능
 import json
 import platform
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_or_open_workbook, create_error_response, create_success_response,
-    ExecutionTimer, get_slicers_info, normalize_path
+    ExecutionTimer,
+    create_error_response,
+    create_success_response,
+    get_or_open_workbook,
+    get_slicers_info,
+    normalize_path,
 )
 
 
 def slicer_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서를 조회할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     detailed: bool = typer.Option(False, "--detailed", help="상세 정보 포함 (슬라이서 항목, 연결된 피벗테이블 등)"),
     include_items: bool = typer.Option(False, "--include-items", help="슬라이서 항목 목록 포함"),
     show_connections: bool = typer.Option(False, "--show-connections", help="연결된 피벗테이블 정보 표시"),
     filter_field: Optional[str] = typer.Option(None, "--filter-field", help="특정 필드의 슬라이서만 필터링"),
     filter_sheet: Optional[str] = typer.Option(None, "--filter-sheet", help="특정 시트의 슬라이서만 필터링"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
-    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)")
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
 ):
     """
     Excel 워크북의 모든 슬라이서 정보를 조회합니다.
@@ -142,10 +149,7 @@ def slicer_list(
         with ExecutionTimer() as timer:
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 슬라이서 정보 수집
@@ -155,14 +159,14 @@ def slicer_list(
             if filter_field:
                 filtered_slicers = []
                 for slicer_info in slicers_info:
-                    if filter_field.lower() in slicer_info.get('field_name', '').lower():
+                    if filter_field.lower() in slicer_info.get("field_name", "").lower():
                         filtered_slicers.append(slicer_info)
                 slicers_info = filtered_slicers
 
             if filter_sheet:
                 filtered_slicers = []
                 for slicer_info in slicers_info:
-                    if filter_sheet.lower() in slicer_info.get('sheet', '').lower():
+                    if filter_sheet.lower() in slicer_info.get("sheet", "").lower():
                         filtered_slicers.append(slicer_info)
                 slicers_info = filtered_slicers
 
@@ -176,7 +180,7 @@ def slicer_list(
                         "field_name": slicer_info.get("field_name"),
                         "position": slicer_info.get("position"),
                         "size": slicer_info.get("size"),
-                        "sheet": slicer_info.get("sheet")
+                        "sheet": slicer_info.get("sheet"),
                     }
 
                     # 기본 연결 정보는 유지
@@ -196,10 +200,7 @@ def slicer_list(
                         item_count = len(slicer_info["slicer_items"])
                         selected_count = sum(1 for item in slicer_info["slicer_items"] if item.get("selected", False))
                         del slicer_info["slicer_items"]
-                        slicer_info["item_summary"] = {
-                            "total_items": item_count,
-                            "selected_items": selected_count
-                        }
+                        slicer_info["item_summary"] = {"total_items": item_count, "selected_items": selected_count}
 
             if not show_connections:
                 for slicer_info in slicers_info:
@@ -215,10 +216,7 @@ def slicer_list(
                 for slicer_info in slicers_info:
                     try:
                         # 추가 슬라이서 설정 정보 수집
-                        slicer_info["platform_info"] = {
-                            "full_support": True,
-                            "additional_settings_available": True
-                        }
+                        slicer_info["platform_info"] = {"full_support": True, "additional_settings_available": True}
                     except Exception:
                         pass
 
@@ -232,8 +230,8 @@ def slicer_list(
                     "include_items": include_items,
                     "show_connections": show_connections,
                     "filter_field": filter_field,
-                    "filter_sheet": filter_sheet
-                }
+                    "filter_sheet": filter_sheet,
+                },
             }
 
             # 플랫폼별 지원 정보
@@ -267,7 +265,7 @@ def slicer_list(
                     "slicers_by_field": field_stats,
                     "slicers_by_sheet": sheet_stats,
                     "total_slicer_items": total_items,
-                    "total_selected_items": total_selected
+                    "total_selected_items": total_selected,
                 }
 
             message = f"{len(slicers_info)}개의 슬라이서 정보를 조회했습니다"
@@ -280,7 +278,7 @@ def slicer_list(
                 message=message,
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
-                slicers_count=len(slicers_info)
+                slicers_count=len(slicers_info),
             )
 
             print(json.dumps(response, ensure_ascii=False, indent=2))
@@ -306,5 +304,5 @@ def slicer_list(
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     slicer_list()

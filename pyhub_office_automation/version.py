@@ -40,10 +40,7 @@ def get_build_number():
     try:
         # 이번 주 첫날(월요일)부터의 커밋 수 계산
         result = subprocess.run(
-            ["git", "rev-list", "--count", "--since=last monday", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True
+            ["git", "rev-list", "--count", "--since=last monday", "HEAD"], capture_output=True, text=True, check=True
         )
         return result.stdout.strip() or "0"
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -65,12 +62,7 @@ def get_version_info():
     build = get_build_number()
     version = f"{head}.{yearweek}.{build}"
 
-    return {
-        "head": head,
-        "yearweek": yearweek,
-        "build": build,
-        "version": version
-    }
+    return {"head": head, "yearweek": yearweek, "build": build, "version": version}
 
 
 if __name__ == "__main__":

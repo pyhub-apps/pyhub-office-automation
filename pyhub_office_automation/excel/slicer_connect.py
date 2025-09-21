@@ -6,29 +6,40 @@ xlwings를 활용한 Excel 슬라이서와 피벗테이블 연결 기능
 import json
 import platform
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_or_open_workbook, get_sheet, create_error_response, create_success_response,
-    ExecutionTimer, get_slicer_by_name, get_pivot_tables, normalize_path
+    ExecutionTimer,
+    create_error_response,
+    create_success_response,
+    get_or_open_workbook,
+    get_pivot_tables,
+    get_sheet,
+    get_slicer_by_name,
+    normalize_path,
 )
 
 
 def slicer_connect(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서 연결을 관리할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     slicer_name: str = typer.Option(..., "--slicer-name", help="연결을 관리할 슬라이서 이름"),
     action: str = typer.Option(..., "--action", help="작업 유형: connect(연결), disconnect(연결 해제), list(연결 상태 조회)"),
-    pivot_tables: Optional[str] = typer.Option(None, "--pivot-tables", help="연결할 피벗테이블 이름들 (쉼표로 구분, 예: \"Pivot1,Pivot2\")"),
+    pivot_tables: Optional[str] = typer.Option(
+        None, "--pivot-tables", help='연결할 피벗테이블 이름들 (쉼표로 구분, 예: "Pivot1,Pivot2")'
+    ),
     all_pivots: bool = typer.Option(False, "--all-pivots", help="워크북의 모든 피벗테이블에 연결/해제"),
     target_sheet: Optional[str] = typer.Option(None, "--target-sheet", help="특정 시트의 피벗테이블만 대상으로 지정"),
     force: bool = typer.Option(False, "--force", help="강제 연결/해제 (호환성 문제 무시)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="실제 연결하지 않고 대상만 확인"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="연결 변경 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="연결 변경 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     Excel 슬라이서와 피벗테이블의 연결을 관리합니다.
@@ -154,7 +165,7 @@ def slicer_connect(
 
     try:
         # action 검증
-        if action not in ['connect', 'disconnect', 'list']:
+        if action not in ["connect", "disconnect", "list"]:
             raise ValueError(f"action은 'connect', 'disconnect', 'list' 중 하나여야 합니다. 입력된 값: {action}")
 
         with ExecutionTimer() as timer:
@@ -164,10 +175,7 @@ def slicer_connect(
 
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 슬라이서 찾기
@@ -176,21 +184,19 @@ def slicer_connect(
                 raise ValueError(f"슬라이서 '{slicer_name}'을 찾을 수 없습니다")
 
             # 작업별 처리
-            if action == 'list':
+            if action == "list":
                 result = handle_list_connections(book, slicer_cache, slicer_name)
-            elif action == 'connect':
+            elif action == "connect":
                 result = handle_connect_action(
-                    book, slicer_cache, slicer_name, pivot_tables,
-                    all_pivots, target_sheet, force, dry_run
+                    book, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run
                 )
             else:  # disconnect
                 result = handle_disconnect_action(
-                    book, slicer_cache, slicer_name, pivot_tables,
-                    all_pivots, target_sheet, force, dry_run
+                    book, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run
                 )
 
             # 파일 저장
-            if save and file_path and not dry_run and action != 'list':
+            if save and file_path and not dry_run and action != "list":
                 book.save()
 
             # 성공 응답 생성
@@ -199,7 +205,7 @@ def slicer_connect(
                 "action": action,
                 "dry_run": dry_run,
                 "workbook": normalize_path(book.name),
-                **result
+                **result,
             }
 
             message = result.get("message", f"{action} 작업이 완료되었습니다")
@@ -213,7 +219,7 @@ def slicer_connect(
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
                 action=action,
-                affected_connections=result.get("affected_connections", 0)
+                affected_connections=result.get("affected_connections", 0),
             )
 
             print(json.dumps(response, ensure_ascii=False, indent=2))
@@ -250,7 +256,7 @@ def handle_list_connections(book, slicer_cache, slicer_name):
                 "pivot_table_name": pivot_table.Name,
                 "sheet": pivot_table.Parent.Name,
                 "location": pivot_table.TableRange1.Address,
-                "source_data": getattr(pivot_table, 'SourceData', 'Unknown')
+                "source_data": getattr(pivot_table, "SourceData", "Unknown"),
             }
 
             # 호환성 확인
@@ -271,30 +277,27 @@ def handle_list_connections(book, slicer_cache, slicer_name):
         slicer_info = {
             "name": slicer_name,
             "source_name": slicer_cache.SourceName,
-            "field_name": getattr(slicer_cache, 'SourceName', 'Unknown')
+            "field_name": getattr(slicer_cache, "SourceName", "Unknown"),
         }
 
         return {
             "slicer_info": slicer_info,
             "current_connections": current_connections,
             "total_connections": len(current_connections),
-            "message": f"슬라이서 '{slicer_name}'은 {len(current_connections)}개의 피벗테이블에 연결되어 있습니다"
+            "message": f"슬라이서 '{slicer_name}'은 {len(current_connections)}개의 피벗테이블에 연결되어 있습니다",
         }
 
     except Exception as e:
         raise RuntimeError(f"연결 상태 조회 실패: {str(e)}")
 
 
-def handle_connect_action(book, slicer_cache, slicer_name, pivot_tables,
-                         all_pivots, target_sheet, force, dry_run):
+def handle_connect_action(book, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run):
     """연결 작업 처리"""
     if not pivot_tables and not all_pivots:
         raise ValueError("연결할 피벗테이블을 지정해야 합니다 (--pivot-tables 또는 --all-pivots)")
 
     # 대상 피벗테이블 수집
-    target_pivot_tables = collect_target_pivot_tables(
-        book, pivot_tables, all_pivots, target_sheet
-    )
+    target_pivot_tables = collect_target_pivot_tables(book, pivot_tables, all_pivots, target_sheet)
 
     if not target_pivot_tables:
         raise ValueError("연결할 피벗테이블을 찾을 수 없습니다")
@@ -312,16 +315,11 @@ def handle_connect_action(book, slicer_cache, slicer_name, pivot_tables,
             if slicer_field in pivot_fields:
                 compatible_pivots.append(pivot_info)
             else:
-                incompatible_pivots.append({
-                    "name": pivot_info["name"],
-                    "reason": f"필드 '{slicer_field}' 없음",
-                    "available_fields": pivot_fields
-                })
+                incompatible_pivots.append(
+                    {"name": pivot_info["name"], "reason": f"필드 '{slicer_field}' 없음", "available_fields": pivot_fields}
+                )
         except Exception as e:
-            incompatible_pivots.append({
-                "name": pivot_info["name"],
-                "reason": f"검사 실패: {str(e)}"
-            })
+            incompatible_pivots.append({"name": pivot_info["name"], "reason": f"검사 실패: {str(e)}"})
 
     if incompatible_pivots and not force:
         raise ValueError(
@@ -336,7 +334,7 @@ def handle_connect_action(book, slicer_cache, slicer_name, pivot_tables,
             "incompatible_pivots": incompatible_pivots,
             "slicer_field": slicer_field,
             "affected_connections": len(compatible_pivots),
-            "message": f"{len(compatible_pivots)}개의 피벗테이블에 연결될 예정입니다"
+            "message": f"{len(compatible_pivots)}개의 피벗테이블에 연결될 예정입니다",
         }
 
     # 실제 연결 수행
@@ -349,10 +347,7 @@ def handle_connect_action(book, slicer_cache, slicer_name, pivot_tables,
             slicer_cache.PivotTables.AddPivotTable(pivot_info["pivot_object"])
             successful_connections.append(pivot_info["name"])
         except Exception as e:
-            failed_connections.append({
-                "name": pivot_info["name"],
-                "error": str(e)
-            })
+            failed_connections.append({"name": pivot_info["name"], "error": str(e)})
 
     # 강제 모드에서 호환되지 않는 피벗테이블도 시도
     if force and incompatible_pivots:
@@ -362,16 +357,13 @@ def handle_connect_action(book, slicer_cache, slicer_name, pivot_tables,
                     slicer_cache.PivotTables.AddPivotTable(pivot_info["pivot_object"])
                     successful_connections.append(pivot_info["name"] + " (강제)")
                 except Exception as e:
-                    failed_connections.append({
-                        "name": pivot_info["name"] + " (강제)",
-                        "error": str(e)
-                    })
+                    failed_connections.append({"name": pivot_info["name"] + " (강제)", "error": str(e)})
 
     result = {
         "successful_connections": successful_connections,
         "total_connected": len(successful_connections),
         "affected_connections": len(successful_connections),
-        "slicer_field": slicer_field
+        "slicer_field": slicer_field,
     }
 
     if failed_connections:
@@ -388,18 +380,15 @@ def handle_connect_action(book, slicer_cache, slicer_name, pivot_tables,
     return result
 
 
-def handle_disconnect_action(book, slicer_cache, slicer_name, pivot_tables,
-                           all_pivots, target_sheet, force, dry_run):
+def handle_disconnect_action(book, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run):
     """연결 해제 작업 처리"""
     # 현재 연결된 피벗테이블 목록
     current_connections = []
     try:
         for pivot_table in slicer_cache.PivotTables():
-            current_connections.append({
-                "name": pivot_table.Name,
-                "sheet": pivot_table.Parent.Name,
-                "pivot_object": pivot_table
-            })
+            current_connections.append(
+                {"name": pivot_table.Name, "sheet": pivot_table.Parent.Name, "pivot_object": pivot_table}
+            )
     except Exception as e:
         if not force:
             raise RuntimeError(f"현재 연결 상태 확인 실패: {str(e)}")
@@ -411,16 +400,10 @@ def handle_disconnect_action(book, slicer_cache, slicer_name, pivot_tables,
     if all_pivots:
         targets_to_disconnect = current_connections
     elif pivot_tables:
-        target_names = [name.strip() for name in pivot_tables.split(',')]
-        targets_to_disconnect = [
-            conn for conn in current_connections
-            if conn["name"] in target_names
-        ]
+        target_names = [name.strip() for name in pivot_tables.split(",")]
+        targets_to_disconnect = [conn for conn in current_connections if conn["name"] in target_names]
 
-        missing_targets = [
-            name for name in target_names
-            if name not in [conn["name"] for conn in current_connections]
-        ]
+        missing_targets = [name for name in target_names if name not in [conn["name"] for conn in current_connections]]
 
         if missing_targets and not force:
             raise ValueError(f"다음 피벗테이블은 연결되어 있지 않습니다: {missing_targets}")
@@ -429,10 +412,7 @@ def handle_disconnect_action(book, slicer_cache, slicer_name, pivot_tables,
 
     # 시트 필터링
     if target_sheet:
-        targets_to_disconnect = [
-            conn for conn in targets_to_disconnect
-            if conn["sheet"] == target_sheet
-        ]
+        targets_to_disconnect = [conn for conn in targets_to_disconnect if conn["sheet"] == target_sheet]
 
     if not targets_to_disconnect:
         raise ValueError("해제할 대상이 없습니다")
@@ -443,7 +423,7 @@ def handle_disconnect_action(book, slicer_cache, slicer_name, pivot_tables,
             "total_to_disconnect": len(targets_to_disconnect),
             "current_connections": [c["name"] for c in current_connections],
             "affected_connections": len(targets_to_disconnect),
-            "message": f"{len(targets_to_disconnect)}개의 연결이 해제될 예정입니다"
+            "message": f"{len(targets_to_disconnect)}개의 연결이 해제될 예정입니다",
         }
 
     # 실제 해제 수행
@@ -457,15 +437,12 @@ def handle_disconnect_action(book, slicer_cache, slicer_name, pivot_tables,
             target["pivot_object"].PivotCache.RemoveSlicerCaches(slicer_cache)
             successful_disconnections.append(target["name"])
         except Exception as e:
-            failed_disconnections.append({
-                "name": target["name"],
-                "error": str(e)
-            })
+            failed_disconnections.append({"name": target["name"], "error": str(e)})
 
     result = {
         "successful_disconnections": successful_disconnections,
         "total_disconnected": len(successful_disconnections),
-        "affected_connections": len(successful_disconnections)
+        "affected_connections": len(successful_disconnections),
     }
 
     if failed_disconnections:
@@ -495,17 +472,13 @@ def collect_target_pivot_tables(book, pivot_tables, all_pivots, target_sheet):
                     # 실제 피벗테이블 객체 가져오기
                     for pt in sheet.api.PivotTables():
                         if pt.Name == pt_info["name"]:
-                            target_pivot_tables.append({
-                                "name": pt_info["name"],
-                                "sheet": sheet.name,
-                                "pivot_object": pt
-                            })
+                            target_pivot_tables.append({"name": pt_info["name"], "sheet": sheet.name, "pivot_object": pt})
                             break
                 except Exception:
                     continue
     else:
         # 지정된 피벗테이블들
-        target_names = [name.strip() for name in pivot_tables.split(',')]
+        target_names = [name.strip() for name in pivot_tables.split(",")]
 
         for sheet in book.sheets:
             if target_sheet and sheet.name != target_sheet:
@@ -514,16 +487,12 @@ def collect_target_pivot_tables(book, pivot_tables, all_pivots, target_sheet):
             try:
                 for pt in sheet.api.PivotTables():
                     if pt.Name in target_names:
-                        target_pivot_tables.append({
-                            "name": pt.Name,
-                            "sheet": sheet.name,
-                            "pivot_object": pt
-                        })
+                        target_pivot_tables.append({"name": pt.Name, "sheet": sheet.name, "pivot_object": pt})
             except Exception:
                 continue
 
     return target_pivot_tables
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     slicer_connect()

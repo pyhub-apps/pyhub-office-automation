@@ -7,14 +7,13 @@ import json
 import platform
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
-from .utils import (
-    get_or_open_workbook, get_sheet,
-    create_error_response, create_success_response,
-    normalize_path
-)
+
+from .utils import create_error_response, create_success_response, get_or_open_workbook, get_sheet, normalize_path
 
 
 def find_chart_by_name_or_index(sheet, chart_name=None, chart_index=None):
@@ -43,14 +42,8 @@ def get_chart_info_before_deletion(chart):
     try:
         chart_info = {
             "name": chart.name,
-            "position": {
-                "left": chart.left,
-                "top": chart.top
-            },
-            "dimensions": {
-                "width": chart.width,
-                "height": chart.height
-            }
+            "position": {"left": chart.left, "top": chart.top},
+            "dimensions": {"width": chart.width, "height": chart.height},
         }
 
         # 차트 타입 정보 (가능한 경우)
@@ -66,7 +59,7 @@ def get_chart_info_before_deletion(chart):
                     -4120: "doughnut",
                     1: "area",
                     -4169: "scatter",
-                    15: "bubble"
+                    15: "bubble",
                 }
                 chart_info["chart_type"] = type_map.get(chart_type_value, f"type_{chart_type_value}")
             else:
@@ -76,7 +69,7 @@ def get_chart_info_before_deletion(chart):
 
         # 차트 제목 (가능한 경우)
         try:
-            if hasattr(chart, 'api') and chart.api.HasTitle:
+            if hasattr(chart, "api") and chart.api.HasTitle:
                 chart_info["title"] = chart.api.ChartTitle.Text
         except:
             chart_info["title"] = None
@@ -84,13 +77,13 @@ def get_chart_info_before_deletion(chart):
         return chart_info
 
     except Exception:
-        return {"name": getattr(chart, 'name', 'unknown'), "info_extraction_failed": True}
+        return {"name": getattr(chart, "name", "unknown"), "info_extraction_failed": True}
 
 
 def chart_delete(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 삭제할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
     chart_name: Optional[str] = typer.Option(None, "--chart-name", help="삭제할 차트의 이름"),
     chart_index: Optional[int] = typer.Option(None, "--chart-index", help="삭제할 차트의 인덱스 (0부터 시작)"),
@@ -98,7 +91,7 @@ def chart_delete(
     confirm: bool = typer.Option(False, "--confirm", help="삭제 확인 (--all-charts 사용 시 필수)"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="삭제 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="삭제 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     워크시트에서 특정 차트를 삭제합니다.
@@ -183,19 +176,14 @@ def chart_delete(
     ⚠️ --all-charts 옵션은 전체 대시보드에 영향을 줄 수 있음
     """
     # 입력 값 검증
-    if output_format not in ['json', 'text']:
+    if output_format not in ["json", "text"]:
         raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
 
     book = None
 
     try:
         # 워크북 연결
-        book = get_or_open_workbook(
-            file_path=file_path,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
 
         # 시트 가져오기
         target_sheet = get_sheet(book, sheet)
@@ -211,7 +199,7 @@ def chart_delete(
             "total_charts_before": len(target_sheet.charts),
             "deleted_charts": [],
             "total_deleted": 0,
-            "remaining_charts": 0
+            "remaining_charts": 0,
         }
 
         if all_charts:
@@ -268,13 +256,9 @@ def chart_delete(
         else:
             message = "삭제된 차트가 없습니다"
 
-        response = create_success_response(
-            data=deletion_summary,
-            command="chart-delete",
-            message=message
-        )
+        response = create_success_response(data=deletion_summary, command="chart-delete", message=message)
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(response, ensure_ascii=False, indent=2))
         else:
             # 텍스트 형식 출력
@@ -289,11 +273,11 @@ def chart_delete(
                 print("🗑️ 삭제된 차트:")
                 for chart_info in deletion_summary["deleted_charts"]:
                     print(f"   📊 {chart_info['name']}")
-                    if chart_info.get('title'):
+                    if chart_info.get("title"):
                         print(f"      제목: {chart_info['title']}")
-                    if chart_info.get('chart_type'):
+                    if chart_info.get("chart_type"):
                         print(f"      유형: {chart_info['chart_type']}")
-                    if chart_info.get('deletion_error'):
+                    if chart_info.get("deletion_error"):
                         print(f"      ❌ 삭제 오류: {chart_info['deletion_error']}")
                     else:
                         print(f"      ✅ 삭제 완료")
@@ -307,7 +291,7 @@ def chart_delete(
 
     except Exception as e:
         error_response = create_error_response(e, "chart-delete")
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(error_response, ensure_ascii=False, indent=2))
         else:
             print(f"오류: {str(e)}")
@@ -329,5 +313,5 @@ def chart_delete(
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     chart_delete()

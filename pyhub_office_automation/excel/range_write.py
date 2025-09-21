@@ -7,15 +7,26 @@ import json
 import sys
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
 
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_workbook, get_sheet, parse_range, get_range,
-    format_output, create_error_response, create_success_response,
-    validate_range_string, load_data_from_file, cleanup_temp_file,
-    get_or_open_workbook, normalize_path, ExecutionTimer
+    ExecutionTimer,
+    cleanup_temp_file,
+    create_error_response,
+    create_success_response,
+    format_output,
+    get_or_open_workbook,
+    get_range,
+    get_sheet,
+    get_workbook,
+    load_data_from_file,
+    normalize_path,
+    parse_range,
+    validate_range_string,
 )
 
 
@@ -30,7 +41,7 @@ def range_write(
     save: bool = typer.Option(True, "--save/--no-save", help="쓰기 후 파일 저장 여부"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
-    create_sheet: bool = typer.Option(False, "--create-sheet", help="시트가 없으면 생성할지 여부")
+    create_sheet: bool = typer.Option(False, "--create-sheet", help="시트가 없으면 생성할지 여부"),
 ):
     """
     Excel 셀 범위에 데이터를 씁니다.
@@ -66,7 +77,7 @@ def range_write(
 
         # 범위 문자열 유효성 검증 (시작 셀만 검증)
         parsed_sheet, parsed_range = parse_range(range_str)
-        start_cell = parsed_range.split(':')[0]  # 시작 셀만 추출
+        start_cell = parsed_range.split(":")[0]  # 시작 셀만 추출
 
         # 실행 시간 측정 시작
         with ExecutionTimer() as timer:
@@ -87,10 +98,7 @@ def range_write(
 
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 시트 및 범위 처리
@@ -134,11 +142,7 @@ def range_write(
                 "range": actual_range_address,
                 "sheet": target_sheet.name,
                 "data_type": type(write_data).__name__,
-                "data_size": {
-                    "rows": row_count,
-                    "columns": col_count,
-                    "total_cells": row_count * col_count
-                }
+                "data_size": {"rows": row_count, "columns": col_count, "total_cells": row_count * col_count},
             }
 
             # 데이터 미리보기 추가 (큰 데이터의 경우 제한)
@@ -169,7 +173,7 @@ def range_write(
             workbook_info = {
                 "name": normalize_path(book.name),
                 "full_name": normalize_path(book.fullname),
-                "saved": getattr(book, 'saved', True)
+                "saved": getattr(book, "saved", True),
             }
 
             # 데이터 구성
@@ -178,8 +182,8 @@ def range_write(
                 "workbook": workbook_info,
                 "operation": {
                     "source": "data_file" if data_file else "direct_input",
-                    "input_file": str(data_file_path) if data_file else None
-                }
+                    "input_file": str(data_file_path) if data_file else None,
+                },
             }
 
             # 성공 메시지 생성
@@ -195,11 +199,11 @@ def range_write(
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
                 range_obj=write_range,
-                data_size=len(str(write_data).encode('utf-8'))
+                data_size=len(str(write_data).encode("utf-8")),
             )
 
             # 출력 형식에 따른 결과 반환
-            if output_format == 'json':
+            if output_format == "json":
                 typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
             else:  # text 형식
                 written = written_info
@@ -210,21 +214,23 @@ def range_write(
                 typer.echo(f"📁 워크북: {wb['name']}")
                 typer.echo(f"📄 시트: {written['sheet']}")
                 typer.echo(f"📍 범위: {written['range']}")
-                typer.echo(f"📊 크기: {written['data_size']['rows']}행 × {written['data_size']['columns']}열 ({written['data_size']['total_cells']}개 셀)")
+                typer.echo(
+                    f"📊 크기: {written['data_size']['rows']}행 × {written['data_size']['columns']}열 ({written['data_size']['total_cells']}개 셀)"
+                )
 
-                if 'data_preview' in written:
+                if "data_preview" in written:
                     typer.echo(f"💾 데이터 미리보기: {written['data_preview']}")
 
                 if saved:
                     typer.echo(f"💾 저장: ✅ 완료")
-                elif 'save_error' in written:
+                elif "save_error" in written:
                     typer.echo(f"💾 저장: ❌ {written['save_error']}")
                 elif not save:
                     typer.echo(f"💾 저장: ⚠️ 저장하지 않음 (--no-save 옵션)")
 
     except FileNotFoundError as e:
         error_response = create_error_response(e, "range-write")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 파일을 찾을 수 없습니다", err=True)
@@ -232,7 +238,7 @@ def range_write(
 
     except ValueError as e:
         error_response = create_error_response(e, "range-write")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ {str(e)}", err=True)
@@ -240,11 +246,13 @@ def range_write(
 
     except Exception as e:
         error_response = create_error_response(e, "range-write")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)
-            typer.echo("💡 Excel이 설치되어 있는지 확인하고, 파일이 다른 프로그램에서 사용 중이지 않은지 확인하세요.", err=True)
+            typer.echo(
+                "💡 Excel이 설치되어 있는지 확인하고, 파일이 다른 프로그램에서 사용 중이지 않은지 확인하세요.", err=True
+            )
         raise typer.Exit(1)
 
     finally:

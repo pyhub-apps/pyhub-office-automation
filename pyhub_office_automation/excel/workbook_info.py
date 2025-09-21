@@ -3,19 +3,18 @@ Excel 워크북 상세 정보 조회 명령어 (Typer 버전)
 특정 워크북의 상세 정보를 조회하여 AI 에이전트가 작업 컨텍스트를 파악할 수 있도록 지원
 """
 
+import datetime
 import json
 import sys
-import datetime
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
 
 from pyhub_office_automation.version import get_version
-from .utils import (
-    get_or_open_workbook, normalize_path,
-    create_success_response, create_error_response, ExecutionTimer
-)
+
+from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook, normalize_path
 
 
 def workbook_info(
@@ -25,7 +24,7 @@ def workbook_info(
     include_sheets: bool = typer.Option(False, "--include-sheets", help="시트 목록 및 상세 정보 포함"),
     include_names: bool = typer.Option(False, "--include-names", help="정의된 이름(Named Ranges) 포함"),
     include_properties: bool = typer.Option(False, "--include-properties", help="파일 속성 정보 포함"),
-    output_format: str = typer.Option("json", "--format", help="출력 형식 선택")
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
     """
     특정 Excel 워크북의 상세 정보를 조회합니다.
@@ -54,18 +53,13 @@ def workbook_info(
             file_path_obj = Path(normalize_path(file_path)).resolve()
             if not file_path_obj.exists():
                 raise FileNotFoundError(f"파일을 찾을 수 없습니다: {file_path_obj}")
-            if not file_path_obj.suffix.lower() in ['.xlsx', '.xls', '.xlsm']:
+            if not file_path_obj.suffix.lower() in [".xlsx", ".xls", ".xlsm"]:
                 raise ValueError(f"지원되지 않는 파일 형식입니다: {file_path_obj.suffix}")
 
         # 실행 시간 측정 시작
         with ExecutionTimer() as timer:
             # 워크북 가져오기
-            book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=True
-            )
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=True)
 
             # 기본 워크북 정보 수집
             try:
@@ -84,7 +78,7 @@ def workbook_info(
                 "full_name": normalize_path(book.fullname),
                 "saved": saved_status,
                 "sheet_count": len(book.sheets),
-                "active_sheet": book.sheets.active.name if book.sheets.active else None
+                "active_sheet": book.sheets.active.name if book.sheets.active else None,
             }
 
             # 파일 속성 정보 추가
@@ -93,24 +87,20 @@ def workbook_info(
                     file_path_obj = Path(book.fullname)
                     if file_path_obj.exists():
                         file_stat = file_path_obj.stat()
-                        workbook_data.update({
-                            "file_properties": {
-                                "file_size_bytes": file_stat.st_size,
-                                "file_size_mb": round(file_stat.st_size / (1024 * 1024), 2),
-                                "last_modified": datetime.datetime.fromtimestamp(
-                                    file_stat.st_mtime
-                                ).isoformat(),
-                                "created": datetime.datetime.fromtimestamp(
-                                    file_stat.st_ctime
-                                ).isoformat(),
-                                "file_extension": file_path_obj.suffix.lower(),
-                                "is_read_only": not (file_stat.st_mode & 0o200)
+                        workbook_data.update(
+                            {
+                                "file_properties": {
+                                    "file_size_bytes": file_stat.st_size,
+                                    "file_size_mb": round(file_stat.st_size / (1024 * 1024), 2),
+                                    "last_modified": datetime.datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
+                                    "created": datetime.datetime.fromtimestamp(file_stat.st_ctime).isoformat(),
+                                    "file_extension": file_path_obj.suffix.lower(),
+                                    "is_read_only": not (file_stat.st_mode & 0o200),
+                                }
                             }
-                        })
+                        )
                 except (OSError, AttributeError) as e:
-                    workbook_data["file_properties"] = {
-                        "error": f"파일 속성 수집 실패: {str(e)}"
-                    }
+                    workbook_data["file_properties"] = {"error": f"파일 속성 수집 실패: {str(e)}"}
 
             # 시트 정보 추가
             if include_sheets:
@@ -134,11 +124,13 @@ def workbook_info(
                         tables_info = []
                         try:
                             for table in sheet.api.ListObjects:
-                                tables_info.append({
-                                    "name": table.Name,
-                                    "range": table.Range.Address,
-                                    "header_row": table.HeaderRowRange.Address if table.HeaderRowRange else None
-                                })
+                                tables_info.append(
+                                    {
+                                        "name": table.Name,
+                                        "range": table.Range.Address,
+                                        "header_row": table.HeaderRowRange.Address if table.HeaderRowRange else None,
+                                    }
+                                )
                         except:
                             pass  # 테이블이 없거나 접근 불가능한 경우
 
@@ -150,14 +142,14 @@ def workbook_info(
                             "last_cell": last_cell,
                             "row_count": row_count,
                             "column_count": col_count,
-                            "is_visible": getattr(sheet, 'visible', True),
+                            "is_visible": getattr(sheet, "visible", True),
                             "tables_count": len(tables_info),
-                            "tables": tables_info if tables_info else []
+                            "tables": tables_info if tables_info else [],
                         }
 
                         # 시트 색상 정보 (가능한 경우)
                         try:
-                            if hasattr(sheet.api, 'Tab') and hasattr(sheet.api.Tab, 'Color'):
+                            if hasattr(sheet.api, "Tab") and hasattr(sheet.api.Tab, "Color"):
                                 sheet_info["tab_color"] = sheet.api.Tab.Color
                         except:
                             pass
@@ -165,11 +157,13 @@ def workbook_info(
                         sheets_info.append(sheet_info)
 
                     except Exception as e:
-                        sheets_info.append({
-                            "name": getattr(sheet, 'name', 'Unknown'),
-                            "index": getattr(sheet, 'index', -1),
-                            "error": f"시트 정보 수집 실패: {str(e)}"
-                        })
+                        sheets_info.append(
+                            {
+                                "name": getattr(sheet, "name", "Unknown"),
+                                "index": getattr(sheet, "index", -1),
+                                "error": f"시트 정보 수집 실패: {str(e)}",
+                            }
+                        )
 
                 workbook_data["sheets"] = sheets_info
 
@@ -183,25 +177,24 @@ def workbook_info(
                                 "name": name.name,
                                 "refers_to": name.refers_to,
                                 "refers_to_range": name.refers_to_range.address if name.refers_to_range else None,
-                                "is_visible": getattr(name, 'visible', True)
+                                "is_visible": getattr(name, "visible", True),
                             }
                             names_info.append(name_info)
                         except Exception as e:
-                            names_info.append({
-                                "name": getattr(name, 'name', 'Unknown'),
-                                "error": f"이름 정보 수집 실패: {str(e)}"
-                            })
+                            names_info.append(
+                                {"name": getattr(name, "name", "Unknown"), "error": f"이름 정보 수집 실패: {str(e)}"}
+                            )
                 except Exception as e:
                     names_info = [{"error": f"정의된 이름 목록 수집 실패: {str(e)}"}]
 
                 workbook_data["named_ranges"] = names_info
-                workbook_data["named_ranges_count"] = len([n for n in names_info if 'error' not in n])
+                workbook_data["named_ranges_count"] = len([n for n in names_info if "error" not in n])
 
             # 애플리케이션 정보
             app_info = {
-                "version": getattr(book.app, 'version', 'Unknown'),
+                "version": getattr(book.app, "version", "Unknown"),
                 "visible": app_visible,
-                "calculation_mode": getattr(book.app, 'calculation', 'Unknown')
+                "calculation_mode": getattr(book.app, "calculation", "Unknown"),
             }
 
             # 데이터 구성
@@ -212,8 +205,8 @@ def workbook_info(
                 "query_options": {
                     "include_sheets": include_sheets,
                     "include_names": include_names,
-                    "include_properties": include_properties
-                }
+                    "include_properties": include_properties,
+                },
             }
 
             # 성공 메시지
@@ -237,11 +230,11 @@ def workbook_info(
                 command="workbook-info",
                 message=message,
                 execution_time_ms=timer.execution_time_ms,
-                book=book
+                book=book,
             )
 
             # 출력 형식에 따른 결과 반환
-            if output_format == 'json':
+            if output_format == "json":
                 typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
             else:  # text 형식
                 wb = workbook_data
@@ -253,9 +246,9 @@ def workbook_info(
                 typer.echo(f"📄 시트 수: {wb['sheet_count']}")
                 typer.echo(f"📑 활성 시트: {wb['active_sheet']}")
 
-                if include_properties and 'file_properties' in wb:
-                    props = wb['file_properties']
-                    if 'error' not in props:
+                if include_properties and "file_properties" in wb:
+                    props = wb["file_properties"]
+                    if "error" not in props:
                         typer.echo()
                         typer.echo("📋 파일 속성:")
                         typer.echo(f"  💽 크기: {props['file_size_mb']} MB ({props['file_size_bytes']} bytes)")
@@ -263,32 +256,34 @@ def workbook_info(
                         typer.echo(f"  🕐 수정: {props['last_modified']}")
                         typer.echo(f"  🔒 읽기전용: {'예' if props['is_read_only'] else '아니오'}")
 
-                if include_names and 'named_ranges' in wb:
+                if include_names and "named_ranges" in wb:
                     typer.echo()
                     typer.echo(f"🏷️  정의된 이름: {wb.get('named_ranges_count', 0)}개")
-                    for name in wb['named_ranges']:
-                        if 'error' in name:
+                    for name in wb["named_ranges"]:
+                        if "error" in name:
                             typer.echo(f"  ❌ {name['error']}")
                         else:
                             typer.echo(f"  • {name['name']} → {name['refers_to']}")
 
-                if include_sheets and 'sheets' in wb:
+                if include_sheets and "sheets" in wb:
                     typer.echo()
                     typer.echo("📋 시트 상세 정보:")
-                    for i, sheet in enumerate(wb['sheets'], 1):
-                        if 'error' in sheet:
+                    for i, sheet in enumerate(wb["sheets"], 1):
+                        if "error" in sheet:
                             typer.echo(f"  {i}. {sheet['name']} - ❌ {sheet['error']}")
                         else:
-                            active_mark = " (활성)" if sheet['is_active'] else ""
+                            active_mark = " (활성)" if sheet["is_active"] else ""
                             typer.echo(f"  {i}. {sheet['name']}{active_mark}")
-                            if sheet.get('used_range'):
-                                typer.echo(f"     범위: {sheet['used_range']} ({sheet['row_count']}행 × {sheet['column_count']}열)")
-                            if sheet.get('tables_count', 0) > 0:
+                            if sheet.get("used_range"):
+                                typer.echo(
+                                    f"     범위: {sheet['used_range']} ({sheet['row_count']}행 × {sheet['column_count']}열)"
+                                )
+                            if sheet.get("tables_count", 0) > 0:
                                 typer.echo(f"     테이블: {sheet['tables_count']}개")
 
     except FileNotFoundError as e:
         error_response = create_error_response(e, "workbook-info")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 파일을 찾을 수 없습니다: {file_path}", err=True)
@@ -296,7 +291,7 @@ def workbook_info(
 
     except ValueError as e:
         error_response = create_error_response(e, "workbook-info")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ {str(e)}", err=True)
@@ -304,7 +299,7 @@ def workbook_info(
 
     except Exception as e:
         error_response = create_error_response(e, "workbook-info")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)

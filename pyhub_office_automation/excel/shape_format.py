@@ -7,23 +7,35 @@ xlwings를 활용한 Excel 도형 포맷팅 기능
 import json
 import platform
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_or_open_workbook, get_sheet, create_error_response, create_success_response,
-    ExecutionTimer, get_shape_by_name, hex_to_rgb, apply_neumorphism_style,
-    NEUMORPHISM_STYLES, normalize_path
+    NEUMORPHISM_STYLES,
+    ExecutionTimer,
+    apply_neumorphism_style,
+    create_error_response,
+    create_success_response,
+    get_or_open_workbook,
+    get_shape_by_name,
+    get_sheet,
+    hex_to_rgb,
+    normalize_path,
 )
 
 
 def shape_format(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 포맷팅할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="도형이 있는 시트 이름 (지정하지 않으면 활성 시트)"),
     shape_name: str = typer.Option(..., "--shape-name", help="포맷팅할 도형 이름"),
-    style_preset: str = typer.Option("none", "--style-preset", help="뉴모피즘 스타일 프리셋 적용 (none, background, title-box, chart-box, slicer-box)"),
+    style_preset: str = typer.Option(
+        "none", "--style-preset", help="뉴모피즘 스타일 프리셋 적용 (none, background, title-box, chart-box, slicer-box)"
+    ),
     fill_color: Optional[str] = typer.Option(None, "--fill-color", help="채우기 색상 (HEX 형식, 예: #FFFFFF)"),
     transparency: Optional[int] = typer.Option(None, "--transparency", help="투명도 (0-100, 0=불투명)"),
     line_color: Optional[str] = typer.Option(None, "--line-color", help="테두리 색상 (HEX 형식)"),
@@ -39,7 +51,7 @@ def shape_format(
     gradient_color2: Optional[str] = typer.Option(None, "--gradient-color2", help="그라데이션 두 번째 색상 (HEX 형식)"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="포맷팅 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="포맷팅 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     Excel 도형의 스타일과 포맷을 설정합니다.
@@ -128,10 +140,7 @@ def shape_format(
         with ExecutionTimer() as timer:
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 시트 가져오기
@@ -146,7 +155,7 @@ def shape_format(
             applied_styles = []
 
             # 뉴모피즘 프리셋 적용
-            if style_preset and style_preset != 'none':
+            if style_preset and style_preset != "none":
                 if style_preset in NEUMORPHISM_STYLES:
                     success = apply_neumorphism_style(shape_obj, style_preset)
                     if success:
@@ -189,16 +198,12 @@ def shape_format(
 
                     # 그림자 효과
                     if shadow_type:
-                        if shadow_type == 'none':
+                        if shadow_type == "none":
                             shape_obj.api.Shadow.Type = 0  # msoShadowNone
                             applied_styles.append("그림자 제거")
                         else:
                             # 그림자 타입 매핑
-                            shadow_type_map = {
-                                'drop': 25,  # msoShadow25
-                                'inner': 4,  # msoShadow4
-                                'outer': 25  # msoShadow25
-                            }
+                            shadow_type_map = {"drop": 25, "inner": 4, "outer": 25}  # msoShadow25  # msoShadow4  # msoShadow25
                             shape_obj.api.Shadow.Type = shadow_type_map.get(shadow_type, 25)
                             applied_styles.append(f"그림자 타입: {shadow_type}")
 
@@ -224,6 +229,7 @@ def shape_format(
                             if shadow_angle is not None:
                                 # 각도를 라디안으로 변환하여 X, Y 오프셋 계산
                                 import math
+
                                 angle_rad = math.radians(shadow_angle)
                                 distance = shadow_distance or 5
                                 shape_obj.api.Shadow.OffsetX = distance * math.cos(angle_rad)
@@ -259,25 +265,20 @@ def shape_format(
             # 현재 도형 정보 수집
             current_info = {
                 "name": shape_obj.name,
-                "position": {
-                    "left": getattr(shape_obj, 'left', 0),
-                    "top": getattr(shape_obj, 'top', 0)
-                },
-                "size": {
-                    "width": getattr(shape_obj, 'width', 0),
-                    "height": getattr(shape_obj, 'height', 0)
-                }
+                "position": {"left": getattr(shape_obj, "left", 0), "top": getattr(shape_obj, "top", 0)},
+                "size": {"width": getattr(shape_obj, "width", 0), "height": getattr(shape_obj, "height", 0)},
             }
 
             # Windows에서 현재 스타일 정보 수집
             if platform.system() == "Windows":
                 try:
                     from .utils import rgb_to_hex
+
                     current_info["current_style"] = {
                         "fill_color": rgb_to_hex(shape_obj.api.Fill.ForeColor.RGB),
                         "transparency": round(shape_obj.api.Fill.Transparency * 100),
                         "has_line": shape_obj.api.Line.Visible,
-                        "has_shadow": shape_obj.api.Shadow.Type != 0
+                        "has_shadow": shape_obj.api.Shadow.Type != 0,
                     }
 
                     if current_info["current_style"]["has_line"]:
@@ -296,12 +297,12 @@ def shape_format(
                 "total_styles_applied": len([s for s in applied_styles if "실패" not in s]),
                 "sheet": target_sheet.name,
                 "workbook": normalize_path(book.name),
-                "platform_support": "full" if platform.system() == "Windows" else "limited"
+                "platform_support": "full" if platform.system() == "Windows" else "limited",
             }
 
             # 적용된 스타일 요약
             style_summary = {}
-            if style_preset and style_preset != 'none':
+            if style_preset and style_preset != "none":
                 style_summary["preset"] = style_preset
             if fill_color:
                 style_summary["fill_color"] = fill_color
@@ -313,7 +314,9 @@ def shape_format(
             if style_summary:
                 response_data["style_summary"] = style_summary
 
-            message = f"도형 '{shape_name}'에 {len([s for s in applied_styles if '실패' not in s])}가지 스타일이 적용되었습니다"
+            message = (
+                f"도형 '{shape_name}'에 {len([s for s in applied_styles if '실패' not in s])}가지 스타일이 적용되었습니다"
+            )
 
             response = create_success_response(
                 data=response_data,
@@ -321,7 +324,7 @@ def shape_format(
                 message=message,
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
-                styles_applied=len(applied_styles)
+                styles_applied=len(applied_styles),
             )
 
             print(json.dumps(response, ensure_ascii=False, indent=2))
@@ -347,5 +350,5 @@ def shape_format(
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     shape_format()

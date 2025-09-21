@@ -7,14 +7,13 @@ import json
 import platform
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
-from .utils import (
-    get_or_open_workbook, get_sheet,
-    create_error_response, create_success_response,
-    normalize_path
-)
+
+from .utils import create_error_response, create_success_response, get_or_open_workbook, get_sheet, normalize_path
 
 
 def find_pivot_table(sheet, pivot_name):
@@ -55,20 +54,20 @@ def get_pivot_chart_type_constant(chart_type: str):
     """피벗차트 타입에 해당하는 xlwings 상수를 반환"""
     # 피벗차트에 적합한 차트 타입들 (상수값 직접 사용)
     pivot_chart_types = {
-        'column': 51,  # xlColumnClustered
-        'column_clustered': 51,
-        'column_stacked': 52,  # xlColumnStacked
-        'column_stacked_100': 53,  # xlColumnStacked100
-        'bar': 57,  # xlBarClustered
-        'bar_clustered': 57,
-        'bar_stacked': 58,  # xlBarStacked
-        'bar_stacked_100': 59,  # xlBarStacked100
-        'pie': 5,  # xlPie
-        'doughnut': -4120,  # xlDoughnut
-        'line': 4,  # xlLine
-        'line_markers': 65,  # xlLineMarkers
-        'area': 1,  # xlArea
-        'area_stacked': 76  # xlAreaStacked
+        "column": 51,  # xlColumnClustered
+        "column_clustered": 51,
+        "column_stacked": 52,  # xlColumnStacked
+        "column_stacked_100": 53,  # xlColumnStacked100
+        "bar": 57,  # xlBarClustered
+        "bar_clustered": 57,
+        "bar_stacked": 58,  # xlBarStacked
+        "bar_stacked_100": 59,  # xlBarStacked100
+        "pie": 5,  # xlPie
+        "doughnut": -4120,  # xlDoughnut
+        "line": 4,  # xlLine
+        "line_markers": 65,  # xlLineMarkers
+        "area": 1,  # xlArea
+        "area_stacked": 76,  # xlAreaStacked
     }
 
     chart_type_lower = chart_type.lower()
@@ -78,19 +77,20 @@ def get_pivot_chart_type_constant(chart_type: str):
     # xlwings 상수를 시도하고, 실패하면 숫자값 직접 사용
     try:
         from xlwings.constants import ChartType
+
         const_map = {
-            51: 'xlColumnClustered',
-            52: 'xlColumnStacked',
-            53: 'xlColumnStacked100',
-            57: 'xlBarClustered',
-            58: 'xlBarStacked',
-            59: 'xlBarStacked100',
-            5: 'xlPie',
-            -4120: 'xlDoughnut',
-            4: 'xlLine',
-            65: 'xlLineMarkers',
-            1: 'xlArea',
-            76: 'xlAreaStacked'
+            51: "xlColumnClustered",
+            52: "xlColumnStacked",
+            53: "xlColumnStacked100",
+            57: "xlBarClustered",
+            58: "xlBarStacked",
+            59: "xlBarStacked100",
+            5: "xlPie",
+            -4120: "xlDoughnut",
+            4: "xlLine",
+            65: "xlLineMarkers",
+            1: "xlArea",
+            76: "xlAreaStacked",
         }
 
         chart_type_value = pivot_chart_types[chart_type_lower]
@@ -110,20 +110,26 @@ def get_pivot_chart_type_constant(chart_type: str):
 def chart_pivot_create(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="피벗차트를 생성할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     pivot_name: str = typer.Option(..., "--pivot-name", help="차트를 생성할 피벗테이블 이름"),
-    chart_type: str = typer.Option("column", "--chart-type", help="피벗차트 유형 (column/column_clustered/column_stacked/column_stacked_100/bar/bar_clustered/bar_stacked/bar_stacked_100/pie/doughnut/line/line_markers/area/area_stacked, 기본값: column)"),
+    chart_type: str = typer.Option(
+        "column",
+        "--chart-type",
+        help="피벗차트 유형 (column/column_clustered/column_stacked/column_stacked_100/bar/bar_clustered/bar_stacked/bar_stacked_100/pie/doughnut/line/line_markers/area/area_stacked, 기본값: column)",
+    ),
     title: Optional[str] = typer.Option(None, "--title", help="피벗차트 제목"),
     position: str = typer.Option("H1", "--position", help="피벗차트 생성 위치 (셀 주소, 기본값: H1)"),
     width: int = typer.Option(400, "--width", help="피벗차트 너비 (픽셀, 기본값: 400)"),
     height: int = typer.Option(300, "--height", help="피벗차트 높이 (픽셀, 기본값: 300)"),
-    sheet: Optional[str] = typer.Option(None, "--sheet", help="피벗차트를 생성할 시트 이름 (지정하지 않으면 피벗테이블과 같은 시트)"),
+    sheet: Optional[str] = typer.Option(
+        None, "--sheet", help="피벗차트를 생성할 시트 이름 (지정하지 않으면 피벗테이블과 같은 시트)"
+    ),
     style: Optional[int] = typer.Option(None, "--style", help="피벗차트 스타일 번호 (1-48)"),
     legend_position: Optional[str] = typer.Option(None, "--legend-position", help="범례 위치 (top/bottom/left/right/none)"),
     show_data_labels: bool = typer.Option(False, "--show-data-labels", help="데이터 레이블 표시"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     피벗테이블을 기반으로 동적 피벗차트를 생성합니다. (Windows 전용)
@@ -202,16 +208,29 @@ def chart_pivot_create(
     • 정기 보고서는 피벗차트로 구성하여 자동 업데이트 활용
     """
     # 입력 값 검증
-    valid_chart_types = ['column', 'column_clustered', 'column_stacked', 'column_stacked_100',
-                        'bar', 'bar_clustered', 'bar_stacked', 'bar_stacked_100',
-                        'pie', 'doughnut', 'line', 'line_markers', 'area', 'area_stacked']
+    valid_chart_types = [
+        "column",
+        "column_clustered",
+        "column_stacked",
+        "column_stacked_100",
+        "bar",
+        "bar_clustered",
+        "bar_stacked",
+        "bar_stacked_100",
+        "pie",
+        "doughnut",
+        "line",
+        "line_markers",
+        "area",
+        "area_stacked",
+    ]
     if chart_type not in valid_chart_types:
         raise ValueError(f"잘못된 차트 유형: {chart_type}. 사용 가능한 유형: {', '.join(valid_chart_types)}")
 
-    if legend_position and legend_position not in ['top', 'bottom', 'left', 'right', 'none']:
+    if legend_position and legend_position not in ["top", "bottom", "left", "right", "none"]:
         raise ValueError(f"잘못된 범례 위치: {legend_position}. 사용 가능한 위치: top, bottom, left, right, none")
 
-    if output_format not in ['json', 'text']:
+    if output_format not in ["json", "text"]:
         raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
 
     book = None
@@ -222,12 +241,7 @@ def chart_pivot_create(
             raise RuntimeError("피벗차트 생성은 Windows에서만 지원됩니다. macOS에서는 수동으로 피벗차트를 생성해주세요.")
 
         # 워크북 연결
-        book = get_or_open_workbook(
-            file_path=file_path,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
 
         # 피벗테이블이 있는 시트 찾기
         pivot_table = None
@@ -324,16 +338,17 @@ def chart_pivot_create(
         # 범례 위치 설정
         if legend_position:
             try:
-                if legend_position == 'none':
+                if legend_position == "none":
                     chart.HasLegend = False
                 else:
                     chart.HasLegend = True
                     from xlwings.constants import LegendPosition
+
                     legend_map = {
-                        'top': LegendPosition.xlLegendPositionTop,
-                        'bottom': LegendPosition.xlLegendPositionBottom,
-                        'left': LegendPosition.xlLegendPositionLeft,
-                        'right': LegendPosition.xlLegendPositionRight
+                        "top": LegendPosition.xlLegendPositionTop,
+                        "bottom": LegendPosition.xlLegendPositionBottom,
+                        "left": LegendPosition.xlLegendPositionLeft,
+                        "right": LegendPosition.xlLegendPositionRight,
                     }
                     if legend_position in legend_map:
                         chart.Legend.Position = legend_map[legend_position]
@@ -359,25 +374,20 @@ def chart_pivot_create(
             "source_sheet": pivot_sheet.name,
             "target_sheet": target_sheet.name,
             "position": position,
-            "dimensions": {
-                "width": width,
-                "height": height
-            },
+            "dimensions": {"width": width, "height": height},
             "workbook": book.name,
             "is_dynamic": True,
-            "platform": "Windows"
+            "platform": "Windows",
         }
 
         if title:
             response_data["title"] = title
 
         response = create_success_response(
-            data=response_data,
-            command="chart-pivot-create",
-            message=f"피벗차트 '{chart_name}'이 성공적으로 생성되었습니다"
+            data=response_data, command="chart-pivot-create", message=f"피벗차트 '{chart_name}'이 성공적으로 생성되었습니다"
         )
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(response, ensure_ascii=False, indent=2))
         else:
             # 텍스트 형식 출력
@@ -397,7 +407,7 @@ def chart_pivot_create(
 
     except Exception as e:
         error_response = create_error_response(e, "chart-pivot-create")
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(error_response, ensure_ascii=False, indent=2))
         else:
             print(f"오류: {str(e)}")
@@ -419,5 +429,5 @@ def chart_pivot_create(
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     chart_pivot_create()

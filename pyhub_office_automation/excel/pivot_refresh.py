@@ -4,30 +4,39 @@
 """
 
 import json
-import sys
 import platform
+import sys
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_workbook, get_sheet,
-    format_output, create_error_response, create_success_response,
-    get_or_open_workbook, normalize_path
+    create_error_response,
+    create_success_response,
+    format_output,
+    get_or_open_workbook,
+    get_sheet,
+    get_workbook,
+    normalize_path,
 )
 
 
 def pivot_refresh(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="피벗테이블이 있는 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
-    pivot_name: Optional[str] = typer.Option(None, "--pivot-name", help="새로고침할 피벗테이블 이름 (지정하지 않으면 전체 새로고침)"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
+    pivot_name: Optional[str] = typer.Option(
+        None, "--pivot-name", help="새로고침할 피벗테이블 이름 (지정하지 않으면 전체 새로고침)"
+    ),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="피벗테이블이 있는 시트 이름 (지정하지 않으면 전체 워크북)"),
     refresh_all: bool = typer.Option(False, "--refresh-all", help="워크북의 모든 피벗테이블 새로고침 (기본값: False)"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="새로고침 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="새로고침 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     피벗테이블의 데이터를 새로고침합니다.
@@ -49,19 +58,14 @@ def pivot_refresh(
 
     try:
         # 워크북 연결
-        book = get_or_open_workbook(
-            file_path=file_path,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
 
         refresh_results = {
             "refreshed_pivots": [],
             "failed_pivots": [],
             "total_processed": 0,
             "success_count": 0,
-            "error_count": 0
+            "error_count": 0,
         }
 
         # 플랫폼별 처리
@@ -73,11 +77,7 @@ def pivot_refresh(
                 for ws in book.sheets:
                     try:
                         for pivot_table in ws.api.PivotTables():
-                            pivot_info = {
-                                "name": pivot_table.Name,
-                                "sheet": ws.name,
-                                "status": "success"
-                            }
+                            pivot_info = {"name": pivot_table.Name, "sheet": ws.name, "status": "success"}
                             try:
                                 pivot_table.RefreshTable()
                                 refresh_results["refreshed_pivots"].append(pivot_info)
@@ -119,17 +119,13 @@ def pivot_refresh(
                         raise ValueError(f"피벗테이블 '{pivot_name}'을 찾을 수 없습니다")
 
                 # 피벗테이블 새로고침
-                pivot_info = {
-                    "name": pivot_name,
-                    "sheet": target_sheet.name,
-                    "status": "success"
-                }
+                pivot_info = {"name": pivot_name, "sheet": target_sheet.name, "status": "success"}
 
                 try:
                     # 새로고침 전 정보 수집
                     refresh_date_before = None
                     try:
-                        refresh_date_before = str(pivot_table.RefreshDate) if hasattr(pivot_table, 'RefreshDate') else None
+                        refresh_date_before = str(pivot_table.RefreshDate) if hasattr(pivot_table, "RefreshDate") else None
                     except:
                         pass
 
@@ -139,14 +135,11 @@ def pivot_refresh(
                     # 새로고침 후 정보 수집
                     refresh_date_after = None
                     try:
-                        refresh_date_after = str(pivot_table.RefreshDate) if hasattr(pivot_table, 'RefreshDate') else None
+                        refresh_date_after = str(pivot_table.RefreshDate) if hasattr(pivot_table, "RefreshDate") else None
                     except:
                         pass
 
-                    pivot_info.update({
-                        "refresh_date_before": refresh_date_before,
-                        "refresh_date_after": refresh_date_after
-                    })
+                    pivot_info.update({"refresh_date_before": refresh_date_before, "refresh_date_after": refresh_date_after})
 
                     refresh_results["refreshed_pivots"].append(pivot_info)
                     refresh_results["success_count"] = 1
@@ -164,11 +157,7 @@ def pivot_refresh(
                 target_sheet = get_sheet(book, sheet)
                 try:
                     for pivot_table in target_sheet.api.PivotTables():
-                        pivot_info = {
-                            "name": pivot_table.Name,
-                            "sheet": target_sheet.name,
-                            "status": "success"
-                        }
+                        pivot_info = {"name": pivot_table.Name, "sheet": target_sheet.name, "status": "success"}
                         try:
                             pivot_table.RefreshTable()
                             refresh_results["refreshed_pivots"].append(pivot_info)
@@ -188,7 +177,9 @@ def pivot_refresh(
 
         else:
             # macOS: 제한적 지원
-            raise RuntimeError("피벗테이블 새로고침은 Windows에서만 완전히 지원됩니다. macOS에서는 Excel의 수동 새로고침을 사용해주세요.")
+            raise RuntimeError(
+                "피벗테이블 새로고침은 Windows에서만 완전히 지원됩니다. macOS에서는 Excel의 수동 새로고침을 사용해주세요."
+            )
 
         # 피벗캐시 새로고침도 시도 (선택적)
         if platform.system() == "Windows" and refresh_results["success_count"] > 0:
@@ -218,10 +209,14 @@ def pivot_refresh(
             "refresh_results": refresh_results,
             "platform": platform.system(),
             "file_info": {
-                "path": str(Path(normalize_path(file_path)).resolve()) if file_path else (normalize_path(book.fullname) if hasattr(book, 'fullname') else None),
+                "path": (
+                    str(Path(normalize_path(file_path)).resolve())
+                    if file_path
+                    else (normalize_path(book.fullname) if hasattr(book, "fullname") else None)
+                ),
                 "name": Path(normalize_path(file_path)).name if file_path else normalize_path(book.name),
-                "saved": save_success
-            }
+                "saved": save_success,
+            },
         }
 
         if save_error:
@@ -235,14 +230,10 @@ def pivot_refresh(
         else:
             message = "새로고침된 피벗테이블이 없습니다"
 
-        response = create_success_response(
-            data=data_content,
-            command="pivot-refresh",
-            message=message
-        )
+        response = create_success_response(data=data_content, command="pivot-refresh", message=message)
 
         # 출력 형식에 따른 결과 반환
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
         else:  # text 형식
             typer.echo(f"✅ 피벗테이블 새로고침 완료")
@@ -285,7 +276,7 @@ def pivot_refresh(
 
     except ValueError as e:
         error_response = create_error_response(e, "pivot-refresh")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ {str(e)}", err=True)
@@ -293,19 +284,24 @@ def pivot_refresh(
 
     except RuntimeError as e:
         error_response = create_error_response(e, "pivot-refresh")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ {str(e)}", err=True)
             if "Windows" in str(e):
-                typer.echo("💡 피벗테이블 새로고침은 Windows에서만 완전히 지원됩니다. macOS에서는 Excel의 수동 기능을 사용해주세요.", err=True)
+                typer.echo(
+                    "💡 피벗테이블 새로고침은 Windows에서만 완전히 지원됩니다. macOS에서는 Excel의 수동 기능을 사용해주세요.",
+                    err=True,
+                )
             else:
-                typer.echo("💡 Excel이 설치되어 있는지 확인하고, 파일이 다른 프로그램에서 사용 중이지 않은지 확인하세요.", err=True)
+                typer.echo(
+                    "💡 Excel이 설치되어 있는지 확인하고, 파일이 다른 프로그램에서 사용 중이지 않은지 확인하세요.", err=True
+                )
         raise typer.Exit(1)
 
     except Exception as e:
         error_response = create_error_response(e, "pivot-refresh")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)
@@ -318,5 +314,3 @@ def pivot_refresh(
                 book.app.quit()
             except:
                 pass
-
-

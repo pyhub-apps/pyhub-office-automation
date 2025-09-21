@@ -7,11 +7,13 @@ import json
 import sys
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
 
 from pyhub_office_automation.version import get_version
-from .utils import get_active_app, normalize_path, create_success_response, create_error_response, ExecutionTimer
+
+from .utils import ExecutionTimer, create_error_response, create_success_response, get_active_app, normalize_path
 
 
 def workbook_create(
@@ -20,7 +22,7 @@ def workbook_create(
     use_active: bool = typer.Option(False, "--use-active", help="기존 Excel 애플리케이션을 사용하여 새 워크북 생성"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="특정 워크북의 애플리케이션을 사용"),
     visible: bool = typer.Option(True, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
-    output_format: str = typer.Option("json", "--format", help="출력 형식 선택")
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
     """
     새로운 Excel 워크북을 생성합니다.
@@ -48,9 +50,11 @@ def workbook_create(
                 # 특정 워크북의 애플리케이션 사용
                 target_book = None
                 for book_iter in xw.books:
-                    if (book_iter.name == workbook_name or
-                        Path(book_iter.name).name == workbook_name or
-                        Path(book_iter.name).stem == Path(workbook_name).stem):
+                    if (
+                        book_iter.name == workbook_name
+                        or Path(book_iter.name).name == workbook_name
+                        or Path(book_iter.name).stem == Path(workbook_name).stem
+                    ):
                         target_book = book_iter
                         break
 
@@ -86,7 +90,7 @@ def workbook_create(
 
                     # 확장자가 없으면 .xlsx 추가
                     if not save_path_obj.suffix:
-                        save_path_obj = save_path_obj.with_suffix('.xlsx')
+                        save_path_obj = save_path_obj.with_suffix(".xlsx")
 
                     # 디렉토리 생성 (필요한 경우)
                     save_path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -103,42 +107,35 @@ def workbook_create(
             sheets_info = []
             for sheet in book.sheets:
                 try:
-                    sheet_info = {
-                        "name": sheet.name,
-                        "index": sheet.index,
-                        "is_active": sheet == book.sheets.active
-                    }
+                    sheet_info = {"name": sheet.name, "index": sheet.index, "is_active": sheet == book.sheets.active}
                     sheets_info.append(sheet_info)
                 except Exception as e:
-                    sheets_info.append({
-                        "name": getattr(sheet, 'name', 'Unknown'),
-                        "error": f"시트 정보 수집 실패: {str(e)}"
-                    })
+                    sheets_info.append({"name": getattr(sheet, "name", "Unknown"), "error": f"시트 정보 수집 실패: {str(e)}"})
 
             # 워크북 정보 구성
             workbook_info = {
                 "name": normalize_path(book.name),
                 "original_name": original_name,
                 "full_name": normalize_path(book.fullname),
-                "saved": getattr(book, 'saved', False),
+                "saved": getattr(book, "saved", False),
                 "saved_path": saved_path,
                 "sheet_count": len(book.sheets),
                 "active_sheet": book.sheets.active.name if book.sheets.active else None,
-                "sheets": sheets_info
+                "sheets": sheets_info,
             }
 
             # 애플리케이션 정보
             app_info = {
-                "version": getattr(app, 'version', 'Unknown'),
-                "visible": getattr(app, 'visible', visible),
-                "is_new_instance": not use_active and not workbook_name
+                "version": getattr(app, "version", "Unknown"),
+                "visible": getattr(app, "visible", visible),
+                "is_new_instance": not use_active and not workbook_name,
             }
 
             # 데이터 구성
             data_content = {
                 "workbook": workbook_info,
                 "application": app_info,
-                "creation_method": "active_app" if use_active else ("existing_app" if workbook_name else "new_app")
+                "creation_method": "active_app" if use_active else ("existing_app" if workbook_name else "new_app"),
             }
 
             # 성공 메시지
@@ -153,11 +150,11 @@ def workbook_create(
                 command="workbook-create",
                 message=message,
                 execution_time_ms=timer.execution_time_ms,
-                book=book
+                book=book,
             )
 
             # 출력 형식에 따른 결과 반환
-            if output_format == 'json':
+            if output_format == "json":
                 typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
             else:  # text 형식
                 wb = workbook_info
@@ -176,9 +173,9 @@ def workbook_create(
 
                 typer.echo()
                 typer.echo("📋 생성된 시트:")
-                for i, sheet in enumerate(wb['sheets'], 1):
-                    active_mark = " (활성)" if sheet.get('is_active') else ""
-                    if 'error' in sheet:
+                for i, sheet in enumerate(wb["sheets"], 1):
+                    active_mark = " (활성)" if sheet.get("is_active") else ""
+                    if "error" in sheet:
                         typer.echo(f"  {i}. {sheet['name']}{active_mark} - ❌ {sheet['error']}")
                     else:
                         typer.echo(f"  {i}. {sheet['name']}{active_mark}")
@@ -190,7 +187,7 @@ def workbook_create(
 
     except RuntimeError as e:
         error_response = create_error_response(e, "workbook-create")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ {str(e)}", err=True)
@@ -198,7 +195,7 @@ def workbook_create(
 
     except Exception as e:
         error_response = create_error_response(e, "workbook-create")
-        if output_format == 'json':
+        if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)

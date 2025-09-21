@@ -7,14 +7,13 @@ import json
 import platform
 from pathlib import Path
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
-from .utils import (
-    get_or_open_workbook, get_sheet,
-    create_error_response, create_success_response,
-    normalize_path
-)
+
+from .utils import create_error_response, create_success_response, get_or_open_workbook, get_sheet, normalize_path
 
 
 def get_chart_type_name(chart_obj):
@@ -42,7 +41,7 @@ def get_chart_type_name(chart_obj):
                 -4169: "scatter",
                 74: "scatter_lines",
                 72: "scatter_smooth",
-                15: "bubble"
+                15: "bubble",
             }
 
             return type_map.get(chart_type_value, f"unknown_{chart_type_value}")
@@ -56,7 +55,7 @@ def get_chart_type_name(chart_obj):
 def get_chart_title(chart_obj):
     """차트 제목 추출"""
     try:
-        if hasattr(chart_obj, 'api') and chart_obj.api.HasTitle:
+        if hasattr(chart_obj, "api") and chart_obj.api.HasTitle:
             return chart_obj.api.ChartTitle.Text
         return None
     except:
@@ -66,16 +65,10 @@ def get_chart_title(chart_obj):
 def get_chart_legend_info(chart_obj):
     """범례 정보 추출"""
     try:
-        if hasattr(chart_obj, 'api'):
+        if hasattr(chart_obj, "api"):
             has_legend = chart_obj.api.HasLegend
             if has_legend and platform.system() == "Windows":
-                position_map = {
-                    -4107: "bottom",
-                    -4131: "corner",
-                    -4152: "left",
-                    -4161: "right",
-                    -4160: "top"
-                }
+                position_map = {-4107: "bottom", -4131: "corner", -4152: "left", -4161: "right", -4160: "top"}
                 position = position_map.get(chart_obj.api.Legend.Position, "unknown")
                 return {"has_legend": True, "position": position}
             return {"has_legend": has_legend, "position": None}
@@ -86,7 +79,7 @@ def get_chart_legend_info(chart_obj):
 def get_chart_data_source(chart_obj):
     """차트 데이터 소스 범위 추출"""
     try:
-        if hasattr(chart_obj, 'api') and platform.system() == "Windows":
+        if hasattr(chart_obj, "api") and platform.system() == "Windows":
             # Windows에서는 Series 데이터 소스 조회
             series_collection = chart_obj.api.FullSeriesCollection()
             if series_collection.Count > 0:
@@ -107,11 +100,11 @@ def get_chart_data_source(chart_obj):
 def chart_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 조회할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="특정 시트의 차트만 조회 (지정하지 않으면 모든 시트)"),
     detailed: bool = typer.Option(False, "--detailed", help="차트의 상세 정보 포함"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
-    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)")
+    visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
 ):
     """
     워크시트의 모든 차트 정보를 조회합니다.
@@ -172,19 +165,14 @@ def chart_list(
     • macOS: 기본 정보만 제공 (이름, 위치, 크기)
     """
     # 입력 값 검증
-    if output_format not in ['json', 'text']:
+    if output_format not in ["json", "text"]:
         raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
 
     book = None
 
     try:
         # 워크북 연결
-        book = get_or_open_workbook(
-            file_path=file_path,
-            workbook_name=workbook_name,
-            use_active=use_active,
-            visible=visible
-        )
+        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible)
 
         charts_info = []
         total_charts = 0
@@ -208,14 +196,8 @@ def chart_list(
                         "index": i,
                         "name": chart.name,
                         "sheet": worksheet.name,
-                        "position": {
-                            "left": chart.left,
-                            "top": chart.top
-                        },
-                        "dimensions": {
-                            "width": chart.width,
-                            "height": chart.height
-                        }
+                        "position": {"left": chart.left, "top": chart.top},
+                        "dimensions": {"width": chart.width, "height": chart.height},
                     }
 
                     # 상세 정보 추가
@@ -240,7 +222,7 @@ def chart_list(
                         # 플랫폼별 추가 정보
                         chart_info["platform_support"] = {
                             "current_platform": platform.system(),
-                            "full_features_available": platform.system() == "Windows"
+                            "full_features_available": platform.system() == "Windows",
                         }
 
                     sheet_charts.append(chart_info)
@@ -248,9 +230,7 @@ def chart_list(
 
             except Exception as e:
                 # 특정 시트에서 차트 조회 실패해도 계속 진행
-                sheet_charts.append({
-                    "error": f"시트 '{worksheet.name}'에서 차트 조회 실패: {str(e)}"
-                })
+                sheet_charts.append({"error": f"시트 '{worksheet.name}'에서 차트 조회 실패: {str(e)}"})
 
             if sheet_charts:
                 charts_info.extend(sheet_charts)
@@ -263,8 +243,8 @@ def chart_list(
             "query_info": {
                 "target_sheet": sheet if sheet else "all_sheets",
                 "detailed": detailed,
-                "platform": platform.system()
-            }
+                "platform": platform.system(),
+            },
         }
 
         if sheet:
@@ -273,12 +253,10 @@ def chart_list(
             response_data["sheets_checked"] = [ws.name for ws in sheets_to_check]
 
         response = create_success_response(
-            data=response_data,
-            command="chart-list",
-            message=f"{total_charts}개의 차트를 찾았습니다"
+            data=response_data, command="chart-list", message=f"{total_charts}개의 차트를 찾았습니다"
         )
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(response, ensure_ascii=False, indent=2))
         else:
             # 텍스트 형식 출력
@@ -302,21 +280,21 @@ def chart_list(
 
                     if detailed:
                         print(f"   타입: {chart.get('chart_type', 'unknown')}")
-                        if chart.get('title'):
+                        if chart.get("title"):
                             print(f"   제목: {chart['title']}")
-                        if chart.get('legend'):
-                            legend = chart['legend']
-                            if legend['has_legend']:
+                        if chart.get("legend"):
+                            legend = chart["legend"]
+                            if legend["has_legend"]:
                                 print(f"   범례: {legend.get('position', '위치 불명')}")
                             else:
                                 print(f"   범례: 없음")
-                        if chart.get('data_source'):
+                        if chart.get("data_source"):
                             print(f"   데이터: {chart['data_source']}")
                     print()
 
     except Exception as e:
         error_response = create_error_response(e, "chart-list")
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(error_response, ensure_ascii=False, indent=2))
         else:
             print(f"오류: {str(e)}")
@@ -338,5 +316,5 @@ def chart_list(
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     chart_list()

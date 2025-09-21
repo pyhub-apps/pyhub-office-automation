@@ -6,20 +6,29 @@ xlwings를 활용한 Excel 텍스트 박스 생성 및 스타일링 기능
 import json
 import platform
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_or_open_workbook, get_sheet, create_error_response, create_success_response,
-    ExecutionTimer, validate_position_and_size, generate_unique_shape_name,
-    hex_to_rgb, normalize_path
+    ExecutionTimer,
+    create_error_response,
+    create_success_response,
+    generate_unique_shape_name,
+    get_or_open_workbook,
+    get_sheet,
+    hex_to_rgb,
+    normalize_path,
+    validate_position_and_size,
 )
 
 
 def textbox_add(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="텍스트 박스를 추가할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="텍스트 박스를 추가할 시트 이름 (지정하지 않으면 활성 시트)"),
     text: str = typer.Option(..., "--text", help="텍스트 박스에 입력할 텍스트 내용"),
     left: int = typer.Option(100, "--left", help="텍스트 박스의 왼쪽 위치 (픽셀, 기본값: 100)"),
@@ -43,7 +52,7 @@ def textbox_add(
     auto_size: bool = typer.Option(False, "--auto-size", help="내용에 맞게 크기 자동 조정"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     Excel 시트에 텍스트 박스를 추가합니다.
@@ -148,11 +157,13 @@ def textbox_add(
 
     try:
         # 매개변수 검증
-        if alignment not in ['left', 'center', 'right']:
+        if alignment not in ["left", "center", "right"]:
             raise ValueError(f"alignment는 'left', 'center', 'right' 중 하나여야 합니다. 입력된 값: {alignment}")
 
-        if vertical_alignment not in ['top', 'middle', 'bottom']:
-            raise ValueError(f"vertical_alignment는 'top', 'middle', 'bottom' 중 하나여야 합니다. 입력된 값: {vertical_alignment}")
+        if vertical_alignment not in ["top", "middle", "bottom"]:
+            raise ValueError(
+                f"vertical_alignment는 'top', 'middle', 'bottom' 중 하나여야 합니다. 입력된 값: {vertical_alignment}"
+            )
 
         with ExecutionTimer() as timer:
             # 위치와 크기 검증
@@ -162,10 +173,7 @@ def textbox_add(
 
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 시트 가져오기
@@ -194,29 +202,20 @@ def textbox_add(
                 if platform.system() == "Windows":
                     # Windows에서는 COM API 사용
                     textbox = target_sheet.shapes.api.AddTextbox(
-                        Orientation=1,  # msoTextOrientationHorizontal
-                        Left=left,
-                        Top=top,
-                        Width=width,
-                        Height=height
+                        Orientation=1, Left=left, Top=top, Width=width, Height=height  # msoTextOrientationHorizontal
                     )
                     # xlwings 객체로 래핑
                     textbox_obj = target_sheet.shapes[len(target_sheet.shapes) - 1]
                 else:
                     # macOS에서는 xlwings 메서드 사용 (제한적)
-                    textbox_obj = target_sheet.shapes.add_textbox(
-                        left=left,
-                        top=top,
-                        width=width,
-                        height=height
-                    )
+                    textbox_obj = target_sheet.shapes.add_textbox(left=left, top=top, width=width, height=height)
 
                 # 텍스트 박스 이름 설정
                 textbox_obj.name = textbox_name
 
                 # 텍스트 내용 설정
                 # 줄바꿈 문자 처리
-                processed_text = text.replace('\\n', '\n')
+                processed_text = text.replace("\\n", "\n")
 
                 if platform.system() == "Windows":
                     textbox_obj.api.TextFrame.Characters().Text = processed_text
@@ -260,20 +259,12 @@ def textbox_add(
                         applied_styles.append("기울임")
 
                     # 정렬 설정
-                    alignment_map = {
-                        'left': 1,    # xlLeft
-                        'center': 2,  # xlCenter
-                        'right': 3    # xlRight
-                    }
+                    alignment_map = {"left": 1, "center": 2, "right": 3}  # xlLeft  # xlCenter  # xlRight
                     if alignment in alignment_map:
                         text_frame.HorizontalAlignment = alignment_map[alignment]
                         applied_styles.append(f"가로 정렬: {alignment}")
 
-                    vertical_alignment_map = {
-                        'top': 1,     # xlTop
-                        'middle': 2,  # xlCenter
-                        'bottom': 3   # xlBottom
-                    }
+                    vertical_alignment_map = {"top": 1, "middle": 2, "bottom": 3}  # xlTop  # xlCenter  # xlBottom
                     if vertical_alignment in vertical_alignment_map:
                         text_frame.VerticalAlignment = vertical_alignment_map[vertical_alignment]
                         applied_styles.append(f"세로 정렬: {vertical_alignment}")
@@ -329,26 +320,20 @@ def textbox_add(
                 book.save()
 
             # 최종 크기 정보 (자동 크기 조정된 경우)
-            final_size = {
-                "width": getattr(textbox_obj, 'width', width),
-                "height": getattr(textbox_obj, 'height', height)
-            }
+            final_size = {"width": getattr(textbox_obj, "width", width), "height": getattr(textbox_obj, "height", height)}
 
             # 성공 응답 생성
             response_data = {
                 "textbox_name": textbox_name,
                 "text_content": processed_text,
                 "text_length": len(processed_text),
-                "position": {
-                    "left": left,
-                    "top": top
-                },
+                "position": {"left": left, "top": top},
                 "size": final_size,
                 "applied_styles": applied_styles,
                 "style_count": len([s for s in applied_styles if "오류" not in s]),
                 "sheet": target_sheet.name,
                 "workbook": normalize_path(book.name),
-                "platform_support": "full" if platform.system() == "Windows" else "limited"
+                "platform_support": "full" if platform.system() == "Windows" else "limited",
             }
 
             # 텍스트 스타일 요약
@@ -357,7 +342,7 @@ def textbox_add(
                 "font_size": font_size,
                 "font_color": font_color,
                 "alignment": alignment,
-                "vertical_alignment": vertical_alignment
+                "vertical_alignment": vertical_alignment,
             }
 
             if bold:
@@ -396,7 +381,7 @@ def textbox_add(
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
                 text_length=len(processed_text),
-                styles_applied=len(applied_styles)
+                styles_applied=len(applied_styles),
             )
 
             print(json.dumps(response, ensure_ascii=False, indent=2))
@@ -422,5 +407,5 @@ def textbox_add(
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     textbox_add()

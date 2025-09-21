@@ -5,19 +5,27 @@ xlwings를 활용한 Excel 도형 삭제 기능
 
 import json
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_or_open_workbook, get_sheet, create_error_response, create_success_response,
-    ExecutionTimer, get_shape_by_name, normalize_path
+    ExecutionTimer,
+    create_error_response,
+    create_success_response,
+    get_or_open_workbook,
+    get_shape_by_name,
+    get_sheet,
+    normalize_path,
 )
 
 
 def shape_delete(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 삭제할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="도형을 삭제할 시트 이름 (지정하지 않으면 활성 시트)"),
     shape_name: Optional[str] = typer.Option(None, "--shape-name", help="삭제할 도형 이름"),
     shape_index: Optional[int] = typer.Option(None, "--shape-index", help="삭제할 도형 인덱스 (1부터 시작)"),
@@ -26,7 +34,7 @@ def shape_delete(
     dry_run: bool = typer.Option(False, "--dry-run", help="실제 삭제하지 않고 삭제 대상만 확인"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="삭제 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="삭제 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     Excel 시트에서 도형을 삭제합니다.
@@ -85,11 +93,7 @@ def shape_delete(
     try:
         with ExecutionTimer() as timer:
             # 삭제 방법 검증
-            delete_methods = sum([
-                bool(shape_name),
-                bool(shape_index is not None),
-                bool(all_shapes)
-            ])
+            delete_methods = sum([bool(shape_name), bool(shape_index is not None), bool(all_shapes)])
 
             if delete_methods == 0:
                 raise ValueError("삭제 방법을 지정해야 합니다: --shape-name, --shape-index, 또는 --all-shapes")
@@ -102,10 +106,7 @@ def shape_delete(
 
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 시트 가져오기
@@ -127,18 +128,14 @@ def shape_delete(
                     raise ValueError(f"도형 '{shape_name}'을 찾을 수 없습니다")
 
                 shapes_to_delete.append(shape_obj)
-                deleted_info.append({
-                    "name": shape_obj.name,
-                    "method": "name",
-                    "position": {
-                        "left": getattr(shape_obj, 'left', 0),
-                        "top": getattr(shape_obj, 'top', 0)
-                    },
-                    "size": {
-                        "width": getattr(shape_obj, 'width', 0),
-                        "height": getattr(shape_obj, 'height', 0)
+                deleted_info.append(
+                    {
+                        "name": shape_obj.name,
+                        "method": "name",
+                        "position": {"left": getattr(shape_obj, "left", 0), "top": getattr(shape_obj, "top", 0)},
+                        "size": {"width": getattr(shape_obj, "width", 0), "height": getattr(shape_obj, "height", 0)},
                     }
-                })
+                )
 
             elif shape_index is not None:
                 # 인덱스로 삭제
@@ -147,37 +144,29 @@ def shape_delete(
 
                 shape_obj = target_sheet.shapes[shape_index - 1]  # 0-based index
                 shapes_to_delete.append(shape_obj)
-                deleted_info.append({
-                    "name": shape_obj.name,
-                    "method": "index",
-                    "index": shape_index,
-                    "position": {
-                        "left": getattr(shape_obj, 'left', 0),
-                        "top": getattr(shape_obj, 'top', 0)
-                    },
-                    "size": {
-                        "width": getattr(shape_obj, 'width', 0),
-                        "height": getattr(shape_obj, 'height', 0)
+                deleted_info.append(
+                    {
+                        "name": shape_obj.name,
+                        "method": "index",
+                        "index": shape_index,
+                        "position": {"left": getattr(shape_obj, "left", 0), "top": getattr(shape_obj, "top", 0)},
+                        "size": {"width": getattr(shape_obj, "width", 0), "height": getattr(shape_obj, "height", 0)},
                     }
-                })
+                )
 
             elif all_shapes:
                 # 모든 도형 삭제
                 for i, shape_obj in enumerate(target_sheet.shapes):
                     shapes_to_delete.append(shape_obj)
-                    deleted_info.append({
-                        "name": shape_obj.name,
-                        "method": "all",
-                        "index": i + 1,
-                        "position": {
-                            "left": getattr(shape_obj, 'left', 0),
-                            "top": getattr(shape_obj, 'top', 0)
-                        },
-                        "size": {
-                            "width": getattr(shape_obj, 'width', 0),
-                            "height": getattr(shape_obj, 'height', 0)
+                    deleted_info.append(
+                        {
+                            "name": shape_obj.name,
+                            "method": "all",
+                            "index": i + 1,
+                            "position": {"left": getattr(shape_obj, "left", 0), "top": getattr(shape_obj, "top", 0)},
+                            "size": {"width": getattr(shape_obj, "width", 0), "height": getattr(shape_obj, "height", 0)},
                         }
-                    })
+                    )
 
             # Dry-run 모드
             if dry_run:
@@ -188,7 +177,7 @@ def shape_delete(
                     "current_shape_count": initial_shape_count,
                     "remaining_after_delete": initial_shape_count - len(shapes_to_delete),
                     "sheet": target_sheet.name,
-                    "workbook": normalize_path(book.name)
+                    "workbook": normalize_path(book.name),
                 }
 
                 response = create_success_response(
@@ -196,7 +185,7 @@ def shape_delete(
                     command="shape-delete",
                     message=f"[DRY RUN] {len(shapes_to_delete)}개의 도형이 삭제될 예정입니다",
                     execution_time_ms=timer.execution_time_ms,
-                    book=book
+                    book=book,
                 )
 
                 typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
@@ -229,7 +218,7 @@ def shape_delete(
                 "initial_shape_count": initial_shape_count,
                 "final_shape_count": final_shape_count,
                 "sheet": target_sheet.name,
-                "workbook": normalize_path(book.name)
+                "workbook": normalize_path(book.name),
             }
 
             # 삭제 실패한 도형이 있는 경우 정보 추가
@@ -248,7 +237,7 @@ def shape_delete(
                 message=message,
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
-                shapes_deleted=deleted_count
+                shapes_deleted=deleted_count,
             )
 
             typer.echo(json.dumps(response, ensure_ascii=False, indent=2))

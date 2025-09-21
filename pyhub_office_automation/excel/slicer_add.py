@@ -7,20 +7,29 @@ xlwings를 활용한 Excel 슬라이서 생성 기능
 import json
 import platform
 from typing import Optional
+
 import typer
 import xlwings as xw
+
 from pyhub_office_automation.version import get_version
+
 from .utils import (
-    get_or_open_workbook, get_sheet, create_error_response, create_success_response,
-    ExecutionTimer, get_pivot_tables, validate_slicer_position,
-    generate_unique_slicer_name, normalize_path
+    ExecutionTimer,
+    create_error_response,
+    create_success_response,
+    generate_unique_slicer_name,
+    get_or_open_workbook,
+    get_pivot_tables,
+    get_sheet,
+    normalize_path,
+    validate_slicer_position,
 )
 
 
 def slicer_add(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서를 추가할 Excel 파일의 절대 경로"),
     use_active: bool = typer.Option(False, "--use-active", help="현재 활성 워크북 사용"),
-    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근 (예: \"Sales.xlsx\")"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="슬라이서를 배치할 시트 이름 (지정하지 않으면 활성 시트)"),
     pivot_table: str = typer.Option(..., "--pivot-table", help="슬라이서를 생성할 피벗테이블 이름"),
     field: str = typer.Option(..., "--field", help="슬라이서로 만들 피벗테이블 필드 이름"),
@@ -36,7 +45,7 @@ def slicer_add(
     show_header: bool = typer.Option(True, "--show-header", help="슬라이서 헤더 표시 (기본값: True)"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
-    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)")
+    save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)"),
 ):
     """
     Excel 피벗테이블 기반 슬라이서를 생성합니다.
@@ -139,7 +148,7 @@ def slicer_add(
 
     try:
         # style 검증
-        if style not in ['light', 'medium', 'dark']:
+        if style not in ["light", "medium", "dark"]:
             raise ValueError(f"style은 'light', 'medium', 'dark' 중 하나여야 합니다. 입력된 값: {style}")
 
         with ExecutionTimer() as timer:
@@ -154,10 +163,7 @@ def slicer_add(
 
             # 워크북 연결
             book = get_or_open_workbook(
-                file_path=file_path,
-                workbook_name=workbook_name,
-                use_active=use_active,
-                visible=visible
+                file_path=file_path, workbook_name=workbook_name, use_active=use_active, visible=visible
             )
 
             # 시트 가져오기
@@ -186,8 +192,7 @@ def slicer_add(
             available_fields = [f["name"] for f in target_pivot["fields"]]
             if field not in available_fields:
                 raise ValueError(
-                    f"필드 '{field}'를 피벗테이블에서 찾을 수 없습니다. "
-                    f"사용 가능한 필드: {', '.join(available_fields)}"
+                    f"필드 '{field}'를 피벗테이블에서 찾을 수 없습니다. " f"사용 가능한 필드: {', '.join(available_fields)}"
                 )
 
             # 슬라이서 이름 결정
@@ -218,32 +223,21 @@ def slicer_add(
                     raise ValueError(f"필드 '{field}'에 접근할 수 없습니다")
 
                 # 슬라이서 생성
-                slicer_cache = book.api.SlicerCaches.Add(
-                    Source=pivot_table_obj,
-                    SourceField=field_obj
-                )
+                slicer_cache = book.api.SlicerCaches.Add(Source=pivot_table_obj, SourceField=field_obj)
 
                 # 슬라이서 이름 설정
                 slicer_cache.Name = name
 
                 # 슬라이서 배치
                 slicer = slicer_cache.Slicers.Add(
-                    SlicerDestination=target_sheet.api,
-                    Left=left,
-                    Top=top,
-                    Width=width,
-                    Height=height
+                    SlicerDestination=target_sheet.api, Left=left, Top=top, Width=width, Height=height
                 )
 
                 # 슬라이서 설정
                 slicer.Caption = caption
 
                 # 스타일 설정
-                style_map = {
-                    'light': 'SlicerStyleLight1',
-                    'medium': 'SlicerStyleLight2',
-                    'dark': 'SlicerStyleDark1'
-                }
+                style_map = {"light": "SlicerStyleLight1", "medium": "SlicerStyleLight2", "dark": "SlicerStyleDark1"}
 
                 try:
                     if style in style_map:
@@ -281,10 +275,7 @@ def slicer_add(
             slicer_items = []
             try:
                 for item in slicer_cache.SlicerItems():
-                    slicer_items.append({
-                        "name": item.Name,
-                        "selected": item.Selected
-                    })
+                    slicer_items.append({"name": item.Name, "selected": item.Selected})
             except:
                 pass
 
@@ -294,23 +285,13 @@ def slicer_add(
                 "slicer_caption": caption,
                 "pivot_table": pivot_table,
                 "field": field,
-                "position": {
-                    "left": left,
-                    "top": top
-                },
-                "size": {
-                    "width": width,
-                    "height": height
-                },
-                "settings": {
-                    "style": style,
-                    "columns": columns,
-                    "show_header": show_header
-                },
+                "position": {"left": left, "top": top},
+                "size": {"width": width, "height": height},
+                "settings": {"style": style, "columns": columns, "show_header": show_header},
                 "slicer_items": slicer_items,
                 "total_items": len(slicer_items),
                 "sheet": target_sheet.name,
-                "workbook": normalize_path(book.name)
+                "workbook": normalize_path(book.name),
             }
 
             if item_height:
@@ -324,7 +305,7 @@ def slicer_add(
                 message=message,
                 execution_time_ms=timer.execution_time_ms,
                 book=book,
-                slicer_items=len(slicer_items)
+                slicer_items=len(slicer_items),
             )
 
             print(json.dumps(response, ensure_ascii=False, indent=2))
@@ -350,5 +331,5 @@ def slicer_add(
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     slicer_add()
