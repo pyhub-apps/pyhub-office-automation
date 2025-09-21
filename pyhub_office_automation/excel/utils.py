@@ -20,6 +20,42 @@ import xlwings as xw
 from pyhub_office_automation.version import get_version
 
 
+# PyInstaller 환경에서 win32com 초기화
+def _initialize_win32com_for_pyinstaller():
+    """PyInstaller 환경에서 win32com을 초기화하여 COM 캐시 재구축 경고를 방지합니다."""
+    import sys
+
+    if hasattr(sys, "_MEIPASS"):
+        try:
+            import warnings
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+
+                import win32com.client
+
+                # 캐시 읽기 전용 설정을 해제하여 필요시 생성 가능하도록 함
+                win32com.client.gencache.is_readonly = False
+
+                # 캐시 경로 확인 및 초기화
+                try:
+                    win32com.client.gencache.GetGeneratePath()
+                except Exception:
+                    # 캐시 생성에 실패하면 읽기 전용으로 설정
+                    win32com.client.gencache.is_readonly = True
+
+        except ImportError:
+            # win32com이 없는 환경에서는 무시
+            pass
+        except Exception:
+            # 기타 오류는 조용히 무시
+            pass
+
+
+# 모듈 로드 시 win32com 초기화 실행
+_initialize_win32com_for_pyinstaller()
+
+
 def normalize_path(path: str) -> str:
     """
     경로의 한글 문자를 정규화합니다 (macOS 자소분리 문제 해결).

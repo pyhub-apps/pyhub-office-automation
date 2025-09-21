@@ -116,6 +116,65 @@ try {
         $version = "unknown"
     }
 
+    # win32com 캐시 사전 준비 (COM 재구축 경고 방지)
+    Write-Host "🔧 Preparing win32com cache..."
+    try {
+        python -c "
+import sys
+import tempfile
+import warnings
+
+# PyInstaller 빌드 전 win32com 캐시 사전 생성
+try:
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        import win32com.client
+
+        # Excel 애플리케이션 COM 인터페이스 사전 생성
+        win32com.client.gencache.is_readonly = False
+
+        # Excel COM 클래스 사전 로드 (경고 없이)
+        try:
+            xl = win32com.client.Dispatch('Excel.Application')
+            xl.Quit()
+            print('   Excel COM interface pre-generated successfully')
+        except:
+            print('   Excel COM interface pre-generation skipped (Excel not available)')
+
+except ImportError:
+    print('   win32com not available, skipping cache preparation')
+except Exception as e:
+    print(f'   Warning: win32com cache preparation failed: {e}')
+"
+    }
+    catch {
+        Write-Warning "win32com 캐시 준비 실패: $($_.Exception.Message)"
+    }
+
+    # 아이콘 파일 확인
+    Write-Host "🎨 Checking icon files..."
+    $iconPath = "pyhub_office_automation\assets\icons\logo.ico"
+    if (Test-Path $iconPath) {
+        $iconSize = [math]::Round((Get-Item $iconPath).Length / 1024, 1)
+        Write-Host "   Icon file found: $iconPath ($iconSize KB)"
+    }
+    else {
+        Write-Warning "Icon file not found: $iconPath"
+        Write-Host "   Creating icon files..."
+        try {
+            python create_icon.py
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "   ✅ Icon files created successfully"
+            }
+            else {
+                Write-Warning "Icon creation failed, continuing without icon"
+            }
+        }
+        catch {
+            Write-Warning "Icon creation script failed: $($_.Exception.Message)"
+        }
+    }
+
     # PyInstaller 빌드 인수 준비
     Write-Host "🔨 Building with PyInstaller..."
 
@@ -126,6 +185,11 @@ try {
         # spec 파일을 사용할 때는 BuildType에 따라 수정이 필요할 수 있음
         if ($BuildType -eq "onefile") {
             Write-Host "   Note: BuildType 'onefile' specified, but using spec file. Check spec file configuration."
+        }
+
+        # 아이콘 파일 경로 확인
+        if (Test-Path $iconPath) {
+            Write-Host "   Icon will be included from spec file: $iconPath"
         }
     }
     else {
@@ -147,6 +211,12 @@ try {
             "--noconfirm",
             "--clean"
         )
+
+        # 아이콘 추가 (존재하는 경우)
+        if (Test-Path $iconPath) {
+            $buildArgs += @("--icon", $iconPath)
+            Write-Host "   Adding icon: $iconPath"
+        }
 
         # 제외할 모듈 추가
         foreach ($module in $excludeModules) {
