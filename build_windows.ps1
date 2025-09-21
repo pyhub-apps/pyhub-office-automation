@@ -137,7 +137,6 @@ try {
             "tkinter",
             "IPython",
             "jupyter",
-            "numpy.random._pickle",
             "PIL.ImageQt"
         )
 

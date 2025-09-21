@@ -144,7 +144,6 @@ else
       --exclude-module tkinter \
       --exclude-module IPython \
       --exclude-module jupyter \
-      --exclude-module numpy.random._pickle \
       --exclude-module PIL.ImageQt \
       --noconfirm \
       --clean \
