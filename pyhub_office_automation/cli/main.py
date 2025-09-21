@@ -104,6 +104,10 @@ def show_welcome_message():
     welcome_content = load_welcome_message()
     console.print(welcome_content)
 
+    # LLM 가이드 안내 추가
+    console.print("\n💡 [bold cyan]AI 에이전트 사용 시 상세 지침을 보려면:[/bold cyan]")
+    console.print("   oa llm-guide")
+
 
 # version 명령어 추가
 @app.command()
@@ -336,6 +340,11 @@ def excel_list_temp(
                 console.print(f"  • oa excel {cmd['name']}")
                 console.print(f"    {cmd['description']}")
             console.print()
+
+        console.print("📚 [bold yellow]더 자세한 사용 지침은 다음 명령어를 참고하세요:[/bold yellow]", style="bright_yellow")
+        console.print("   [bold cyan]oa llm-guide[/bold cyan] - AI 에이전트를 위한 상세 가이드")
+        console.print("   [bold cyan]oa excel <command> --help[/bold cyan] - 특정 명령어 도움말")
+        console.print()
 
 
 # Excel 앱을 메인 앱에 등록

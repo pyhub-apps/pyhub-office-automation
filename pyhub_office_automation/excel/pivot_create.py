@@ -132,15 +132,13 @@ def pivot_create(
             # xlwings constants import
             from xlwings.constants import PivotTableSourceType
 
-            # PivotCache 생성
-            pivot_cache = book.api.PivotCaches().Create(
+            # PivotCache 생성 - 시트→부모 워크북 경로 사용 (pyhub-mcptools 방식)
+            pivot_cache = source_sheet.api.Parent.PivotCaches().Create(
                 SourceType=PivotTableSourceType.xlDatabase, SourceData=source_data_range.api
             )
 
-            # PivotTable 생성
-            pivot_table = pivot_cache.CreatePivotTable(
-                TableDestination=dest_cell.api, TableName=pivot_name, DefaultVersion=6  # Excel 2010+ 호환성
-            )
+            # PivotTable 생성 - DefaultVersion 제거, None 처리 개선
+            pivot_table = pivot_cache.CreatePivotTable(TableDestination=dest_cell.api, TableName=pivot_name or None)
 
             # 피벗테이블 정보 수집
             pivot_info = {

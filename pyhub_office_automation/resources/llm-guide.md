@@ -140,6 +140,130 @@ oa excel workbook-list --format json
 oa excel workbook-info --workbook-name "target.xlsx" --include-sheets
 ```
 
+## 📊 피벗테이블 워크플로우
+
+피벗테이블은 **2단계 필수 과정**이 필요합니다:
+
+### 1단계: 피벗테이블 생성 (pivot-create)
+
+```bash
+# 기본 패턴 (소스 시트명 포함)
+oa excel pivot-create --source-range "Data!A1:K999" --dest-sheet "피벗분석" --dest-range "A1"
+
+# 자동 확장 모드 (권장)
+oa excel pivot-create --source-range "Data!A1" --expand "table" --dest-sheet "피벗분석" --dest-range "A1"
+```
+
+**중요 사항**:
+- `--source-range`에 시트명 포함 가능 (예: "Data!A1:K999")
+- 활성 시트가 아닌 경우 반드시 시트명 지정 필요
+- `--expand "table"` 옵션으로 실제 데이터 영역만 자동 선택
+
+### 2단계: 필드 설정 (pivot-configure)
+
+```bash
+# 기본 필드 설정 (간결한 형식 사용)
+oa excel pivot-configure --pivot-name "PivotTable1" \
+  --row-fields "카테고리,제품명" \
+  --column-fields "분기" \
+  --value-fields "매출액:Sum,수량:Count" \
+  --filter-fields "지역"
+
+# 간단한 설정
+oa excel pivot-configure --pivot-name "PivotTable1" \
+  --row-fields "제품" \
+  --value-fields "매출:Sum"
+
+# 기본값 활용 (함수 생략시 Sum 적용)
+oa excel pivot-configure --pivot-name "PivotTable1" \
+  --row-fields "제품" \
+  --value-fields "매출"
+```
+
+### 완전한 워크플로우 예시
+
+**Windows (PowerShell)**
+```powershell
+# 1. 데이터 구조 확인
+oa excel range-read --range "Data!A1:K1" --format json
+
+# 2. 피벗테이블 생성
+oa excel pivot-create --source-range "Data!A1" --expand "table" --dest-sheet "피벗분석" --dest-range "A1"
+
+# 3. 필드 설정 (간결한 형식 사용)
+oa excel pivot-configure --pivot-name "PivotTable1" `
+  --row-fields "카테고리,제품명" `
+  --value-fields "매출액:Sum"
+
+# 4. 데이터 새로고침
+oa excel pivot-refresh --pivot-name "PivotTable1"
+```
+
+**Windows (Command Prompt)**
+```cmd
+# 간결한 형식 사용 (권장)
+oa excel pivot-configure --pivot-name "PivotTable1" --row-fields "카테고리,제품명" --value-fields "매출액:Sum"
+
+# JSON 형식도 지원 (복잡한 설정용)
+oa excel pivot-configure --pivot-name "PivotTable1" --row-fields "카테고리,제품명" --value-fields "[{\"field\":\"매출액\",\"function\":\"Sum\"}]"
+```
+
+**macOS/Linux (Bash)**
+```bash
+# 1. 데이터 구조 확인
+oa excel range-read --range "Data!A1:K1" --format json
+
+# 2. 피벗테이블 생성
+oa excel pivot-create --source-range "Data!A1" --expand "table" --dest-sheet "피벗분석" --dest-range "A1"
+
+# 3. 필드 설정
+oa excel pivot-configure --pivot-name "PivotTable1" \
+  --row-fields "카테고리,제품명" \
+  --value-fields "매출액:Sum"
+
+# 4. 데이터 새로고침
+oa excel pivot-refresh --pivot-name "PivotTable1"
+```
+
+### AI 에이전트 권장 패턴
+
+```bash
+# 1. JSON으로 헤더 정보 확인
+oa excel range-read --range "Data!A1:K1" --format json
+# AI가 JSON을 파싱하여 컬럼명 파악
+
+# 2. 자동 확장으로 안전한 피벗테이블 생성
+oa excel pivot-create --source-range "Data!A1" --expand "table" --dest-sheet "피벗분석" --dest-range "A1"
+
+# 3. 파악한 컬럼명으로 필드 설정
+oa excel pivot-configure --pivot-name "PivotTable1" \
+  --row-fields "실제컬럼명" \
+  --value-fields "숫자컬럼명:Sum"
+```
+
+### 집계 함수 옵션
+
+```bash
+# 간결한 형식에서 사용 가능한 함수들
+Sum        # 합계 (기본값)
+Count      # 개수
+Average    # 평균
+Max        # 최대값
+Min        # 최소값
+Product    # 곱
+StdDev     # 표준편차
+Var        # 분산
+
+# 사용 예시
+--value-fields "매출:Sum,수량:Count,단가:Average"
+```
+
+### 시트명 지정 규칙
+
+- **source-range**: 시트명 포함 가능 ("시트명!범위")
+- **dest-sheet**: 별도 옵션으로 지정
+- **활성 시트가 아닌 경우**: 반드시 시트명 명시 필요
+
 ## 📋 데이터 처리 규칙
 
 ### JSON 입력 형식

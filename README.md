@@ -61,7 +61,18 @@ oa excel sheet-activate --name "데이터"
 ### 차트 및 피벗
 ```bash
 oa excel chart-add --range "A1:C10" --chart-type "column"
-oa excel pivot-create --source-range "A1:D100" --target-cell "F1"
+
+# 피벗테이블 생성 (2단계 필수)
+# 1단계: 빈 피벗테이블 생성
+# source-range에 시트명 포함 가능 (예: "Data!A1:D100")
+oa excel pivot-create --source-range "Data!A1:D100" --expand "table" --dest-sheet "피벗" --dest-range "F1"
+
+# 2단계: 필드 설정 (반드시 필요)
+# 간결한 형식 사용 (권장)
+oa excel pivot-configure --pivot-name "PivotTable1" \
+  --row-fields "지역,제품" \
+  --value-fields "매출:Sum" \
+  --clear-existing
 ```
 
 ## 🔄 AI 워크플로우 예제
@@ -89,7 +100,26 @@ oa excel range-write --sheet "분석결과" --range "A1" --data '[...]'
 oa excel chart-add --sheet "분석결과" --range "A1:C10"
 ```
 
-### 3. 에러 방지 패턴
+### 3. 완전한 피벗테이블 워크플로우
+```bash
+# 1단계: 데이터 확인
+oa excel range-read --range "A1:K1"  # 헤더 확인
+
+# 2단계: 피벗테이블 생성
+oa excel pivot-create --source-range "Data!A1:K999" --expand "table" --dest-sheet "피벗분석" --dest-range "A1"
+
+# 3단계: 필드 배치 (실제 컬럼명 사용)
+oa excel pivot-configure --pivot-name "PivotTable1" \
+  --row-fields "카테고리,제품명" \
+  --column-fields "분기" \
+  --value-fields "매출액:Sum,수량:Count" \
+  --filter-fields "지역"
+
+# 4단계: 데이터 새로고침
+oa excel pivot-refresh --pivot-name "PivotTable1"
+```
+
+### 4. 에러 방지 패턴
 ```bash
 # 안전한 워크플로우: 확인 → 연결 → 작업
 oa excel workbook-list | grep "target.xlsx"  # 파일 열림 확인

@@ -33,6 +33,10 @@ oa excel range-write --range "A1" --data '["안녕", "세상아"]'
 
 # 데이터 읽기
 oa excel range-read --range "A1:B1"
+
+# 피벗테이블 생성 (2단계)
+oa excel pivot-create --source-range "A1" --expand "table" --dest-sheet "피벗" --dest-range "F1"
+oa excel pivot-configure --pivot-name "PivotTable1" --row-fields "안녕" --value-fields "세상아:Count"
 ```
 
 ## 📚 더 많은 도움말
