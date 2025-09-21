@@ -60,6 +60,23 @@ from pyhub_office_automation.version import get_version, get_version_info
 app = typer.Typer(help="pyhub-office-automation: AI 에이전트를 위한 Office 자동화 도구")
 
 
+def version_callback(value: bool):
+    """--version 콜백 함수"""
+    if value:
+        version_info = get_version_info()
+        typer.echo(f"pyhub-office-automation version {version_info['version']}")
+        raise typer.Exit()
+
+
+# 글로벌 --version 옵션 추가
+@app.callback()
+def main_callback(version: bool = typer.Option(False, "--version", "-v", callback=version_callback, help="버전 정보 출력")):
+    """
+    pyhub-office-automation: AI 에이전트를 위한 Office 자동화 도구
+    """
+    pass
+
+
 # version 명령어 추가
 @app.command()
 def version():

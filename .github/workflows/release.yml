@@ -33,12 +33,13 @@ jobs:
 
     - name: Build executable with PyInstaller
       run: |
-        pyinstaller --onefile --name "oa-${{ steps.version.outputs.VERSION }}" --console pyhub_office_automation/cli/main.py
+        pyinstaller --onefile --name "oa" --console pyhub_office_automation/cli/main.py
 
     - name: Test executable
       run: |
-        ./dist/oa-${{ steps.version.outputs.VERSION }}.exe --help
-        ./dist/oa-${{ steps.version.outputs.VERSION }}.exe info --format json || echo "Expected error: Excel/HWP not installed in CI environment"
+        ./dist/oa.exe --version
+        ./dist/oa.exe --help
+        ./dist/oa.exe info --format json || echo "Expected error: Excel/HWP not installed in CI environment"
 
     - name: Create Release
       id: create_release
@@ -57,9 +58,9 @@ jobs:
           - HeadVer format: {head}.{yearweek}.{build}
 
           ### Installation
-          1. Download `oa-${{ steps.version.outputs.VERSION }}.exe`
+          1. Download `oa.exe`
           2. Run the executable directly (no Python installation required)
-          3. Use `oa-${{ steps.version.outputs.VERSION }}.exe --help` for available commands
+          3. Use `oa.exe --help` for available commands
 
           ### System Requirements
           - Windows 10/11
@@ -68,10 +69,11 @@ jobs:
 
           ### Usage
           ```
-          oa-${{ steps.version.outputs.VERSION }}.exe info
-          oa-${{ steps.version.outputs.VERSION }}.exe install-guide
-          oa-${{ steps.version.outputs.VERSION }}.exe excel list
-          oa-${{ steps.version.outputs.VERSION }}.exe hwp list
+          oa.exe --version
+          oa.exe info
+          oa.exe install-guide
+          oa.exe excel list
+          oa.exe hwp list
           ```
         draft: false
         prerelease: false
@@ -82,6 +84,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dist/oa-${{ steps.version.outputs.VERSION }}.exe
-        asset_name: oa-${{ steps.version.outputs.VERSION }}.exe
+        asset_path: ./dist/oa.exe
+        asset_name: oa.exe
         asset_content_type: application/octet-stream
