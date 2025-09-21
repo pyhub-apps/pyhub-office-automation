@@ -38,9 +38,10 @@ jobs:
           $ErrorActionPreference = "Stop"
           Write-Host "🔨 Building Windows executable..."
 
-          # 버전 고정을 위한 __version__.py 파일 생성
-          $version = & uv run python -c "from pyhub_office_automation.version import get_version; print(get_version())"
-          Write-Host "📝 Creating fixed version file for build: $version"
+          # Git 태그에서 버전 추출하여 고정
+          $gitTag = "${{ github.ref_name }}"
+          $version = $gitTag -replace '^v', ''
+          Write-Host "📝 Creating fixed version file for build: $version (from tag: $gitTag)"
           $versionPyContent = "__version__ = '$version'"
           $versionPyPath = "pyhub_office_automation\__version__.py"
           $versionPyContent | Out-File -FilePath $versionPyPath -Encoding UTF8
@@ -64,8 +65,9 @@ jobs:
 
           Write-Host "📦 Creating release package..."
 
-          # 버전 정보 가져오기
-          $version = & uv run python -c "from pyhub_office_automation.version import get_version; print(get_version())"
+          # Git 태그에서 버전 추출 (v5.2539.54 -> 5.2539.54)
+          $gitTag = "${{ github.ref_name }}"
+          $version = $gitTag -replace '^v', ''
 
           # KST 시간 계산 (UTC+9)
           $utcTime = Get-Date -AsUTC
@@ -73,7 +75,6 @@ jobs:
           $buildDate = $kstTime.ToString("yyyy-MM-dd HH:mm:ss") + " KST"
 
           # version.txt 파일 생성 (한글)
-          $gitTag = "${{ github.ref_name }}"
           $versionContent = @"
           pyhub-office-automation
           버전: $version

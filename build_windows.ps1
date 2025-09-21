@@ -111,12 +111,18 @@ try {
         $version = python -c "import sys; sys.path.insert(0, 'pyhub_office_automation'); from version import get_version; print(get_version())"
         Write-Host "   Version: $version"
 
-        # 빌드 시 버전 고정을 위한 __version__.py 파일 생성
-        Write-Host "🔧 Creating fixed version file for build..."
-        $versionPyContent = "__version__ = '$version'"
+        # 빌드 시 버전 고정을 위한 __version__.py 파일 생성 (GitHub Actions에서 이미 생성되었으면 스킵)
         $versionPyPath = "pyhub_office_automation\__version__.py"
-        $versionPyContent | Out-File -FilePath $versionPyPath -Encoding UTF8
-        Write-Host "   Fixed version file created: $versionPyPath"
+        if (-not (Test-Path $versionPyPath)) {
+            Write-Host "🔧 Creating fixed version file for build..."
+            $versionPyContent = "__version__ = '$version'"
+            $versionPyContent | Out-File -FilePath $versionPyPath -Encoding UTF8
+            Write-Host "   Fixed version file created: $versionPyPath"
+        } else {
+            Write-Host "🔧 Fixed version file already exists, skipping creation"
+            $existingVersion = Get-Content $versionPyPath | Select-String "__version__" | ForEach-Object { $_.Line -replace '.*"([^"]*)".*', '$1' }
+            Write-Host "   Using existing version: $existingVersion"
+        }
     }
     catch {
         Write-Warning "버전 정보를 가져올 수 없습니다: $($_.Exception.Message)"
