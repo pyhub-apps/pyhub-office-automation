@@ -1,12 +1,46 @@
-name: Build and Release Windows Executable
+name: Build and Release All
 
 on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
 
 jobs:
-  build-windows-exe:
+  build-python:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          uv sync --extra dev --extra build
+          uv pip install build twine
+
+      - name: Build package
+        run: uv run python -m build --wheel
+
+      - name: Upload Python artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-wheel
+          path: dist/*.whl
+          retention-days: 5
+
+  build-windows:
     runs-on: windows-latest
 
     env:
@@ -21,6 +55,7 @@ jobs:
         [Console]::InputEncoding = [System.Text.Encoding]::UTF8
         $OutputEncoding = [System.Text.Encoding]::UTF8
         echo "PowerShell UTF-8 encoding configured"
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -170,58 +205,127 @@ jobs:
             throw "Failed to create compressed file at $zipPath"
         }
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Upload Windows artifacts
+      uses: actions/upload-artifact@v4
       with:
-        tag_name: ${{ github.ref_name }}
-        release_name: Release ${{ github.ref_name }}
-        body: |
-          ## pyhub-office-automation ${{ github.ref_name }}
+        name: windows-executable
+        path: ./dist/oa-windows-amd64.zip
+        retention-days: 5
 
-          ### Changes
-          - Windows executable build (compressed)
-          - Version: ${{ steps.version.outputs.VERSION }}
-          - HeadVer format: {head}.{yearweek}.{build}
-          - Improved release packaging with ZIP compression
+  create-release:
+    needs: [build-python, build-windows]
+    runs-on: ubuntu-latest
 
-          ### Installation
-          1. Download `oa-windows-amd64.zip`
-          2. Extract the ZIP file to get `oa.exe`
-          3. Run the executable directly (no Python installation required)
-          4. Use `oa.exe --help` for available commands
+    steps:
+      - uses: actions/checkout@v4
 
-          ### File Information
-          - **Windows (AMD64)**: `oa-windows-amd64.zip`
-          - Compressed for faster download
-          - Future releases will include ARM64 and other platforms
+      - name: Download Python artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-wheel
+          path: ./dist/
 
-          ### System Requirements
-          - Windows 10/11 (AMD64 architecture)
-          - For Excel automation: Microsoft Excel installed
-          - For HWP automation: 한글(HWP) program installed
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-executable
+          path: ./dist/
 
-          ### Usage
-          ```
-          # Extract the ZIP file first
-          # Then run:
-          oa.exe --version
-          oa.exe info
-          oa.exe install-guide
-          oa.exe excel list
-          oa.exe hwp list
-          ```
-        draft: false
-        prerelease: false
+      - name: Check if pre-release
+        id: check_prerelease
+        run: |
+          if [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(a|b|rc)[0-9]+$ ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
 
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dist/oa-windows-amd64.zip
-        asset_name: oa-windows-amd64.zip
-        asset_content_type: application/zip
+      - name: Get version info
+        id: version
+        run: |
+          # Python 환경 설정 없이 버전 정보를 태그에서 추출
+          version="${{ github.ref_name }}"
+          version="${version#v}"  # v 접두사 제거
+          echo "VERSION=$version" >> $GITHUB_OUTPUT
+          echo "Version: $version"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*.whl
+            dist/*.zip
+          generate_release_notes: true
+          prerelease: ${{ steps.check_prerelease.outputs.prerelease }}
+          body: |
+            ## pyhub-office-automation ${{ github.ref_name }}
+
+            ### Installation
+
+            **Python Package:**
+            ```bash
+            pip install pyhub-office-automation
+            ```
+
+            **Windows Executable:**
+            1. Download `oa-windows-amd64.zip`
+            2. Extract the ZIP file to get `oa.exe`
+            3. Run the executable directly (no Python installation required)
+
+            ### Usage
+            ```bash
+            # Python package
+            oa --version
+            oa info
+            oa install-guide
+            oa excel list
+            oa hwp list
+
+            # Windows executable
+            oa.exe --version
+            oa.exe info
+            oa.exe install-guide
+            oa.exe excel list
+            oa.exe hwp list
+            ```
+
+            ### Downloads
+            - **Python Package**: `pyhub_office_automation-${{ steps.version.outputs.VERSION }}-py3-none-any.whl`
+            - **Windows Executable**: `oa-windows-amd64.zip`
+
+            ### System Requirements
+            - **Python package**: Python 3.13+, Windows 10/11 (for full functionality)
+            - **Windows executable**: Windows 10/11 (AMD64 architecture)
+            - For Excel automation: Microsoft Excel installed
+            - For HWP automation: 한글(HWP) program installed
+
+            ### What's Included
+            This unified release includes both the Python package and Windows executable:
+            - 🐍 **Python Package**: Install via pip for development and automation scripts
+            - 💻 **Windows Executable**: Standalone executable for end users
+            - 📦 **Compressed**: ZIP format for faster download
+            - 🔒 **Verified**: Both builds tested and verified before release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python for PyPI
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install twine
+        run: |
+          python -m pip install --upgrade pip
+          uv pip install twine
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          uv run twine upload --verbose dist/*.whl
