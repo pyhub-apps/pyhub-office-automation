@@ -12,7 +12,7 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 
 
 def table_read(
-    workbook: Optional[str] = typer.Option(None, "--workbook", help="워크북 파일 경로"),
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="열 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="시트 이름"),
     table_name: Optional[str] = typer.Option(None, "--table-name", help="테이블 이름"),
@@ -25,7 +25,7 @@ def table_read(
     book = None
     try:
         with ExecutionTimer() as timer:
-            book = get_or_open_workbook(file_path=workbook, workbook_name=workbook_name, visible=False)
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=False)
 
             target_sheet = book.sheets.active if not sheet else book.sheets[sheet]
 

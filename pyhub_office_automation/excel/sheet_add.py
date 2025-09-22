@@ -13,7 +13,7 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 
 
 def sheet_add(
-    workbook: Optional[str] = typer.Option(None, "--workbook", help="워크북 파일 경로"),
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="열 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
     name: str = typer.Option(..., "--name", help="추가할 시트의 이름"),
     before: Optional[str] = typer.Option(None, "--before", help="이 시트 앞에 추가"),
@@ -25,7 +25,7 @@ def sheet_add(
     book = None
     try:
         with ExecutionTimer() as timer:
-            book = get_or_open_workbook(file_path=workbook, workbook_name=workbook_name, visible=visible)
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 기존 시트명 중복 확인
             existing_names = [sheet.name for sheet in book.sheets]

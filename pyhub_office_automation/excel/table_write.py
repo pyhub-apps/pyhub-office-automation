@@ -14,7 +14,7 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 
 
 def table_write(
-    workbook: Optional[str] = typer.Option(None, "--workbook", help="워크북 파일 경로"),
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="열 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="시트 이름"),
     data_file: str = typer.Option(..., "--data-file", help="쓸 데이터 파일 (CSV/JSON)"),
@@ -38,7 +38,7 @@ def table_write(
     \b
     워크북 접근 방법:
       • 옵션 없음: 활성 워크북 자동 사용 (기본값)
-      • --workbook: 파일 경로로 워크북 열기
+      • --file-path: 파일 경로로 워크북 열기
       • --workbook-name: 열린 워크북 이름으로 접근
 
     \b
@@ -72,7 +72,7 @@ def table_write(
             else:
                 raise ValueError("지원되지 않는 파일 형식입니다. CSV 또는 JSON 파일을 사용하세요.")
 
-            book = get_or_open_workbook(file_path=workbook, workbook_name=workbook_name, visible=visible)
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             target_sheet = book.sheets.active if not sheet else book.sheets[sheet]
             start_range = target_sheet.range(range_str)
@@ -219,7 +219,7 @@ def table_write(
 
     finally:
         # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
-        if book and not visible and workbook:
+        if book and not visible and file_path:
             try:
                 book.app.quit()
             except:

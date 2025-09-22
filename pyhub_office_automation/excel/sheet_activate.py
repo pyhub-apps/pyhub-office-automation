@@ -17,7 +17,7 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 
 
 def sheet_activate(
-    workbook: Optional[str] = typer.Option(None, "--workbook", help="워크북 파일 경로"),
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="열 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
     name: Optional[str] = typer.Option(None, "--name", help="활성화할 시트의 이름"),
     index: Optional[int] = typer.Option(None, "--index", help="활성화할 시트의 인덱스 (1부터 시작)"),
@@ -31,12 +31,12 @@ def sheet_activate(
     활성화된 시트는 사용자에게 표시되는 현재 시트가 됩니다.
 
     워크북 접근 방법:
-    - --workbook: 파일 경로로 워크북 열기 (기존 방식)
-        - --workbook-name: 열린 워크북 이름으로 접근
+    - --file-path: 파일 경로로 워크북 열기
+    - --workbook-name: 열린 워크북 이름으로 접근
 
     예제:
         oa excel sheet-activate --name "Sheet2"
-        oa excel sheet-activate --workbook "data.xlsx" --index 2
+        oa excel sheet-activate --file-path "data.xlsx" --index 2
         oa excel sheet-activate --workbook-name "Sales.xlsx" --name "Summary"
     """
     book = None
@@ -51,7 +51,7 @@ def sheet_activate(
         # 실행 시간 측정 시작
         with ExecutionTimer() as timer:
             # 워크북 연결
-            book = get_or_open_workbook(file_path=workbook, workbook_name=workbook_name, visible=visible)
+            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
             # 기존 활성 시트 정보 수집
             old_active_sheet = book.sheets.active
@@ -183,7 +183,7 @@ def sheet_activate(
 
     finally:
         # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
-        if book and not visible and workbook:
+        if book and not visible and file_path:
             try:
                 book.app.quit()
             except:
