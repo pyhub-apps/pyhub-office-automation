@@ -1963,7 +1963,7 @@ def get_pivot_tables(sheet: xw.Sheet) -> List[Dict[str, Union[str, int, float]]]
                 pivot_info = {
                     "name": pivot_table.Name,
                     "location": pivot_table.TableRange1.Address,
-                    "source_data": getattr(pivot_table, "SourceData", "Unknown"),
+                    "source_data": str(getattr(pivot_table, "SourceData", "Unknown")),
                     "fields": [],
                 }
 

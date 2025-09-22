@@ -126,7 +126,7 @@ def workbook_create(
 
             # 애플리케이션 정보
             app_info = {
-                "version": getattr(app, "version", "Unknown"),
+                "version": str(getattr(app, "version", "Unknown")),
                 "visible": getattr(app, "visible", visible),
                 "is_new_instance": file_path and not workbook_name,
             }

@@ -447,7 +447,7 @@ def chart_add(
         # 성공 응답 생성
         response_data = {
             "chart_name": chart_name,
-            "chart_type": chart_type,
+            "chart_type": str(chart_type),
             "data_range": data_range,
             "position": position_range.address if auto_position else position,
             "dimensions": {"width": width, "height": height},

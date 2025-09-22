@@ -118,9 +118,9 @@ def workbook_open(
 
             # 애플리케이션 정보
             app_info = {
-                "version": getattr(app, "version", "Unknown"),
+                "version": str(getattr(app, "version", "Unknown")),
                 "visible": getattr(app, "visible", visible),
-                "calculation_mode": getattr(app, "calculation", "Unknown"),
+                "calculation_mode": str(getattr(app, "calculation", "Unknown")),
             }
 
             # 데이터 구성

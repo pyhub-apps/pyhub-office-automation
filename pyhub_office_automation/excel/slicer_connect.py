@@ -252,7 +252,7 @@ def handle_list_connections(book, slicer_cache, slicer_name):
                 "pivot_table_name": pivot_table.Name,
                 "sheet": pivot_table.Parent.Name,
                 "location": pivot_table.TableRange1.Address,
-                "source_data": getattr(pivot_table, "SourceData", "Unknown"),
+                "source_data": str(getattr(pivot_table, "SourceData", "Unknown")),
             }
 
             # 호환성 확인
