@@ -51,19 +51,48 @@ def get_version():
     """HeadVer 형식의 전체 버전 문자열 생성"""
     # 빌드 시 생성된 고정 버전이 있으면 사용 (PyInstaller 등)
     try:
+        # 상대 임포트 시도 (패키지 컨텍스트)
         from .__version__ import __version__
 
         return __version__
     except ImportError:
-        # 개발 환경에서는 동적 계산
-        head = get_head_version()
-        yearweek = get_yearweek()
-        build = get_build_number()
-        return f"{head}.{yearweek}.{build}"
+        try:
+            # 절대 임포트 시도 (모듈 단독 실행)
+            from __version__ import __version__
+
+            return __version__
+        except ImportError:
+            # 개발 환경에서는 동적 계산
+            head = get_head_version()
+            yearweek = get_yearweek()
+            build = get_build_number()
+            return f"{head}.{yearweek}.{build}"
 
 
 def get_version_info():
     """버전 정보를 딕셔너리로 반환"""
+    # 빌드 시 생성된 고정 버전이 있으면 사용 (PyInstaller 등)
+    try:
+        # 상대 임포트 시도 (패키지 컨텍스트)
+        from .__version__ import __version__
+
+        # 고정 버전 문자열을 파싱
+        parts = __version__.split(".")
+        if len(parts) == 3:
+            return {"head": parts[0], "yearweek": parts[1], "build": parts[2], "version": __version__}
+    except ImportError:
+        try:
+            # 절대 임포트 시도 (모듈 단독 실행)
+            from __version__ import __version__
+
+            # 고정 버전 문자열을 파싱
+            parts = __version__.split(".")
+            if len(parts) == 3:
+                return {"head": parts[0], "yearweek": parts[1], "build": parts[2], "version": __version__}
+        except ImportError:
+            pass
+
+    # 개발 환경에서는 동적 계산
     head = get_head_version()
     yearweek = get_yearweek()
     build = get_build_number()
