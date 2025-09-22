@@ -11,11 +11,12 @@ import os
 import platform
 import re
 import tempfile
+import threading
 import time
 import unicodedata
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 import xlwings as xw
@@ -488,6 +489,22 @@ COM_ERROR_MESSAGES = {
             "시트 이름과 범위가 정확한지 확인",
             "데이터 형식이 올바른지 확인",
             "Excel 버전과 호환되는지 확인"
+        ]
+    },
+    # 피벗차트 관련 타임아웃 에러
+    0x80004005: {
+        "message": "피벗차트 생성 중 COM API 타임아웃이 발생했습니다. 대체 방법을 사용하세요.",
+        "meaning": "E_FAIL / TIMEOUT",
+        "causes": [
+            "PivotLayout.PivotTable 설정 시 응답 없음",
+            "COM 인터페이스 호환성 문제",
+            "Windows 또는 Excel 업데이트 필요"
+        ],
+        "suggestions": [
+            "'oa excel chart-add' 명령어로 정적 차트 생성",
+            "'--skip-pivot-link' 옵션 사용하여 피벗 연결 건너뛰기",
+            "피벗테이블 데이터 범위를 직접 참조하여 차트 생성",
+            "Excel 및 Windows 업데이트 확인"
         ]
     }
 }

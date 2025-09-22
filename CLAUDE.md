@@ -213,20 +213,27 @@ Excel commands are organized by category for better usability:
 - Cross-platform compatibility (Windows/macOS)
 - Quick chart generation without pivot tables
 - Static presentations and documentation
+- **Recommended when `chart-pivot-create` encounters timeout issues**
 
 **Use `chart-pivot-create` for:**
-- Dynamic data analysis with filtering
-- Dashboard creation with interactive elements
+- ~~Dynamic data analysis with filtering~~ (Currently limited due to Issue #42)
+- Dashboard creation with interactive elements (use `--skip-pivot-link` option)
 - Large datasets requiring pivot table aggregation
-- Charts that update automatically with data changes
-- Windows-only environments with advanced features
+- Charts based on pivot table data (static mode available)
+- Windows-only environments
+
+**Known Issues (Issue #42):**
+- `PivotLayout.PivotTable` assignment causes 2-minute timeout
+- Use `--skip-pivot-link` option to bypass pivot connection
+- Use `--fallback-to-static` (default: true) for automatic fallback
+- Alternative: Use `chart-add` command for reliable chart creation
 
 **Decision Logic:**
-1. **Data Size**: Large datasets (>1000 rows) → `chart-pivot-create`
-2. **Interactivity**: Need filtering/drilling → `chart-pivot-create`
+1. **Data Size**: Large datasets (>1000 rows) → `chart-add` (due to timeout issues)
+2. **Interactivity**: Need filtering/drilling → Use pivot table + `chart-add` separately
 3. **Platform**: macOS environment → `chart-add` only
 4. **Complexity**: Simple visualization → `chart-add`
-5. **Existing Pivot**: Pivot table already exists → `chart-pivot-create`
+5. **Existing Pivot**: Pivot table already exists → `chart-add` with pivot data range
 
 ### Workbook Connection Methods (Issue #14)
 All Excel commands now support multiple ways to connect to workbooks, eliminating the need to create new Excel instances for each operation:

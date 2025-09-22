@@ -14,6 +14,7 @@ import xlwings as xw
 from pyhub_office_automation.version import get_version
 
 from .utils import create_error_response, create_success_response, get_or_open_workbook, get_sheet, normalize_path
+from .utils_timeout import try_pivot_layout_connection
 
 
 def find_pivot_table(sheet, pivot_name):
@@ -129,6 +130,9 @@ def chart_pivot_create(
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
     save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)"),
+    skip_pivot_link: bool = typer.Option(False, "--skip-pivot-link", help="피벗차트 연결 건너뛰기 (타임아웃 문제 회피용)"),
+    fallback_to_static: bool = typer.Option(True, "--fallback-to-static", help="피벗차트 연결 실패 시 정적 차트로 자동 전환 (기본값: True)"),
+    pivot_timeout: int = typer.Option(10, "--pivot-timeout", help="피벗차트 연결 타임아웃 시간 (초, 기본값: 10)"),
 ):
     """
     피벗테이블을 기반으로 동적 피벗차트를 생성합니다. (Windows 전용)
@@ -297,8 +301,25 @@ def chart_pivot_create(
             chart.SetSourceData(pivot_table.TableRange1)
             chart.ChartType = chart_type_const
 
-            # 피벗차트로 변경
-            chart.PivotLayout.PivotTable = pivot_table
+            # 피벗차트로 변경 시도 (옵션에 따라)
+            is_dynamic_pivot = False
+            pivot_link_warning = None
+
+            if not skip_pivot_link:
+                # 피벗차트 연결 시도 (타임아웃 처리 포함)
+                success, error_msg = try_pivot_layout_connection(
+                    chart, pivot_table, timeout=pivot_timeout
+                )
+
+                if success:
+                    is_dynamic_pivot = True
+                else:
+                    pivot_link_warning = error_msg
+                    if not fallback_to_static:
+                        # 폴백이 비활성화된 경우 에러 발생
+                        raise RuntimeError(f"피벗차트 생성 실패: {error_msg}")
+            else:
+                pivot_link_warning = "--skip-pivot-link 옵션으로 피벗차트 연결을 건너뛰었습니다. 정적 차트로 생성됩니다."
 
             chart_name = chart_object.Name
 
@@ -365,12 +386,16 @@ def chart_pivot_create(
             "position": position,
             "dimensions": {"width": width, "height": height},
             "workbook": book.name,
-            "is_dynamic": True,
+            "is_dynamic": is_dynamic_pivot,
             "platform": "Windows",
         }
 
         if title:
             response_data["title"] = title
+
+        if pivot_link_warning:
+            response_data["warning"] = pivot_link_warning
+            response_data["alternative"] = "피벗테이블 데이터 변경 시 차트를 수동으로 새로고침하거나, 'oa excel chart-add' 명령어 사용을 고려하세요."
 
         response = create_success_response(
             data=response_data, command="chart-pivot-create", message=f"피벗차트 '{chart_name}'이 성공적으로 생성되었습니다"
@@ -390,7 +415,15 @@ def chart_pivot_create(
             print(f"크기: {width} x {height}")
             if title:
                 print(f"제목: {title}")
-            print(f"\n✅ 동적 피벗차트가 생성되어 피벗테이블 변경 시 자동 업데이트됩니다.")
+
+            if is_dynamic_pivot:
+                print(f"\n✅ 동적 피벗차트가 생성되어 피벗테이블 변경 시 자동 업데이트됩니다.")
+            elif pivot_link_warning:
+                print(f"\n⚠️ {pivot_link_warning}")
+                print("💡 대안: 'oa excel chart-add' 명령어로 정적 차트 생성을 권장합니다.")
+            else:
+                print(f"\n✅ 피벗테이블 데이터 기반 차트가 생성되었습니다.")
+
             if save and file_path:
                 print("💾 파일이 저장되었습니다.")
 
