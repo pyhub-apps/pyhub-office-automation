@@ -89,6 +89,27 @@ oa excel chart-pivot-create --pivot-name "ProductSummary" --chart-type "pie" --s
 - **chart-add**: 고정 데이터, 간단한 시각화, 일회성 차트, 크로스 플랫폼
 - **chart-pivot-create**: 대용량 데이터, 동적 분석, 대시보드용, Windows 전용
 
+### 데이터 분석 및 변환 (피벗 준비)
+
+```bash
+# 데이터 구조 분석 (피벗테이블 준비상태 확인)
+oa excel data-analyze --range "A1:Z100" --expand "table"
+oa excel data-analyze --file-path "report.xlsx" --range "Sheet1!A1:K1000"
+
+# 데이터 변환 (피벗테이블용 형식으로 변환)
+# 교차표를 세로 형식으로 변환
+oa excel data-transform --source-range "A1:M100" --transform-type "unpivot" --output-sheet "PivotReady"
+
+# 병합된 셀 해제 및 값 채우기
+oa excel data-transform --source-range "A1" --expand "table" --transform-type "unmerge"
+
+# 모든 필요한 변환 자동 적용
+oa excel data-transform --source-range "Data!A1:K999" --transform-type "auto" --expand "table"
+
+# 다단계 헤더를 단일 헤더로 결합
+oa excel data-transform --source-range "A1:J50" --transform-type "flatten-headers" --output-sheet "CleanData"
+```
+
 ### 피벗테이블 생성
 
 ```bash
@@ -151,7 +172,33 @@ oa excel range-write --sheet "분석결과" --range "A1" --data '[...]'
 oa excel chart-add --sheet "분석결과" --range "A1:C10"
 ```
 
-### 3. 완전한 피벗테이블 워크플로우
+### 3. 스마트 데이터 준비 및 피벗테이블 생성 (AI 지원)
+```bash
+# 1단계: 데이터 구조 자동 분석 (AI 데이터 패턴 감지)
+oa excel data-analyze --range "A1:Z1000" --expand "table"
+# → AI가 교차표, 병합셀, 다단계헤더, 소계혼재, 넓은형식 등 5가지 문제 자동 감지
+# → 피벗테이블 준비도 평가 및 권장 변환방법 제시
+
+# 2단계: AI 권장사항에 따른 자동 데이터 변환
+oa excel data-transform --source-range "A1:Z1000" --transform-type "auto" --expand "table" --output-sheet "PivotReady"
+# → AI가 감지한 모든 문제를 올바른 순서로 자동 해결
+# → 병합셀 해제 → 소계 제거 → 헤더 정리 → 교차표 변환 순으로 적용
+
+# 3단계: 변환된 데이터로 피벗테이블 생성
+oa excel pivot-create --source-range "PivotReady!A1:F5000" --expand "table" --dest-sheet "분석결과" --dest-range "A1"
+
+# 4단계: 필드 배치 (변환된 헤더 사용)
+oa excel pivot-configure --pivot-name "PivotTable1" \
+  --row-fields "카테고리,제품명" \
+  --column-fields "측정항목" \
+  --value-fields "값:Sum" \
+  --clear-existing
+
+# 5단계: 데이터 새로고침
+oa excel pivot-refresh --pivot-name "PivotTable1"
+```
+
+### 4. 완전한 피벗테이블 워크플로우 (기존 방식)
 ```bash
 # 1단계: 데이터 확인
 oa excel range-read --range "A1:K1"  # 헤더 확인
@@ -171,7 +218,7 @@ oa excel pivot-configure --pivot-name "PivotTable1" \
 oa excel pivot-refresh --pivot-name "PivotTable1"
 ```
 
-### 4. Excel Table 기반 고급 피벗 워크플로우 (Windows 전용)
+### 5. Excel Table 기반 고급 피벗 워크플로우 (Windows 전용)
 ```bash
 # 🎯 향상된 워크플로우: Excel Table → 동적 피벗테이블
 
@@ -195,7 +242,7 @@ oa excel pivot-configure --pivot-name "SalesPivot" \
 oa excel table-create --range "A1:F100" --table-name "AnalysisData" --headers
 ```
 
-### 5. 에러 방지 패턴
+### 6. 에러 방지 패턴
 ```bash
 # 안전한 워크플로우: 확인 → 연결 → 작업
 oa excel workbook-list | grep "target.xlsx"  # 파일 열림 확인
@@ -203,8 +250,47 @@ oa excel workbook-list | grep "target.xlsx"  # 파일 열림 확인
 oa excel range-read --workbook-name "target.xlsx" --range "A1:C10"
 ```
 
+## 🤖 AI 지원 데이터 분석 기능
+
+### 스마트 데이터 패턴 감지 (data-analyze)
+AI가 Excel 데이터를 자동으로 분석하여 피벗테이블 준비 상태를 평가합니다:
+
+**🔍 자동 감지 패턴**:
+- **교차표 형식**: 월/분기가 열로 배치된 형태 감지
+- **다단계 헤더**: 중첩된 헤더 구조 인식
+- **병합된 셀**: 빈 셀로 인한 데이터 불일치 탐지
+- **소계 혼재**: 데이터와 소계가 섞여있는 패턴 분석
+- **넓은 형식**: 여러 지표가 열로 나열된 구조 식별
+
+**🎯 지능형 분석 결과**:
+- 피벗테이블 준비도 0.0~1.0 점수로 평가
+- 감지된 문제별 우선순위 권장사항 제공
+- 다음 단계 명령어 자동 제안 (변환 타입 포함)
+
+### 지능형 데이터 변환 (data-transform)
+AI가 감지한 문제를 최적 순서로 자동 해결합니다:
+
+**🔄 자동 변환 알고리즘 (auto 모드)**:
+1. **병합셀 해제 우선**: 데이터 무결성 확보
+2. **소계 제거**: 순수 데이터만 추출
+3. **헤더 정리**: 다단계 헤더를 단일 헤더로 결합
+4. **교차표 변환**: 피벗테이블용 세로 형식으로 변환
+
+**📊 변환 결과 분석**:
+- 변환 전후 데이터 크기 비교 (행/열 변화율)
+- 적용된 변환 목록과 순서 보고
+- 데이터 확장비/감소비 자동 계산
+
+**💡 AI 활용 내부 구조**:
+- **pandas 지능형 활용**: DataFrame 패턴 분석으로 데이터 구조 자동 인식
+- **통계적 패턴 매칭**: 공통 Excel 문제 패턴을 학습된 알고리즘으로 탐지
+- **컨텍스트 인식**: 헤더명, 데이터 분포, 빈 셀 패턴을 종합적으로 분석
+- **최적화된 변환 순서**: 데이터 손실 최소화를 위한 단계별 변환 전략
+
 ## ✨ 특별 기능
 
+- **🤖 AI 데이터 분석**: 5가지 일반적인 Excel 데이터 문제를 자동 감지하고 해결방안 제시
+- **🔄 지능형 자동 변환**: AI가 감지한 모든 문제를 최적 순서로 자동 해결
 - **자동 워크북 선택**: 옵션 없이 활성 워크북 자동 사용으로 Excel 재실행 없이 연속 작업
 - **`--workbook-name`**: 파일명으로 직접 접근, 경로 불필요
 - **워크북 연결 방법**: 옵션 없음(활성), `--file-path`(파일), `--workbook-name`(이름)
@@ -212,7 +298,7 @@ oa excel range-read --workbook-name "target.xlsx" --range "A1:C10"
 - **⚠️ 겹침 검사**: 지정된 위치의 충돌 여부를 사전 확인하여 경고 제공
 - **JSON 최적화**: 모든 출력이 AI 에이전트 파싱에 최적화
 - **한글 파일명 지원**: macOS에서 한글 자소분리 문제 자동 해결
-- **37개 Excel 명령어**: 워크북/시트/데이터/차트/피벗/도형/슬라이서 전체 지원
+- **39개 Excel 명령어**: 워크북/시트/데이터/차트/피벗/도형/슬라이서 전체 지원
 
 ## 📋 명령어 발견
 

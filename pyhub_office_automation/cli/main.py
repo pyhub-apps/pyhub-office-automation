@@ -35,6 +35,10 @@ from pyhub_office_automation.excel.chart_list import chart_list
 from pyhub_office_automation.excel.chart_pivot_create import chart_pivot_create
 from pyhub_office_automation.excel.chart_position import chart_position
 
+# Data 명령어 import (Issue #39)
+from pyhub_office_automation.excel.data_analyze import data_analyze
+from pyhub_office_automation.excel.data_transform import data_transform
+
 # Pivot 명령어 import
 from pyhub_office_automation.excel.pivot_configure import pivot_configure
 from pyhub_office_automation.excel.pivot_create import pivot_create
@@ -211,6 +215,10 @@ excel_app.command("range-read")(range_read)
 excel_app.command("range-write")(range_write)
 excel_app.command("range-convert")(range_convert)
 
+# Data Commands (Issue #39)
+excel_app.command("data-analyze")(data_analyze)
+excel_app.command("data-transform")(data_transform)
+
 # Workbook Commands
 excel_app.command("workbook-list")(workbook_list)
 excel_app.command("workbook-open")(workbook_open)
@@ -284,6 +292,9 @@ def excel_list_temp(
         {"name": "range-read", "description": "셀 범위 데이터 읽기", "category": "range"},
         {"name": "range-write", "description": "셀 범위에 데이터 쓰기", "category": "range"},
         {"name": "range-convert", "description": "셀 범위 데이터 형식 변환 (문자열 → 숫자)", "category": "range"},
+        # Data Commands (Issue #39)
+        {"name": "data-analyze", "description": "피벗테이블용 데이터 구조 분석", "category": "data"},
+        {"name": "data-transform", "description": "피벗테이블용 형식으로 데이터 변환", "category": "data"},
         # Table Commands
         {"name": "table-create", "description": "기존 범위를 Excel Table로 변환", "category": "table"},
         {"name": "table-list", "description": "워크북의 Excel Table 목록 조회", "category": "table"},

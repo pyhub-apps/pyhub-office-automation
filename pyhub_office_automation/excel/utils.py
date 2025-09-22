@@ -9,6 +9,7 @@ import io
 import json
 import os
 import platform
+import re
 import tempfile
 import time
 import unicodedata
@@ -16,6 +17,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+import pandas as pd
 import xlwings as xw
 
 from pyhub_office_automation.version import get_version
@@ -64,6 +66,28 @@ class ColorScheme(str, Enum):
     MONOCHROMATIC = "monochromatic"
     OFFICE = "office"
     GRAYSCALE = "grayscale"
+
+
+class DataTransformType(str, Enum):
+    """데이터 변환 타입 선택지"""
+
+    UNPIVOT = "unpivot"
+    UNMERGE = "unmerge"
+    FLATTEN_HEADERS = "flatten-headers"
+    REMOVE_SUBTOTALS = "remove-subtotals"
+    AUTO = "auto"
+
+
+class DataFormat(str, Enum):
+    """데이터 형식 타입 선택지"""
+
+    CROSS_TAB = "cross_tab"
+    WIDE_FORMAT = "wide_format"
+    MULTI_LEVEL_HEADERS = "multi_level_headers"
+    MERGED_CELLS = "merged_cells"
+    SUBTOTALS_MIXED = "subtotals_mixed"
+    PIVOT_READY = "pivot_ready"
+    UNKNOWN = "unknown"
 
 
 class DataLabelPosition(str, Enum):
@@ -1466,6 +1490,331 @@ def validate_auto_position_requirements(sheet: xw.Sheet) -> Tuple[bool, str]:
         return False, f"자동 배치 기능을 사용할 수 없습니다: {str(e)}"
 
 
+# =============================================================================
+# 데이터 분석 및 변환 유틸리티 함수들 (Issue #39)
+# =============================================================================
+
+
+def analyze_data_structure(data_range: xw.Range) -> Dict[str, Union[str, bool, int, float, List[str]]]:
+    """
+    Excel 데이터 구조를 분석하여 피벗테이블 준비 상태를 평가합니다.
+
+    Args:
+        data_range: 분석할 xlwings Range 객체
+
+    Returns:
+        분석 결과 딕셔너리
+    """
+    try:
+        # 데이터를 pandas DataFrame으로 변환
+        values = data_range.value
+        if not values:
+            return {
+                "format_type": DataFormat.UNKNOWN,
+                "issues": [],
+                "pivot_ready": False,
+                "transformation_needed": False,
+                "recommendations": ["데이터가 비어있습니다"],
+                "estimated_rows_after_transform": 0,
+                "confidence_score": 0.0,
+            }
+
+        # 데이터를 2차원 리스트로 정규화
+        if not isinstance(values, list):
+            values = [[values]]
+        elif not isinstance(values[0], list):
+            values = [values]
+
+        df = pd.DataFrame(
+            values[1:], columns=values[0] if len(values) > 1 else [f"Column_{i+1}" for i in range(len(values[0]))]
+        )
+
+        issues = []
+        recommendations = []
+        format_type = DataFormat.PIVOT_READY
+
+        # 1. 병합된 셀 감지 (빈 값이 많은 경우로 추정)
+        empty_ratio = df.isnull().sum().sum() / (df.shape[0] * df.shape[1])
+        if empty_ratio > 0.3:
+            issues.append("merged_cells")
+            recommendations.append("병합된 셀을 해제하고 값을 채워넣으세요")
+            format_type = DataFormat.MERGED_CELLS
+
+        # 2. 교차표 형식 감지 (숫자 열이 많고 첫 번째 열이 텍스트인 경우)
+        numeric_cols = df.select_dtypes(include=["number"]).columns
+        if len(numeric_cols) > 3 and df.shape[1] > 5:
+            # 첫 번째 열이 카테고리이고 나머지가 수치인 경우
+            first_col_categorical = pd.api.types.is_string_dtype(df.iloc[:, 0]) or pd.api.types.is_object_dtype(df.iloc[:, 0])
+            if first_col_categorical and len(numeric_cols) / df.shape[1] > 0.6:
+                issues.append("cross_tab")
+                recommendations.append(f"{df.columns[1:][:5].tolist()}... 열들을 세로 형식으로 변환하세요")
+                format_type = DataFormat.CROSS_TAB
+
+        # 3. 다단계 헤더 감지 (열 이름에 패턴이 있는 경우)
+        header_patterns = [col for col in df.columns if isinstance(col, str) and ("." in col or "_" in col or " - " in col)]
+        if len(header_patterns) > df.shape[1] * 0.5:
+            issues.append("multi_level_headers")
+            recommendations.append("다단계 헤더를 단일 헤더로 결합하세요")
+            format_type = DataFormat.MULTI_LEVEL_HEADERS
+
+        # 4. 소계 행 감지 (행에서 "총계", "소계", "합계" 등이 포함된 경우)
+        subtotal_keywords = ["총계", "소계", "합계", "Total", "Subtotal", "Sum"]
+        subtotal_rows = 0
+        for _, row in df.iterrows():
+            row_str = " ".join([str(val) for val in row.values if pd.notna(val)])
+            if any(keyword in row_str for keyword in subtotal_keywords):
+                subtotal_rows += 1
+
+        if subtotal_rows > 0:
+            issues.append("subtotals_mixed")
+            recommendations.append(f"소계 행 {subtotal_rows}개를 제거하세요")
+            format_type = DataFormat.SUBTOTALS_MIXED
+
+        # 5. 넓은 형식 감지 (동일한 지표가 여러 열에 반복되는 경우)
+        if df.shape[1] > 10:
+            # 열 이름에서 연도, 월, 분기 패턴 감지
+            date_patterns = [r"\d{4}", r"Q[1-4]", r"[1-9][0-2]?월", r"Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec"]
+            date_cols = []
+            for col in df.columns:
+                if isinstance(col, str) and any(re.search(pattern, col) for pattern in date_patterns):
+                    date_cols.append(col)
+
+            if len(date_cols) > 3:
+                issues.append("wide_format")
+                recommendations.append(f"날짜/기간 열들({len(date_cols)}개)을 하나의 기간 컬럼으로 변환하세요")
+                format_type = DataFormat.WIDE_FORMAT
+
+        # 피벗테이블 준비 상태 평가
+        pivot_ready = len(issues) == 0
+        transformation_needed = not pivot_ready
+
+        # 변환 후 예상 행 수 계산
+        estimated_rows = df.shape[0]
+        if "cross_tab" in issues or "wide_format" in issues:
+            # 교차표나 넓은 형식인 경우 행 수가 크게 증가
+            estimated_rows = df.shape[0] * max(len(numeric_cols), 1)
+
+        # 신뢰도 점수 계산 (문제가 적을수록 높음)
+        confidence_score = max(0.0, 1.0 - len(issues) * 0.2)
+
+        return {
+            "format_type": format_type.value,
+            "issues": issues,
+            "pivot_ready": pivot_ready,
+            "transformation_needed": transformation_needed,
+            "recommendations": recommendations,
+            "estimated_rows_after_transform": int(estimated_rows),
+            "confidence_score": round(confidence_score, 2),
+            "data_shape": {"rows": df.shape[0], "columns": df.shape[1]},
+            "ai_assistance_available": True,
+        }
+
+    except Exception as e:
+        return {
+            "format_type": DataFormat.UNKNOWN.value,
+            "issues": ["analysis_failed"],
+            "pivot_ready": False,
+            "transformation_needed": False,
+            "recommendations": [f"데이터 분석 중 오류 발생: {str(e)}"],
+            "estimated_rows_after_transform": 0,
+            "confidence_score": 0.0,
+            "ai_assistance_available": False,
+        }
+
+
+def transform_data_unpivot(df: pd.DataFrame, id_vars: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    교차표 형식 데이터를 세로 형식(unpivot)으로 변환합니다.
+
+    Args:
+        df: 변환할 pandas DataFrame
+        id_vars: 고정할 열 목록 (None이면 첫 번째 열 자동 선택)
+
+    Returns:
+        변환된 pandas DataFrame
+    """
+    try:
+        if id_vars is None:
+            # 첫 번째 열을 ID 변수로 사용
+            id_vars = [df.columns[0]]
+
+        # 수치형 열들을 찾아서 melt 대상으로 설정
+        numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
+        value_vars = [col for col in numeric_cols if col not in id_vars]
+
+        if not value_vars:
+            # 수치형 열이 없으면 ID 변수 외의 모든 열 사용
+            value_vars = [col for col in df.columns if col not in id_vars]
+
+        # pandas melt를 사용하여 unpivot
+        melted_df = pd.melt(df, id_vars=id_vars, value_vars=value_vars, var_name="변수", value_name="값")
+
+        # 빈 값 제거
+        melted_df = melted_df.dropna(subset=["값"])
+
+        return melted_df.reset_index(drop=True)
+
+    except Exception as e:
+        raise ValueError(f"Unpivot 변환 실패: {str(e)}")
+
+
+def transform_data_unmerge(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    병합된 셀로 인한 빈 값들을 앞의 값으로 채웁니다.
+
+    Args:
+        df: 변환할 pandas DataFrame
+
+    Returns:
+        변환된 pandas DataFrame
+    """
+    try:
+        # 모든 열에 대해 forward fill 적용
+        filled_df = df.fillna(method="ffill")
+
+        # 문자열 열의 경우 빈 문자열도 채우기
+        for col in filled_df.columns:
+            if filled_df[col].dtype == "object":
+                filled_df[col] = filled_df[col].replace("", None)
+                filled_df[col] = filled_df[col].fillna(method="ffill")
+
+        return filled_df.reset_index(drop=True)
+
+    except Exception as e:
+        raise ValueError(f"Unmerge 변환 실패: {str(e)}")
+
+
+def transform_data_flatten_headers(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    다단계 헤더를 단일 헤더로 결합합니다.
+
+    Args:
+        df: 변환할 pandas DataFrame
+
+    Returns:
+        변환된 pandas DataFrame
+    """
+    try:
+        # 열 이름을 단순화
+        new_columns = []
+        for col in df.columns:
+            if isinstance(col, str):
+                # 특수 문자를 언더스코어로 대체하고 단순화
+                simplified = re.sub(r"[^\w\s]", "_", col)
+                simplified = re.sub(r"\s+", "_", simplified)
+                simplified = re.sub(r"_+", "_", simplified).strip("_")
+                new_columns.append(simplified)
+            else:
+                new_columns.append(f"Column_{len(new_columns)+1}")
+
+        df.columns = new_columns
+        return df.reset_index(drop=True)
+
+    except Exception as e:
+        raise ValueError(f"Header 평탄화 실패: {str(e)}")
+
+
+def transform_data_remove_subtotals(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    소계 행들을 제거합니다.
+
+    Args:
+        df: 변환할 pandas DataFrame
+
+    Returns:
+        변환된 pandas DataFrame
+    """
+    try:
+        subtotal_keywords = ["총계", "소계", "합계", "Total", "Subtotal", "Sum", "계"]
+
+        # 소계 행 인덱스 찾기
+        rows_to_drop = []
+        for idx, row in df.iterrows():
+            row_str = " ".join([str(val) for val in row.values if pd.notna(val)])
+            if any(keyword in row_str for keyword in subtotal_keywords):
+                rows_to_drop.append(idx)
+
+        # 소계 행 제거
+        cleaned_df = df.drop(rows_to_drop)
+
+        return cleaned_df.reset_index(drop=True)
+
+    except Exception as e:
+        raise ValueError(f"소계 제거 실패: {str(e)}")
+
+
+def transform_data_auto(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
+    """
+    자동으로 모든 필요한 변환을 적용합니다.
+
+    Args:
+        df: 변환할 pandas DataFrame
+
+    Returns:
+        (변환된 DataFrame, 적용된 변환 목록) 튜플
+    """
+    try:
+        applied_transforms = []
+        result_df = df.copy()
+
+        # 1. 소계 제거 (먼저 수행)
+        subtotal_keywords = ["총계", "소계", "합계", "Total", "Subtotal", "Sum"]
+        subtotal_rows = 0
+        for _, row in result_df.iterrows():
+            row_str = " ".join([str(val) for val in row.values if pd.notna(val)])
+            if any(keyword in row_str for keyword in subtotal_keywords):
+                subtotal_rows += 1
+
+        if subtotal_rows > 0:
+            result_df = transform_data_remove_subtotals(result_df)
+            applied_transforms.append("remove-subtotals")
+
+        # 2. 병합된 셀 처리 (빈 값 비율 확인)
+        empty_ratio = result_df.isnull().sum().sum() / (result_df.shape[0] * result_df.shape[1])
+        if empty_ratio > 0.3:
+            result_df = transform_data_unmerge(result_df)
+            applied_transforms.append("unmerge")
+
+        # 3. 헤더 평탄화 (복잡한 열 이름 확인)
+        header_patterns = [
+            col for col in result_df.columns if isinstance(col, str) and ("." in col or "_" in col or " - " in col)
+        ]
+        if len(header_patterns) > result_df.shape[1] * 0.5:
+            result_df = transform_data_flatten_headers(result_df)
+            applied_transforms.append("flatten-headers")
+
+        # 4. Unpivot 변환 (교차표 또는 넓은 형식 감지)
+        numeric_cols = result_df.select_dtypes(include=["number"]).columns
+        should_unpivot = False
+
+        # 교차표 감지
+        if len(numeric_cols) > 3 and result_df.shape[1] > 5:
+            first_col_categorical = pd.api.types.is_string_dtype(result_df.iloc[:, 0]) or pd.api.types.is_object_dtype(
+                result_df.iloc[:, 0]
+            )
+            if first_col_categorical and len(numeric_cols) / result_df.shape[1] > 0.6:
+                should_unpivot = True
+
+        # 넓은 형식 감지 (날짜/기간 열들)
+        if result_df.shape[1] > 10:
+            date_patterns = [r"\d{4}", r"Q[1-4]", r"[1-9][0-2]?월", r"Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec"]
+            date_cols = []
+            for col in result_df.columns:
+                if isinstance(col, str) and any(re.search(pattern, col) for pattern in date_patterns):
+                    date_cols.append(col)
+            if len(date_cols) > 3:
+                should_unpivot = True
+
+        if should_unpivot:
+            result_df = transform_data_unpivot(result_df)
+            applied_transforms.append("unpivot")
+
+        return result_df, applied_transforms
+
+    except Exception as e:
+        raise ValueError(f"자동 변환 실패: {str(e)}")
+
+
 def get_shape_by_name(sheet: xw.Sheet, shape_name: str) -> Optional[xw.Shape]:
     """
     시트에서 이름으로 도형을 찾습니다.
@@ -2145,3 +2494,328 @@ def validate_auto_position_requirements(sheet: xw.Sheet) -> Tuple[bool, str]:
 
     except Exception as e:
         return False, f"자동 배치 기능을 사용할 수 없습니다: {str(e)}"
+
+
+# =============================================================================
+# 데이터 분석 및 변환 유틸리티 함수들 (Issue #39)
+# =============================================================================
+
+
+def analyze_data_structure(data_range: xw.Range) -> Dict[str, Union[str, bool, int, float, List[str]]]:
+    """
+    Excel 데이터 구조를 분석하여 피벗테이블 준비 상태를 평가합니다.
+
+    Args:
+        data_range: 분석할 xlwings Range 객체
+
+    Returns:
+        분석 결과 딕셔너리
+    """
+    try:
+        # 데이터를 pandas DataFrame으로 변환
+        values = data_range.value
+        if not values:
+            return {
+                "format_type": DataFormat.UNKNOWN,
+                "issues": [],
+                "pivot_ready": False,
+                "transformation_needed": False,
+                "recommendations": ["데이터가 비어있습니다"],
+                "estimated_rows_after_transform": 0,
+                "confidence_score": 0.0,
+            }
+
+        # 데이터를 2차원 리스트로 정규화
+        if not isinstance(values, list):
+            values = [[values]]
+        elif not isinstance(values[0], list):
+            values = [values]
+
+        df = pd.DataFrame(
+            values[1:], columns=values[0] if len(values) > 1 else [f"Column_{i+1}" for i in range(len(values[0]))]
+        )
+
+        issues = []
+        recommendations = []
+        format_type = DataFormat.PIVOT_READY
+
+        # 1. 병합된 셀 감지 (빈 값이 많은 경우로 추정)
+        empty_ratio = df.isnull().sum().sum() / (df.shape[0] * df.shape[1])
+        if empty_ratio > 0.3:
+            issues.append("merged_cells")
+            recommendations.append("병합된 셀을 해제하고 값을 채워넣으세요")
+            format_type = DataFormat.MERGED_CELLS
+
+        # 2. 교차표 형식 감지 (숫자 열이 많고 첫 번째 열이 텍스트인 경우)
+        numeric_cols = df.select_dtypes(include=["number"]).columns
+        if len(numeric_cols) > 3 and df.shape[1] > 5:
+            # 첫 번째 열이 카테고리이고 나머지가 수치인 경우
+            first_col_categorical = pd.api.types.is_string_dtype(df.iloc[:, 0]) or pd.api.types.is_object_dtype(df.iloc[:, 0])
+            if first_col_categorical and len(numeric_cols) / df.shape[1] > 0.6:
+                issues.append("cross_tab")
+                recommendations.append(f"{df.columns[1:][:5].tolist()}... 열들을 세로 형식으로 변환하세요")
+                format_type = DataFormat.CROSS_TAB
+
+        # 3. 다단계 헤더 감지 (열 이름에 패턴이 있는 경우)
+        header_patterns = [col for col in df.columns if isinstance(col, str) and ("." in col or "_" in col or " - " in col)]
+        if len(header_patterns) > df.shape[1] * 0.5:
+            issues.append("multi_level_headers")
+            recommendations.append("다단계 헤더를 단일 헤더로 결합하세요")
+            format_type = DataFormat.MULTI_LEVEL_HEADERS
+
+        # 4. 소계 행 감지 (행에서 "총계", "소계", "합계" 등이 포함된 경우)
+        subtotal_keywords = ["총계", "소계", "합계", "Total", "Subtotal", "Sum"]
+        subtotal_rows = 0
+        for _, row in df.iterrows():
+            row_str = " ".join([str(val) for val in row.values if pd.notna(val)])
+            if any(keyword in row_str for keyword in subtotal_keywords):
+                subtotal_rows += 1
+
+        if subtotal_rows > 0:
+            issues.append("subtotals_mixed")
+            recommendations.append(f"소계 행 {subtotal_rows}개를 제거하세요")
+            format_type = DataFormat.SUBTOTALS_MIXED
+
+        # 5. 넓은 형식 감지 (동일한 지표가 여러 열에 반복되는 경우)
+        if df.shape[1] > 10:
+            # 열 이름에서 연도, 월, 분기 패턴 감지
+            date_patterns = [r"\d{4}", r"Q[1-4]", r"[1-9][0-2]?월", r"Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec"]
+            date_cols = []
+            for col in df.columns:
+                if isinstance(col, str) and any(re.search(pattern, col) for pattern in date_patterns):
+                    date_cols.append(col)
+
+            if len(date_cols) > 3:
+                issues.append("wide_format")
+                recommendations.append(f"날짜/기간 열들({len(date_cols)}개)을 하나의 기간 컬럼으로 변환하세요")
+                format_type = DataFormat.WIDE_FORMAT
+
+        # 피벗테이블 준비 상태 평가
+        pivot_ready = len(issues) == 0
+        transformation_needed = not pivot_ready
+
+        # 변환 후 예상 행 수 계산
+        estimated_rows = df.shape[0]
+        if "cross_tab" in issues or "wide_format" in issues:
+            # 교차표나 넓은 형식인 경우 행 수가 크게 증가
+            estimated_rows = df.shape[0] * max(len(numeric_cols), 1)
+
+        # 신뢰도 점수 계산 (문제가 적을수록 높음)
+        confidence_score = max(0.0, 1.0 - len(issues) * 0.2)
+
+        return {
+            "format_type": format_type.value,
+            "issues": issues,
+            "pivot_ready": pivot_ready,
+            "transformation_needed": transformation_needed,
+            "recommendations": recommendations,
+            "estimated_rows_after_transform": int(estimated_rows),
+            "confidence_score": round(confidence_score, 2),
+            "data_shape": {"rows": df.shape[0], "columns": df.shape[1]},
+            "ai_assistance_available": True,
+        }
+
+    except Exception as e:
+        return {
+            "format_type": DataFormat.UNKNOWN.value,
+            "issues": ["analysis_failed"],
+            "pivot_ready": False,
+            "transformation_needed": False,
+            "recommendations": [f"데이터 분석 중 오류 발생: {str(e)}"],
+            "estimated_rows_after_transform": 0,
+            "confidence_score": 0.0,
+            "ai_assistance_available": False,
+        }
+
+
+def transform_data_unpivot(df: pd.DataFrame, id_vars: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    교차표 형식 데이터를 세로 형식(unpivot)으로 변환합니다.
+
+    Args:
+        df: 변환할 pandas DataFrame
+        id_vars: 고정할 열 목록 (None이면 첫 번째 열 자동 선택)
+
+    Returns:
+        변환된 pandas DataFrame
+    """
+    try:
+        if id_vars is None:
+            # 첫 번째 열을 ID 변수로 사용
+            id_vars = [df.columns[0]]
+
+        # 수치형 열들을 찾아서 melt 대상으로 설정
+        numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
+        value_vars = [col for col in numeric_cols if col not in id_vars]
+
+        if not value_vars:
+            # 수치형 열이 없으면 ID 변수 외의 모든 열 사용
+            value_vars = [col for col in df.columns if col not in id_vars]
+
+        # pandas melt를 사용하여 unpivot
+        melted_df = pd.melt(df, id_vars=id_vars, value_vars=value_vars, var_name="변수", value_name="값")
+
+        # 빈 값 제거
+        melted_df = melted_df.dropna(subset=["값"])
+
+        return melted_df.reset_index(drop=True)
+
+    except Exception as e:
+        raise ValueError(f"Unpivot 변환 실패: {str(e)}")
+
+
+def transform_data_unmerge(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    병합된 셀로 인한 빈 값들을 앞의 값으로 채웁니다.
+
+    Args:
+        df: 변환할 pandas DataFrame
+
+    Returns:
+        변환된 pandas DataFrame
+    """
+    try:
+        # 모든 열에 대해 forward fill 적용
+        filled_df = df.fillna(method="ffill")
+
+        # 문자열 열의 경우 빈 문자열도 채우기
+        for col in filled_df.columns:
+            if filled_df[col].dtype == "object":
+                filled_df[col] = filled_df[col].replace("", None)
+                filled_df[col] = filled_df[col].fillna(method="ffill")
+
+        return filled_df.reset_index(drop=True)
+
+    except Exception as e:
+        raise ValueError(f"Unmerge 변환 실패: {str(e)}")
+
+
+def transform_data_flatten_headers(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    다단계 헤더를 단일 헤더로 결합합니다.
+
+    Args:
+        df: 변환할 pandas DataFrame
+
+    Returns:
+        변환된 pandas DataFrame
+    """
+    try:
+        # 열 이름을 단순화
+        new_columns = []
+        for col in df.columns:
+            if isinstance(col, str):
+                # 특수 문자를 언더스코어로 대체하고 단순화
+                simplified = re.sub(r"[^\w\s]", "_", col)
+                simplified = re.sub(r"\s+", "_", simplified)
+                simplified = re.sub(r"_+", "_", simplified).strip("_")
+                new_columns.append(simplified)
+            else:
+                new_columns.append(f"Column_{len(new_columns)+1}")
+
+        df.columns = new_columns
+        return df.reset_index(drop=True)
+
+    except Exception as e:
+        raise ValueError(f"Header 평탄화 실패: {str(e)}")
+
+
+def transform_data_remove_subtotals(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    소계 행들을 제거합니다.
+
+    Args:
+        df: 변환할 pandas DataFrame
+
+    Returns:
+        변환된 pandas DataFrame
+    """
+    try:
+        subtotal_keywords = ["총계", "소계", "합계", "Total", "Subtotal", "Sum", "계"]
+
+        # 소계 행 인덱스 찾기
+        rows_to_drop = []
+        for idx, row in df.iterrows():
+            row_str = " ".join([str(val) for val in row.values if pd.notna(val)])
+            if any(keyword in row_str for keyword in subtotal_keywords):
+                rows_to_drop.append(idx)
+
+        # 소계 행 제거
+        cleaned_df = df.drop(rows_to_drop)
+
+        return cleaned_df.reset_index(drop=True)
+
+    except Exception as e:
+        raise ValueError(f"소계 제거 실패: {str(e)}")
+
+
+def transform_data_auto(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
+    """
+    자동으로 모든 필요한 변환을 적용합니다.
+
+    Args:
+        df: 변환할 pandas DataFrame
+
+    Returns:
+        (변환된 DataFrame, 적용된 변환 목록) 튜플
+    """
+    try:
+        applied_transforms = []
+        result_df = df.copy()
+
+        # 1. 소계 제거 (먼저 수행)
+        subtotal_keywords = ["총계", "소계", "합계", "Total", "Subtotal", "Sum"]
+        subtotal_rows = 0
+        for _, row in result_df.iterrows():
+            row_str = " ".join([str(val) for val in row.values if pd.notna(val)])
+            if any(keyword in row_str for keyword in subtotal_keywords):
+                subtotal_rows += 1
+
+        if subtotal_rows > 0:
+            result_df = transform_data_remove_subtotals(result_df)
+            applied_transforms.append("remove-subtotals")
+
+        # 2. 병합된 셀 처리 (빈 값 비율 확인)
+        empty_ratio = result_df.isnull().sum().sum() / (result_df.shape[0] * result_df.shape[1])
+        if empty_ratio > 0.3:
+            result_df = transform_data_unmerge(result_df)
+            applied_transforms.append("unmerge")
+
+        # 3. 헤더 평탄화 (복잡한 열 이름 확인)
+        header_patterns = [
+            col for col in result_df.columns if isinstance(col, str) and ("." in col or "_" in col or " - " in col)
+        ]
+        if len(header_patterns) > result_df.shape[1] * 0.5:
+            result_df = transform_data_flatten_headers(result_df)
+            applied_transforms.append("flatten-headers")
+
+        # 4. Unpivot 변환 (교차표 또는 넓은 형식 감지)
+        numeric_cols = result_df.select_dtypes(include=["number"]).columns
+        should_unpivot = False
+
+        # 교차표 감지
+        if len(numeric_cols) > 3 and result_df.shape[1] > 5:
+            first_col_categorical = pd.api.types.is_string_dtype(result_df.iloc[:, 0]) or pd.api.types.is_object_dtype(
+                result_df.iloc[:, 0]
+            )
+            if first_col_categorical and len(numeric_cols) / result_df.shape[1] > 0.6:
+                should_unpivot = True
+
+        # 넓은 형식 감지 (날짜/기간 열들)
+        if result_df.shape[1] > 10:
+            date_patterns = [r"\d{4}", r"Q[1-4]", r"[1-9][0-2]?월", r"Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec"]
+            date_cols = []
+            for col in result_df.columns:
+                if isinstance(col, str) and any(re.search(pattern, col) for pattern in date_patterns):
+                    date_cols.append(col)
+            if len(date_cols) > 3:
+                should_unpivot = True
+
+        if should_unpivot:
+            result_df = transform_data_unpivot(result_df)
+            applied_transforms.append("unpivot")
+
+        return result_df, applied_transforms
+
+    except Exception as e:
+        raise ValueError(f"자동 변환 실패: {str(e)}")
