@@ -747,6 +747,28 @@ def get_workbook_by_name(workbook_name: str) -> xw.Book:
             raise RuntimeError(f"워크북 검색 중 오류 발생: {str(e)}")
 
 
+def get_chart_com_object(chart):
+    """
+    차트 객체에서 실제 Chart COM 객체를 안전하게 가져옵니다.
+
+    xlwings의 chart.api는 때때로 튜플을 반환합니다:
+    - chart.api[0]: ChartObject (차트 컨테이너)
+    - chart.api[1]: Chart (실제 차트 객체)
+
+    Args:
+        chart: xlwings Chart 객체
+
+    Returns:
+        실제 Chart COM 객체
+    """
+    if isinstance(chart.api, tuple):
+        # 튜플인 경우 두 번째 요소가 실제 Chart 객체
+        return chart.api[1]
+    else:
+        # 튜플이 아닌 경우 그대로 반환
+        return chart.api
+
+
 def get_or_open_workbook(
     file_path: Optional[str] = None, workbook_name: Optional[str] = None, use_active: bool = False, visible: bool = True
 ) -> xw.Book:

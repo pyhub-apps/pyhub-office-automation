@@ -25,6 +25,7 @@ from .utils import (
     find_available_position,
     get_all_chart_ranges,
     get_all_pivot_ranges,
+    get_chart_com_object,
     get_or_open_workbook,
     get_range,
     get_sheet,
@@ -381,9 +382,12 @@ def chart_add(
 
             # 차트 타입 설정
             try:
+                # 실제 Chart COM 객체 가져오기
+                chart_com = get_chart_com_object(chart)
+
                 if platform.system() == "Windows":
                     # Windows에서는 API를 통해 직접 설정
-                    chart.api.ChartType = chart_type_const
+                    chart_com.ChartType = chart_type_const
                 else:
                     # macOS에서는 chart_type 속성 사용 (제한적)
                     chart.chart_type = chart_type_const
@@ -403,8 +407,10 @@ def chart_add(
         # 차트 제목 설정
         if title:
             try:
-                chart.api.HasTitle = True
-                chart.api.ChartTitle.Text = title
+                # 실제 Chart COM 객체 가져오기
+                chart_com = get_chart_com_object(chart)
+                chart_com.HasTitle = True
+                chart_com.ChartTitle.Text = title
             except:
                 # 제목 설정 실패해도 계속 진행
                 pass
@@ -412,35 +418,46 @@ def chart_add(
         # 차트 스타일 설정 (Windows에서만 가능)
         if style and platform.system() == "Windows":
             try:
-                chart.api.ChartStyle = style
+                # 실제 Chart COM 객체 가져오기
+                chart_com = get_chart_com_object(chart)
+                chart_com.ChartStyle = style
             except:
                 pass
 
         # 범례 위치 설정
         if legend_position:
             try:
-                if legend_position == LegendPosition.NONE:
-                    chart.api.HasLegend = False
-                else:
-                    chart.api.HasLegend = True
-                    if platform.system() == "Windows":
-                        from xlwings.constants import LegendPosition
+                # 실제 Chart COM 객체 가져오기
+                chart_com = get_chart_com_object(chart)
 
+                # legend_position을 문자열로 정규화
+                if hasattr(legend_position, 'value'):
+                    position_str = legend_position.value
+                else:
+                    position_str = str(legend_position).lower()
+
+                if position_str == "none":
+                    chart_com.HasLegend = False
+                else:
+                    chart_com.HasLegend = True
+                    if platform.system() == "Windows":
                         legend_map = {
-                            "top": LegendPosition.xlLegendPositionTop,
-                            "bottom": LegendPosition.xlLegendPositionBottom,
-                            "left": LegendPosition.xlLegendPositionLeft,
-                            "right": LegendPosition.xlLegendPositionRight,
+                            "top": -4160,  # xlLegendPositionTop
+                            "bottom": -4107,  # xlLegendPositionBottom
+                            "left": -4131,  # xlLegendPositionLeft
+                            "right": -4152,  # xlLegendPositionRight
                         }
-                        if legend_position in legend_map:
-                            chart.api.Legend.Position = legend_map[legend_position]
+                        if position_str in legend_map:
+                            chart_com.Legend.Position = legend_map[position_str]
             except:
                 pass
 
         # 데이터 레이블 표시
         if show_data_labels and platform.system() == "Windows":
             try:
-                chart.api.FullSeriesCollection(1).HasDataLabels = True
+                # 실제 Chart COM 객체 가져오기
+                chart_com = get_chart_com_object(chart)
+                chart_com.FullSeriesCollection(1).HasDataLabels = True
             except:
                 pass
 

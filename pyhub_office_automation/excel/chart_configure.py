@@ -20,6 +20,7 @@ from .utils import (
     OutputFormat,
     create_error_response,
     create_success_response,
+    get_chart_com_object,
     get_or_open_workbook,
     get_sheet,
     normalize_path,
@@ -54,7 +55,9 @@ def set_chart_style(chart, style_number):
 
     try:
         if 1 <= style_number <= 48:
-            chart.api.ChartStyle = style_number
+            # 실제 Chart COM 객체 가져오기
+            chart_com = get_chart_com_object(chart)
+            chart_com.ChartStyle = style_number
             return True
         else:
             raise ValueError("차트 스타일은 1-48 범위여야 합니다")
@@ -65,43 +68,32 @@ def set_chart_style(chart, style_number):
 def set_legend_position(chart, position):
     """범례 위치 설정"""
     try:
-        if position == LegendPosition.NONE:
-            chart.api.HasLegend = False
+        # 실제 Chart COM 객체 가져오기
+        chart_com = get_chart_com_object(chart)
+
+        # position을 문자열로 정규화 (enum 또는 string 모두 처리)
+        if hasattr(position, 'value'):
+            position_str = position.value
+        else:
+            position_str = str(position).lower()
+
+        if position_str == "none":
+            chart_com.HasLegend = False
             return True
 
-        chart.api.HasLegend = True
+        chart_com.HasLegend = True
 
         if platform.system() == "Windows":
-            # LegendPosition 상수값 직접 사용
+            # 문자열 기반 매핑으로 변경
             position_map = {
-                LegendPosition.TOP: -4160,  # xlLegendPositionTop
-                LegendPosition.BOTTOM: -4107,  # xlLegendPositionBottom
-                LegendPosition.LEFT: -4152,  # xlLegendPositionLeft
-                LegendPosition.RIGHT: -4161,  # xlLegendPositionRight
+                "top": -4160,  # xlLegendPositionTop
+                "bottom": -4107,  # xlLegendPositionBottom
+                "left": -4131,  # xlLegendPositionLeft
+                "right": -4152,  # xlLegendPositionRight
             }
 
-            if position in position_map:
-                try:
-                    # xlwings 상수 시도
-                    from xlwings.constants import LegendPosition as XlLegendPosition
-
-                    const_map = {
-                        -4160: "xlLegendPositionTop",
-                        -4107: "xlLegendPositionBottom",
-                        -4152: "xlLegendPositionLeft",
-                        -4161: "xlLegendPositionRight",
-                    }
-                    position_value = position_map[position]
-                    const_name = const_map.get(position_value)
-
-                    if const_name and hasattr(LegendPosition, const_name):
-                        chart.api.Legend.Position = getattr(LegendPosition, const_name)
-                    else:
-                        # 상수를 찾을 수 없으면 숫자값 직접 사용
-                        chart.api.Legend.Position = position_value
-                except ImportError:
-                    # LegendPosition을 가져올 수 없으면 숫자값 직접 사용
-                    chart.api.Legend.Position = position_map[position]
+            if position_str in position_map:
+                chart_com.Legend.Position = position_map[position_str]
                 return True
 
         return False
@@ -113,18 +105,21 @@ def set_axis_titles(chart, x_title=None, y_title=None):
     """축 제목 설정 (Windows에서 더 안정적)"""
     results = {"x_axis": False, "y_axis": False}
 
+    # 실제 Chart COM 객체 가져오기
+    chart_com = get_chart_com_object(chart)
+
     try:
         if x_title:
-            chart.api.Axes(1).HasTitle = True  # 1 = X축
-            chart.api.Axes(1).AxisTitle.Text = x_title
+            chart_com.Axes(1).HasTitle = True  # 1 = X축
+            chart_com.Axes(1).AxisTitle.Text = x_title
             results["x_axis"] = True
     except Exception:
         pass
 
     try:
         if y_title:
-            chart.api.Axes(2).HasTitle = True  # 2 = Y축
-            chart.api.Axes(2).AxisTitle.Text = y_title
+            chart_com.Axes(2).HasTitle = True  # 2 = Y축
+            chart_com.Axes(2).AxisTitle.Text = y_title
             results["y_axis"] = True
     except Exception:
         pass
@@ -136,12 +131,21 @@ def set_data_labels(chart, show_labels, label_position=None):
     """데이터 레이블 설정"""
     try:
         if platform.system() == "Windows":
-            series_collection = chart.api.FullSeriesCollection()
+            # 실제 Chart COM 객체 가져오기
+            chart_com = get_chart_com_object(chart)
+
+            series_collection = chart_com.FullSeriesCollection()
             for i in range(1, series_collection.Count + 1):
                 series = series_collection(i)
                 series.HasDataLabels = show_labels
 
                 if show_labels and label_position:
+                    # label_position을 문자열로 정규화
+                    if hasattr(label_position, 'value'):
+                        position_str = label_position.value
+                    else:
+                        position_str = str(label_position).lower()
+
                     # 레이블 위치 설정 (Windows 전용) - 상수값 직접 사용
                     position_map = {
                         "center": -4108,  # xlLabelPositionCenter
@@ -153,31 +157,9 @@ def set_data_labels(chart, show_labels, label_position=None):
                         "inside": -4112,  # xlLabelPositionInsideEnd
                     }
 
-                    if label_position in position_map:
+                    if position_str in position_map:
                         try:
-                            # xlwings 상수 시도
-                            from xlwings.constants import DataLabelPosition
-
-                            const_map = {
-                                -4108: "xlLabelPositionCenter",
-                                -4117: "xlLabelPositionAbove",
-                                -4107: "xlLabelPositionBelow",
-                                -4131: "xlLabelPositionLeft",
-                                -4152: "xlLabelPositionRight",
-                                -4114: "xlLabelPositionOutsideEnd",
-                                -4112: "xlLabelPositionInsideEnd",
-                            }
-                            position_value = position_map[label_position]
-                            const_name = const_map.get(position_value)
-
-                            if const_name and hasattr(DataLabelPosition, const_name):
-                                series.DataLabels().Position = getattr(DataLabelPosition, const_name)
-                            else:
-                                # 상수를 찾을 수 없으면 숫자값 직접 사용
-                                series.DataLabels().Position = position_value
-                        except ImportError:
-                            # DataLabelPosition을 가져올 수 없으면 숫자값 직접 사용
-                            series.DataLabels().Position = position_map[label_position]
+                            series.DataLabels().Position = position_map[position_str]
                         except:
                             pass
 
@@ -193,16 +175,25 @@ def set_chart_colors(chart, color_scheme):
     """차트 색상 테마 설정 (Windows에서 더 많은 옵션)"""
     try:
         if platform.system() == "Windows":
+            # 실제 Chart COM 객체 가져오기
+            chart_com = get_chart_com_object(chart)
+
+            # color_scheme을 문자열로 정규화
+            if hasattr(color_scheme, 'value'):
+                scheme_str = color_scheme.value
+            else:
+                scheme_str = str(color_scheme).lower()
+
             # 색상 스키마 적용
             color_schemes = {
-                ColorScheme.COLORFUL: 2,
-                ColorScheme.MONOCHROMATIC: 3,
-                ColorScheme.OFFICE: 1,
-                ColorScheme.GRAYSCALE: 4,
+                "colorful": 2,
+                "monochromatic": 3,
+                "office": 1,
+                "grayscale": 4,
             }
 
-            if color_scheme in color_schemes:
-                chart.api.ChartColorIndex = color_schemes[color_scheme]
+            if scheme_str in color_schemes:
+                chart_com.ChartColorIndex = color_schemes[scheme_str]
                 return True
 
         return False
@@ -311,8 +302,10 @@ def chart_configure(
         # 차트 제목 설정
         if title:
             try:
-                chart.api.HasTitle = True
-                chart.api.ChartTitle.Text = title
+                # 실제 Chart COM 객체 가져오기
+                chart_com = get_chart_com_object(chart)
+                chart_com.HasTitle = True
+                chart_com.ChartTitle.Text = title
                 configuration_results["applied_settings"]["title"] = title
             except Exception as e:
                 configuration_results["failed_settings"]["title"] = str(e)
@@ -367,8 +360,10 @@ def chart_configure(
         if transparent_bg:
             try:
                 if platform.system() == "Windows":
-                    chart.api.PlotArea.Format.Fill.Transparency = 1.0
-                    chart.api.ChartArea.Format.Fill.Transparency = 1.0
+                    # 실제 Chart COM 객체 가져오기
+                    chart_com = get_chart_com_object(chart)
+                    chart_com.PlotArea.Format.Fill.Transparency = 1.0
+                    chart_com.ChartArea.Format.Fill.Transparency = 1.0
                     configuration_results["applied_settings"]["transparent_background"] = True
                 else:
                     configuration_results["failed_settings"]["transparent_background"] = "macOS에서는 지원되지 않음"

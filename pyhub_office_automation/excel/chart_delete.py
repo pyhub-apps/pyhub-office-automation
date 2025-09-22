@@ -13,7 +13,14 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import create_error_response, create_success_response, get_or_open_workbook, get_sheet, normalize_path
+from .utils import (
+    create_error_response,
+    create_success_response,
+    get_chart_com_object,
+    get_or_open_workbook,
+    get_sheet,
+    normalize_path,
+)
 
 
 def find_chart_by_name_or_index(sheet, chart_name=None, chart_index=None):
@@ -49,7 +56,9 @@ def get_chart_info_before_deletion(chart):
         # 차트 타입 정보 (가능한 경우)
         try:
             if platform.system() == "Windows":
-                chart_type_value = chart.api.ChartType
+                # 실제 Chart COM 객체 가져오기
+                chart_com = get_chart_com_object(chart)
+                chart_type_value = chart_com.ChartType
                 # 간단한 차트 타입 매핑
                 type_map = {
                     51: "column_clustered",
@@ -69,8 +78,10 @@ def get_chart_info_before_deletion(chart):
 
         # 차트 제목 (가능한 경우)
         try:
-            if hasattr(chart, "api") and chart.api.HasTitle:
-                chart_info["title"] = chart.api.ChartTitle.Text
+            # 실제 Chart COM 객체 가져오기
+            chart_com = get_chart_com_object(chart)
+            if chart_com.HasTitle:
+                chart_info["title"] = chart_com.ChartTitle.Text
         except:
             chart_info["title"] = None
 

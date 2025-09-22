@@ -14,7 +14,14 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import create_error_response, create_success_response, get_or_open_workbook, get_sheet, normalize_path
+from .utils import (
+    create_error_response,
+    create_success_response,
+    get_chart_com_object,
+    get_or_open_workbook,
+    get_sheet,
+    normalize_path,
+)
 
 
 def find_chart_by_name_or_index(sheet, chart_name=None, chart_index=None):
@@ -113,8 +120,10 @@ def get_chart_export_info(chart):
 
         # 차트 제목 (가능한 경우)
         try:
-            if hasattr(chart, "api") and chart.api.HasTitle:
-                chart_info["title"] = chart.api.ChartTitle.Text
+            # 실제 Chart COM 객체 가져오기
+            chart_com = get_chart_com_object(chart)
+            if chart_com.HasTitle:
+                chart_info["title"] = chart_com.ChartTitle.Text
         except:
             chart_info["title"] = None
 
@@ -321,18 +330,25 @@ def chart_export(
                     # 투명 배경 설정 (PNG에서만)
                     if transparent_bg and image_format.lower() == "png":
                         try:
-                            chart.api.ChartArea.Format.Fill.Transparency = 1.0
-                            chart.api.PlotArea.Format.Fill.Transparency = 1.0
+                            # 실제 Chart COM 객체 가져오기
+                            chart_com = get_chart_com_object(chart)
+                            chart_com.ChartArea.Format.Fill.Transparency = 1.0
+                            chart_com.PlotArea.Format.Fill.Transparency = 1.0
                         except:
                             pass  # 투명 배경 설정 실패해도 계속 진행
 
                     # Export 메서드 사용
-                    chart.api.Export(str(validated_output_path), FilterName=image_format.upper())
+                    # 실제 Chart COM 객체 가져오기 (위에서 이미 했다면 생략 가능)
+                    if 'chart_com' not in locals():
+                        chart_com = get_chart_com_object(chart)
+                    chart_com.Export(str(validated_output_path), FilterName=image_format.upper())
 
                 except Exception as e:
                     # Export 실패 시 다른 방법 시도
                     try:
-                        chart.api.ChartArea.Copy()
+                        if 'chart_com' not in locals():
+                            chart_com = get_chart_com_object(chart)
+                        chart_com.ChartArea.Copy()
                         # 클립보드에서 이미지 저장은 복잡하므로 여기서는 에러 발생
                         raise RuntimeError(f"차트 내보내기 실패: {str(e)}")
                     except:
@@ -342,7 +358,9 @@ def chart_export(
                 # macOS에서는 xlwings 기본 기능 사용
                 try:
                     # macOS에서는 제한적인 내보내기 지원
-                    chart.api.Export(str(validated_output_path))
+                    # 실제 Chart COM 객체 가져오기
+                    chart_com = get_chart_com_object(chart)
+                    chart_com.Export(str(validated_output_path))
                 except Exception as e:
                     raise RuntimeError(f"macOS에서 차트 내보내기 실패: {str(e)}. 일부 기능은 Windows에서만 지원됩니다.")
 
