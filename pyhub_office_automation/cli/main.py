@@ -66,6 +66,9 @@ from pyhub_office_automation.excel.slicer_position import slicer_position
 from pyhub_office_automation.excel.table_create import table_create
 from pyhub_office_automation.excel.table_list import table_list
 from pyhub_office_automation.excel.table_read import table_read
+from pyhub_office_automation.excel.table_sort import table_sort
+from pyhub_office_automation.excel.table_sort_clear import table_sort_clear
+from pyhub_office_automation.excel.table_sort_info import table_sort_info
 from pyhub_office_automation.excel.table_write import table_write
 from pyhub_office_automation.excel.textbox_add import textbox_add
 from pyhub_office_automation.excel.workbook_create import workbook_create
@@ -224,6 +227,9 @@ excel_app.command("sheet-rename")(sheet_rename)
 excel_app.command("table-create")(table_create)
 excel_app.command("table-list")(table_list)
 excel_app.command("table-read")(table_read)
+excel_app.command("table-sort")(table_sort)
+excel_app.command("table-sort-clear")(table_sort_clear)
+excel_app.command("table-sort-info")(table_sort_info)
 excel_app.command("table-write")(table_write)
 
 # Chart Commands
@@ -282,6 +288,9 @@ def excel_list_temp(
         {"name": "table-create", "description": "기존 범위를 Excel Table로 변환", "category": "table"},
         {"name": "table-list", "description": "워크북의 Excel Table 목록 조회", "category": "table"},
         {"name": "table-read", "description": "테이블 데이터를 DataFrame으로 읽기", "category": "table"},
+        {"name": "table-sort", "description": "테이블 정렬 적용", "category": "table"},
+        {"name": "table-sort-clear", "description": "테이블 정렬 해제", "category": "table"},
+        {"name": "table-sort-info", "description": "테이블 정렬 상태 확인", "category": "table"},
         {"name": "table-write", "description": "DataFrame을 Excel 테이블로 쓰기 (선택적 Table 생성)", "category": "table"},
         # Chart Commands
         {"name": "chart-add", "description": "차트 추가", "category": "chart"},
