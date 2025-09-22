@@ -7,7 +7,9 @@ import threading
 from typing import Any, Callable, Optional, Tuple
 
 
-def execute_with_timeout(func: Callable, args: tuple = (), kwargs: dict = None, timeout: int = 10) -> Tuple[bool, Any, Optional[str]]:
+def execute_with_timeout(
+    func: Callable, args: tuple = (), kwargs: dict = None, timeout: int = 10
+) -> Tuple[bool, Any, Optional[str]]:
     """
     함수를 타임아웃과 함께 실행합니다.
 
@@ -64,6 +66,7 @@ def try_pivot_layout_connection(chart, pivot_table, timeout: int = 10) -> Tuple[
     Returns:
         (success: bool, error_msg: Optional[str])
     """
+
     def set_pivot_layout():
         chart.PivotLayout.PivotTable = pivot_table
         return True

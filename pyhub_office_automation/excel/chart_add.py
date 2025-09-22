@@ -431,7 +431,7 @@ def chart_add(
                 chart_com = get_chart_com_object(chart)
 
                 # legend_position을 문자열로 정규화
-                if hasattr(legend_position, 'value'):
+                if hasattr(legend_position, "value"):
                     position_str = legend_position.value
                 else:
                     position_str = str(legend_position).lower()

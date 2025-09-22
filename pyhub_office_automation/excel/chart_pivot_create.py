@@ -131,7 +131,9 @@ def chart_pivot_create(
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
     save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)"),
     skip_pivot_link: bool = typer.Option(False, "--skip-pivot-link", help="피벗차트 연결 건너뛰기 (타임아웃 문제 회피용)"),
-    fallback_to_static: bool = typer.Option(True, "--fallback-to-static", help="피벗차트 연결 실패 시 정적 차트로 자동 전환 (기본값: True)"),
+    fallback_to_static: bool = typer.Option(
+        True, "--fallback-to-static", help="피벗차트 연결 실패 시 정적 차트로 자동 전환 (기본값: True)"
+    ),
     pivot_timeout: int = typer.Option(10, "--pivot-timeout", help="피벗차트 연결 타임아웃 시간 (초, 기본값: 10)"),
 ):
     """
@@ -307,9 +309,7 @@ def chart_pivot_create(
 
             if not skip_pivot_link:
                 # 피벗차트 연결 시도 (타임아웃 처리 포함)
-                success, error_msg = try_pivot_layout_connection(
-                    chart, pivot_table, timeout=pivot_timeout
-                )
+                success, error_msg = try_pivot_layout_connection(chart, pivot_table, timeout=pivot_timeout)
 
                 if success:
                     is_dynamic_pivot = True
@@ -395,7 +395,9 @@ def chart_pivot_create(
 
         if pivot_link_warning:
             response_data["warning"] = pivot_link_warning
-            response_data["alternative"] = "피벗테이블 데이터 변경 시 차트를 수동으로 새로고침하거나, 'oa excel chart-add' 명령어 사용을 고려하세요."
+            response_data["alternative"] = (
+                "피벗테이블 데이터 변경 시 차트를 수동으로 새로고침하거나, 'oa excel chart-add' 명령어 사용을 고려하세요."
+            )
 
         response = create_success_response(
             data=response_data, command="chart-pivot-create", message=f"피벗차트 '{chart_name}'이 성공적으로 생성되었습니다"

@@ -18,11 +18,11 @@ from .utils import (
     ExecutionTimer,
     create_error_response,
     create_success_response,
-    get_or_open_workbook,
-    normalize_path,
     get_charts_summary,
+    get_or_open_workbook,
     get_pivots_summary,
-    get_slicers_summary
+    get_slicers_summary,
+    normalize_path,
 )
 
 

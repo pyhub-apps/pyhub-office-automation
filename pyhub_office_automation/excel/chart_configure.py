@@ -72,7 +72,7 @@ def set_legend_position(chart, position):
         chart_com = get_chart_com_object(chart)
 
         # position을 문자열로 정규화 (enum 또는 string 모두 처리)
-        if hasattr(position, 'value'):
+        if hasattr(position, "value"):
             position_str = position.value
         else:
             position_str = str(position).lower()
@@ -141,7 +141,7 @@ def set_data_labels(chart, show_labels, label_position=None):
 
                 if show_labels and label_position:
                     # label_position을 문자열로 정규화
-                    if hasattr(label_position, 'value'):
+                    if hasattr(label_position, "value"):
                         position_str = label_position.value
                     else:
                         position_str = str(label_position).lower()
@@ -179,7 +179,7 @@ def set_chart_colors(chart, color_scheme):
             chart_com = get_chart_com_object(chart)
 
             # color_scheme을 문자열로 정규화
-            if hasattr(color_scheme, 'value'):
+            if hasattr(color_scheme, "value"):
                 scheme_str = color_scheme.value
             else:
                 scheme_str = str(color_scheme).lower()

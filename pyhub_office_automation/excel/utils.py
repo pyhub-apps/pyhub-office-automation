@@ -442,54 +442,30 @@ COM_ERROR_MESSAGES = {
     0x800A01A8: {
         "message": "Excel 객체에 접근할 수 없습니다. Excel이 실행 중이고 워크북이 열려있는지 확인하세요.",
         "meaning": "Object Required",
-        "causes": [
-            "Excel이 실행되지 않음",
-            "워크북이 닫혀있음",
-            "Excel 객체가 해제됨"
-        ],
+        "causes": ["Excel이 실행되지 않음", "워크북이 닫혀있음", "Excel 객체가 해제됨"],
         "suggestions": [
             "Excel 프로그램이 실행 중인지 확인",
             "워크북이 열려있는지 확인",
-            "--visible 옵션을 사용하여 Excel 창 표시"
-        ]
+            "--visible 옵션을 사용하여 Excel 창 표시",
+        ],
     },
     0x800401A8: {
         "message": "Excel COM 객체 연결이 끊어졌습니다.",
         "meaning": "Object is disconnected from clients",
-        "causes": [
-            "Excel 프로세스가 예기치 않게 종료됨",
-            "COM 객체 수명 주기 문제"
-        ],
-        "suggestions": [
-            "Excel을 다시 시작하세요",
-            "명령을 다시 실행하세요"
-        ]
+        "causes": ["Excel 프로세스가 예기치 않게 종료됨", "COM 객체 수명 주기 문제"],
+        "suggestions": ["Excel을 다시 시작하세요", "명령을 다시 실행하세요"],
     },
     0x80010105: {
         "message": "Excel 서버가 예기치 않게 종료되었습니다.",
         "meaning": "RPC_E_SERVERFAULT",
-        "causes": [
-            "Excel이 충돌하거나 강제 종료됨",
-            "메모리 부족"
-        ],
-        "suggestions": [
-            "Excel을 다시 시작하세요",
-            "시스템 메모리를 확인하세요"
-        ]
+        "causes": ["Excel이 충돌하거나 강제 종료됨", "메모리 부족"],
+        "suggestions": ["Excel을 다시 시작하세요", "시스템 메모리를 확인하세요"],
     },
     0x800A03EC: {
         "message": "Excel 작업이 실패했습니다. 데이터나 작업이 유효하지 않을 수 있습니다.",
         "meaning": "NAME_NOT_FOUND or INVALID_OPERATION",
-        "causes": [
-            "잘못된 범위 이름 또는 시트 이름",
-            "지원되지 않는 작업",
-            "데이터 형식 오류"
-        ],
-        "suggestions": [
-            "시트 이름과 범위가 정확한지 확인",
-            "데이터 형식이 올바른지 확인",
-            "Excel 버전과 호환되는지 확인"
-        ]
+        "causes": ["잘못된 범위 이름 또는 시트 이름", "지원되지 않는 작업", "데이터 형식 오류"],
+        "suggestions": ["시트 이름과 범위가 정확한지 확인", "데이터 형식이 올바른지 확인", "Excel 버전과 호환되는지 확인"],
     },
     # 피벗차트 관련 타임아웃 에러
     0x80004005: {
@@ -498,15 +474,15 @@ COM_ERROR_MESSAGES = {
         "causes": [
             "PivotLayout.PivotTable 설정 시 응답 없음",
             "COM 인터페이스 호환성 문제",
-            "Windows 또는 Excel 업데이트 필요"
+            "Windows 또는 Excel 업데이트 필요",
         ],
         "suggestions": [
             "'oa excel chart-add' 명령어로 정적 차트 생성",
             "'--skip-pivot-link' 옵션 사용하여 피벗 연결 건너뛰기",
             "피벗테이블 데이터 범위를 직접 참조하여 차트 생성",
-            "Excel 및 Windows 업데이트 확인"
-        ]
-    }
+            "Excel 및 Windows 업데이트 확인",
+        ],
+    },
 }
 
 
@@ -522,7 +498,7 @@ def extract_com_error_code(error: Exception) -> Optional[int]:
     """
     try:
         # com_error 형식: (hr, msg, exc, arg)
-        if hasattr(error, 'args') and len(error.args) > 0:
+        if hasattr(error, "args") and len(error.args) > 0:
             # 첫 번째 인자가 HRESULT 코드
             if isinstance(error.args[0], int):
                 # 음수를 양수로 변환 (비트 마스크 적용)
@@ -562,11 +538,11 @@ def create_error_response(error: Exception, command: str) -> Dict[str, Union[str
                     "code": hex(error_code),
                     "meaning": com_info["meaning"],
                     "possible_causes": com_info["causes"],
-                    "original_error": str(error)
+                    "original_error": str(error),
                 },
                 "suggestions": com_info["suggestions"],
                 "command": command,
-                "version": get_version()
+                "version": get_version(),
             }
         else:
             # 알려지지 않은 COM 에러
@@ -574,17 +550,10 @@ def create_error_response(error: Exception, command: str) -> Dict[str, Union[str
                 "success": False,
                 "error_type": error_type,
                 "error": "Excel COM 오류가 발생했습니다.",
-                "error_details": {
-                    "code": hex(error_code) if error_code else "unknown",
-                    "original_error": str(error)
-                },
-                "suggestions": [
-                    "Excel이 실행 중인지 확인하세요",
-                    "워크북이 열려있는지 확인하세요",
-                    "Excel을 재시작해보세요"
-                ],
+                "error_details": {"code": hex(error_code) if error_code else "unknown", "original_error": str(error)},
+                "suggestions": ["Excel이 실행 중인지 확인하세요", "워크북이 열려있는지 확인하세요", "Excel을 재시작해보세요"],
                 "command": command,
-                "version": get_version()
+                "version": get_version(),
             }
 
     # 기존 에러 처리 로직
@@ -2263,11 +2232,7 @@ def get_charts_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
     Returns:
         차트 요약 정보 딕셔너리
     """
-    charts_summary = {
-        "total_count": 0,
-        "by_sheet": {},
-        "chart_names": []
-    }
+    charts_summary = {"total_count": 0, "by_sheet": {}, "chart_names": []}
 
     try:
         for sheet in workbook.sheets:
@@ -2278,10 +2243,7 @@ def get_charts_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
                     charts_summary["chart_names"].append({"name": chart.name, "sheet": sheet.name})
 
                 if sheet_charts:
-                    charts_summary["by_sheet"][sheet.name] = {
-                        "count": len(sheet_charts),
-                        "names": sheet_charts
-                    }
+                    charts_summary["by_sheet"][sheet.name] = {"count": len(sheet_charts), "names": sheet_charts}
                     charts_summary["total_count"] += len(sheet_charts)
             except:
                 pass
@@ -2302,11 +2264,7 @@ def get_pivots_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
     Returns:
         피벗테이블 요약 정보 딕셔너리
     """
-    pivots_summary = {
-        "total_count": 0,
-        "by_sheet": {},
-        "pivot_names": []
-    }
+    pivots_summary = {"total_count": 0, "by_sheet": {}, "pivot_names": []}
 
     try:
         if platform.system() == "Windows":
@@ -2328,10 +2286,7 @@ def get_pivots_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
                                 pass
 
                     if sheet_pivots:
-                        pivots_summary["by_sheet"][sheet.name] = {
-                            "count": len(sheet_pivots),
-                            "names": sheet_pivots
-                        }
+                        pivots_summary["by_sheet"][sheet.name] = {"count": len(sheet_pivots), "names": sheet_pivots}
                         pivots_summary["total_count"] += len(sheet_pivots)
                 except:
                     pass
@@ -2355,11 +2310,7 @@ def get_slicers_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
     Returns:
         슬라이서 요약 정보 딕셔너리
     """
-    slicers_summary = {
-        "total_count": 0,
-        "by_sheet": {},
-        "slicer_names": []
-    }
+    slicers_summary = {"total_count": 0, "by_sheet": {}, "slicer_names": []}
 
     try:
         slicers_info = get_slicers_info(workbook)
@@ -2372,10 +2323,7 @@ def get_slicers_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
                 slicers_summary["slicer_names"].append({"name": slicer_name, "sheet": sheet_name})
 
                 if sheet_name not in slicers_summary["by_sheet"]:
-                    slicers_summary["by_sheet"][sheet_name] = {
-                        "count": 0,
-                        "names": []
-                    }
+                    slicers_summary["by_sheet"][sheet_name] = {"count": 0, "names": []}
 
                 slicers_summary["by_sheet"][sheet_name]["count"] += 1
                 slicers_summary["by_sheet"][sheet_name]["names"].append(slicer_name)
