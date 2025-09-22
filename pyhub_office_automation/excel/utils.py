@@ -2179,46 +2179,212 @@ def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Union[str, int, float]
 
     try:
         if platform.system() == "Windows":
-            for slicer_cache in workbook.api.SlicerCaches():
-                slicer_info = {
-                    "name": slicer_cache.Name,
-                    "source_name": slicer_cache.SourceName,
-                    "field_name": getattr(slicer_cache, "OLAP", {}).get("SourceField", "Unknown"),
-                    "slicer_items": [],
-                    "connected_pivot_tables": [],
-                }
+            # SlicerCaches는 컬렉션이므로 Count를 확인 후 인덱스로 접근
+            slicer_caches = workbook.api.SlicerCaches
+            if hasattr(slicer_caches, "Count") and slicer_caches.Count > 0:
+                for i in range(1, slicer_caches.Count + 1):
+                    try:
+                        slicer_cache = slicer_caches(i)
 
-                # 슬라이서 아이템 정보
-                try:
-                    for item in slicer_cache.SlicerItems():
-                        item_info = {"name": item.Name, "selected": item.Selected}
-                        slicer_info["slicer_items"].append(item_info)
-                except Exception:
-                    pass
+                        # 기본 정보 수집
+                        slicer_info = {
+                            "name": slicer_cache.Name,
+                            "source_name": getattr(slicer_cache, "SourceName", "Unknown"),
+                            "slicer_items": [],
+                            "connected_pivot_tables": [],
+                        }
 
-                # 연결된 피벗테이블 정보
-                try:
-                    for pivot_table in slicer_cache.PivotTables():
-                        slicer_info["connected_pivot_tables"].append(pivot_table.Name)
-                except Exception:
-                    pass
+                        # OLAP 필드 정보 (OLAP이 아닌 경우 SourceField 사용)
+                        try:
+                            if hasattr(slicer_cache, "OLAP") and slicer_cache.OLAP:
+                                slicer_info["field_name"] = getattr(slicer_cache.OLAP, "SourceField", "Unknown")
+                            elif hasattr(slicer_cache, "SourceField"):
+                                slicer_info["field_name"] = slicer_cache.SourceField
+                            else:
+                                # PivotField에서 필드명 가져오기 시도
+                                if hasattr(slicer_cache, "PivotTables") and slicer_cache.PivotTables.Count > 0:
+                                    pivot_table = slicer_cache.PivotTables(1)
+                                    slicer_info["field_name"] = slicer_cache.Name  # 기본적으로 슬라이서 이름 사용
+                        except:
+                            slicer_info["field_name"] = slicer_cache.Name
 
-                # 슬라이서 위치 정보 (첫 번째 슬라이서 기준)
-                try:
-                    if slicer_cache.Slicers().Count > 0:
-                        first_slicer = slicer_cache.Slicers(1)
-                        slicer_info["position"] = {"left": first_slicer.Left, "top": first_slicer.Top}
-                        slicer_info["size"] = {"width": first_slicer.Width, "height": first_slicer.Height}
-                        slicer_info["sheet"] = first_slicer.Parent.Parent.Name
-                except Exception:
-                    pass
+                        # 슬라이서 아이템 정보
+                        try:
+                            slicer_items = slicer_cache.SlicerItems
+                            if hasattr(slicer_items, "Count") and slicer_items.Count > 0:
+                                for j in range(1, min(slicer_items.Count + 1, 101)):  # 최대 100개까지만
+                                    item = slicer_items(j)
+                                    item_info = {"name": item.Name, "selected": item.Selected}
+                                    slicer_info["slicer_items"].append(item_info)
+                        except Exception:
+                            pass
 
-                slicers_info.append(slicer_info)
+                        # 연결된 피벗테이블 정보
+                        try:
+                            pivot_tables = slicer_cache.PivotTables
+                            if hasattr(pivot_tables, "Count") and pivot_tables.Count > 0:
+                                for j in range(1, pivot_tables.Count + 1):
+                                    pivot_table = pivot_tables(j)
+                                    slicer_info["connected_pivot_tables"].append(pivot_table.Name)
+                        except Exception:
+                            pass
 
-    except Exception:
+                        # 슬라이서 위치 정보 (첫 번째 슬라이서 기준)
+                        try:
+                            slicers = slicer_cache.Slicers
+                            if hasattr(slicers, "Count") and slicers.Count > 0:
+                                first_slicer = slicers(1)
+                                slicer_info["position"] = {"left": first_slicer.Left, "top": first_slicer.Top}
+                                slicer_info["size"] = {"width": first_slicer.Width, "height": first_slicer.Height}
+                                # Parent.Parent가 Shape -> Worksheet
+                                slicer_info["sheet"] = first_slicer.Parent.Parent.Name
+                        except Exception:
+                            pass
+
+                        slicers_info.append(slicer_info)
+                    except Exception as e:
+                        # 개별 슬라이서 처리 실패 시 계속 진행
+                        pass
+
+    except Exception as e:
+        # 전체 처리 실패 시 빈 리스트 반환
         pass
 
     return slicers_info
+
+
+def get_charts_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
+    """
+    워크북의 차트 요약 정보를 수집합니다.
+
+    Args:
+        workbook: xlwings Book 객체
+
+    Returns:
+        차트 요약 정보 딕셔너리
+    """
+    charts_summary = {
+        "total_count": 0,
+        "by_sheet": {},
+        "chart_names": []
+    }
+
+    try:
+        for sheet in workbook.sheets:
+            try:
+                sheet_charts = []
+                for chart in sheet.charts:
+                    sheet_charts.append(chart.name)
+                    charts_summary["chart_names"].append({"name": chart.name, "sheet": sheet.name})
+
+                if sheet_charts:
+                    charts_summary["by_sheet"][sheet.name] = {
+                        "count": len(sheet_charts),
+                        "names": sheet_charts
+                    }
+                    charts_summary["total_count"] += len(sheet_charts)
+            except:
+                pass
+
+    except:
+        pass
+
+    return charts_summary
+
+
+def get_pivots_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
+    """
+    워크북의 피벗테이블 요약 정보를 수집합니다.
+
+    Args:
+        workbook: xlwings Book 객체
+
+    Returns:
+        피벗테이블 요약 정보 딕셔너리
+    """
+    pivots_summary = {
+        "total_count": 0,
+        "by_sheet": {},
+        "pivot_names": []
+    }
+
+    try:
+        if platform.system() == "Windows":
+            for sheet in workbook.sheets:
+                try:
+                    # PivotTables는 함수로 호출
+                    pivot_tables = sheet.api.PivotTables()
+                    sheet_pivots = []
+
+                    if hasattr(pivot_tables, "Count") and pivot_tables.Count > 0:
+                        for i in range(1, pivot_tables.Count + 1):
+                            try:
+                                # Item 메서드를 사용하여 접근
+                                pivot = pivot_tables.Item(i)
+                                pivot_name = pivot.Name
+                                sheet_pivots.append(pivot_name)
+                                pivots_summary["pivot_names"].append({"name": pivot_name, "sheet": sheet.name})
+                            except:
+                                pass
+
+                    if sheet_pivots:
+                        pivots_summary["by_sheet"][sheet.name] = {
+                            "count": len(sheet_pivots),
+                            "names": sheet_pivots
+                        }
+                        pivots_summary["total_count"] += len(sheet_pivots)
+                except:
+                    pass
+        else:
+            # macOS에서는 제한적인 지원
+            pivots_summary["platform_note"] = "Pivot table detection is limited on macOS"
+
+    except:
+        pass
+
+    return pivots_summary
+
+
+def get_slicers_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
+    """
+    워크북의 슬라이서 요약 정보를 수집합니다.
+
+    Args:
+        workbook: xlwings Book 객체
+
+    Returns:
+        슬라이서 요약 정보 딕셔너리
+    """
+    slicers_summary = {
+        "total_count": 0,
+        "by_sheet": {},
+        "slicer_names": []
+    }
+
+    try:
+        slicers_info = get_slicers_info(workbook)
+
+        for slicer in slicers_info:
+            slicer_name = slicer.get("name")
+            sheet_name = slicer.get("sheet", "Unknown")
+
+            if slicer_name:
+                slicers_summary["slicer_names"].append({"name": slicer_name, "sheet": sheet_name})
+
+                if sheet_name not in slicers_summary["by_sheet"]:
+                    slicers_summary["by_sheet"][sheet_name] = {
+                        "count": 0,
+                        "names": []
+                    }
+
+                slicers_summary["by_sheet"][sheet_name]["count"] += 1
+                slicers_summary["by_sheet"][sheet_name]["names"].append(slicer_name)
+                slicers_summary["total_count"] += 1
+
+    except:
+        pass
+
+    return slicers_summary
 
 
 def validate_slicer_position(left: int, top: int, width: int, height: int) -> Tuple[bool, str]:

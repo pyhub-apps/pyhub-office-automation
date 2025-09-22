@@ -14,7 +14,16 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook, normalize_path
+from .utils import (
+    ExecutionTimer,
+    create_error_response,
+    create_success_response,
+    get_or_open_workbook,
+    normalize_path,
+    get_charts_summary,
+    get_pivots_summary,
+    get_slicers_summary
+)
 
 
 def workbook_info(
@@ -23,6 +32,10 @@ def workbook_info(
     include_sheets: bool = typer.Option(False, "--include-sheets", help="시트 목록 및 상세 정보 포함"),
     include_names: bool = typer.Option(False, "--include-names", help="정의된 이름(Named Ranges) 포함"),
     include_properties: bool = typer.Option(False, "--include-properties", help="파일 속성 정보 포함"),
+    include_charts: bool = typer.Option(False, "--include-charts", help="차트 요약 정보 포함"),
+    include_pivots: bool = typer.Option(False, "--include-pivots", help="피벗테이블 요약 정보 포함"),
+    include_slicers: bool = typer.Option(False, "--include-slicers", help="슬라이서 요약 정보 포함"),
+    include_all: bool = typer.Option(False, "--include-all", help="모든 추가 정보 포함"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
     """
@@ -35,13 +48,33 @@ def workbook_info(
       • --workbook-name: 열린 워크북 이름으로 접근
 
     \b
+    정보 포함 옵션:
+      • --include-sheets: 시트 목록 및 상세 정보
+      • --include-names: 정의된 이름(Named Ranges)
+      • --include-properties: 파일 속성 정보
+      • --include-charts: 차트 요약 정보
+      • --include-pivots: 피벗테이블 요약 정보
+      • --include-slicers: 슬라이서 요약 정보
+      • --include-all: 위의 모든 정보 포함
+
+    \b
     사용 예제:
       oa excel workbook-info --include-sheets
       oa excel workbook-info --workbook-name "Sales.xlsx" --include-properties
-      oa excel workbook-info --file-path "data.xlsx" --include-names
+      oa excel workbook-info --file-path "data.xlsx" --include-all
+      oa excel workbook-info --include-charts --include-pivots --include-slicers
     """
     book = None
     try:
+        # include-all 옵션 처리
+        if include_all:
+            include_sheets = True
+            include_names = True
+            include_properties = True
+            include_charts = True
+            include_pivots = True
+            include_slicers = True
+
         # 옵션 검증 (이제 빈 옵션은 자동으로 활성 워크북 사용)
         options_count = sum([bool(file_path), bool(workbook_name)])
         if options_count > 1:
@@ -189,6 +222,21 @@ def workbook_info(
                 workbook_data["named_ranges"] = names_info
                 workbook_data["named_ranges_count"] = len([n for n in names_info if "error" not in n])
 
+            # 차트 요약 정보 추가
+            if include_charts:
+                charts_summary = get_charts_summary(book)
+                workbook_data["charts"] = charts_summary
+
+            # 피벗테이블 요약 정보 추가
+            if include_pivots:
+                pivots_summary = get_pivots_summary(book)
+                workbook_data["pivot_tables"] = pivots_summary
+
+            # 슬라이서 요약 정보 추가
+            if include_slicers:
+                slicers_summary = get_slicers_summary(book)
+                workbook_data["slicers"] = slicers_summary
+
             # 애플리케이션 정보
             app_info = {
                 "version": str(getattr(book.app, "version", "Unknown")),
@@ -205,6 +253,9 @@ def workbook_info(
                     "include_sheets": include_sheets,
                     "include_names": include_names,
                     "include_properties": include_properties,
+                    "include_charts": include_charts,
+                    "include_pivots": include_pivots,
+                    "include_slicers": include_slicers,
                 },
             }
 
@@ -216,6 +267,12 @@ def workbook_info(
                 detail_level.append("정의된 이름")
             if include_properties:
                 detail_level.append("파일 속성")
+            if include_charts:
+                detail_level.append(f"차트({workbook_data['charts']['total_count']}개)")
+            if include_pivots:
+                detail_level.append(f"피벗테이블({workbook_data['pivot_tables']['total_count']}개)")
+            if include_slicers:
+                detail_level.append(f"슬라이서({workbook_data['slicers']['total_count']}개)")
 
             if detail_level:
                 detail_str = ", ".join(detail_level)
