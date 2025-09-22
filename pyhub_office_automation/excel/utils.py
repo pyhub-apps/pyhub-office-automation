@@ -436,6 +436,88 @@ def validate_range_string(range_str: str) -> bool:
     return bool(re.match(range_pattern, range_part.upper()))
 
 
+# COM 에러 코드와 사용자 친화적 메시지 매핑
+COM_ERROR_MESSAGES = {
+    0x800A01A8: {
+        "message": "Excel 객체에 접근할 수 없습니다. Excel이 실행 중이고 워크북이 열려있는지 확인하세요.",
+        "meaning": "Object Required",
+        "causes": [
+            "Excel이 실행되지 않음",
+            "워크북이 닫혀있음",
+            "Excel 객체가 해제됨"
+        ],
+        "suggestions": [
+            "Excel 프로그램이 실행 중인지 확인",
+            "워크북이 열려있는지 확인",
+            "--visible 옵션을 사용하여 Excel 창 표시"
+        ]
+    },
+    0x800401A8: {
+        "message": "Excel COM 객체 연결이 끊어졌습니다.",
+        "meaning": "Object is disconnected from clients",
+        "causes": [
+            "Excel 프로세스가 예기치 않게 종료됨",
+            "COM 객체 수명 주기 문제"
+        ],
+        "suggestions": [
+            "Excel을 다시 시작하세요",
+            "명령을 다시 실행하세요"
+        ]
+    },
+    0x80010105: {
+        "message": "Excel 서버가 예기치 않게 종료되었습니다.",
+        "meaning": "RPC_E_SERVERFAULT",
+        "causes": [
+            "Excel이 충돌하거나 강제 종료됨",
+            "메모리 부족"
+        ],
+        "suggestions": [
+            "Excel을 다시 시작하세요",
+            "시스템 메모리를 확인하세요"
+        ]
+    },
+    0x800A03EC: {
+        "message": "Excel 작업이 실패했습니다. 데이터나 작업이 유효하지 않을 수 있습니다.",
+        "meaning": "NAME_NOT_FOUND or INVALID_OPERATION",
+        "causes": [
+            "잘못된 범위 이름 또는 시트 이름",
+            "지원되지 않는 작업",
+            "데이터 형식 오류"
+        ],
+        "suggestions": [
+            "시트 이름과 범위가 정확한지 확인",
+            "데이터 형식이 올바른지 확인",
+            "Excel 버전과 호환되는지 확인"
+        ]
+    }
+}
+
+
+def extract_com_error_code(error: Exception) -> Optional[int]:
+    """
+    COM 에러에서 에러 코드를 추출합니다.
+
+    Args:
+        error: COM 에러 예외
+
+    Returns:
+        에러 코드 (정수) 또는 None
+    """
+    try:
+        # com_error 형식: (hr, msg, exc, arg)
+        if hasattr(error, 'args') and len(error.args) > 0:
+            # 첫 번째 인자가 HRESULT 코드
+            if isinstance(error.args[0], int):
+                # 음수를 양수로 변환 (비트 마스크 적용)
+                return error.args[0] & 0xFFFFFFFF
+            # 튜플 형태인 경우
+            elif isinstance(error.args[0], tuple) and len(error.args[0]) > 0:
+                return error.args[0][0] & 0xFFFFFFFF
+    except:
+        pass
+    return None
+
+
 def create_error_response(error: Exception, command: str) -> Dict[str, Union[str, int, float]]:
     """
     표준 에러 응답을 생성합니다.
@@ -449,6 +531,46 @@ def create_error_response(error: Exception, command: str) -> Dict[str, Union[str
     """
     error_type = type(error).__name__
 
+    # COM 에러 특별 처리
+    if error_type == "com_error" or "com_error" in error_type.lower():
+        error_code = extract_com_error_code(error)
+
+        if error_code and error_code in COM_ERROR_MESSAGES:
+            com_info = COM_ERROR_MESSAGES[error_code]
+            return {
+                "success": False,
+                "error_type": error_type,
+                "error": com_info["message"],
+                "error_details": {
+                    "code": hex(error_code),
+                    "meaning": com_info["meaning"],
+                    "possible_causes": com_info["causes"],
+                    "original_error": str(error)
+                },
+                "suggestions": com_info["suggestions"],
+                "command": command,
+                "version": get_version()
+            }
+        else:
+            # 알려지지 않은 COM 에러
+            return {
+                "success": False,
+                "error_type": error_type,
+                "error": "Excel COM 오류가 발생했습니다.",
+                "error_details": {
+                    "code": hex(error_code) if error_code else "unknown",
+                    "original_error": str(error)
+                },
+                "suggestions": [
+                    "Excel이 실행 중인지 확인하세요",
+                    "워크북이 열려있는지 확인하세요",
+                    "Excel을 재시작해보세요"
+                ],
+                "command": command,
+                "version": get_version()
+            }
+
+    # 기존 에러 처리 로직
     response = {"success": False, "error_type": error_type, "error": str(error), "command": command, "version": get_version()}
 
     # 특정 에러에 대한 제안사항 추가

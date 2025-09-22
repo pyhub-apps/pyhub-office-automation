@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['pyhub_office_automation/cli/main.py'],
+    ['pyhub_office_automation\\cli\\main.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -32,6 +32,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['pyhub_office_automation\\assets\\icons\\logo.ico'],
 )
 coll = COLLECT(
     exe,

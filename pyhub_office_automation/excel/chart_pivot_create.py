@@ -303,7 +303,11 @@ def chart_pivot_create(
             chart_name = chart_object.Name
 
         except Exception as e:
-            raise RuntimeError(f"피벗차트 생성 실패: {str(e)}")
+            # COM 에러인 경우 더 자세한 처리를 위해 그대로 전달
+            if "com_error" in str(type(e).__name__).lower():
+                raise
+            else:
+                raise RuntimeError(f"피벗차트 생성 실패: {str(e)}")
 
         # 차트 제목 설정
         if title:

@@ -265,7 +265,11 @@ def pivot_create(
         except ImportError:
             raise RuntimeError("xlwings.constants 모듈을 가져올 수 없습니다. xlwings 최신 버전이 필요합니다.")
         except Exception as e:
-            raise RuntimeError(f"피벗테이블 생성 실패: {str(e)}")
+            # COM 에러인 경우 더 자세한 처리를 위해 그대로 전달
+            if "com_error" in str(type(e).__name__).lower():
+                raise
+            else:
+                raise RuntimeError(f"피벗테이블 생성 실패: {str(e)}")
 
         # 파일 저장
         save_success = False

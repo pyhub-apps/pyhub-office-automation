@@ -470,4 +470,4 @@ def pivot_configure(
 
 
 if __name__ == "__main__":
-    pivot_configure()
+    typer.run(pivot_configure)

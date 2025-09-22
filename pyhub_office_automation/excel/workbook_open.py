@@ -74,7 +74,7 @@ def workbook_open(
 
                     sheet_info = {
                         "name": sheet.name,
-                        "index": sheet.index,
+                        "index": int(sheet.index) if hasattr(sheet, 'index') else -1,
                         "used_range": used_range.address if used_range else None,
                         "last_cell": last_cell,
                         "row_count": row_count,
@@ -86,7 +86,7 @@ def workbook_open(
                 except Exception as e:
                     # 개별 시트 정보 수집 실패 시 기본 정보만 포함
                     sheets_info.append(
-                        {"name": sheet.name, "index": getattr(sheet, "index", -1), "error": f"시트 정보 수집 실패: {str(e)}"}
+                        {"name": sheet.name, "index": int(getattr(sheet, "index", -1)) if hasattr(sheet, 'index') else -1, "error": f"시트 정보 수집 실패: {str(e)}"}
                     )
 
             # 워크북 정보 구성
@@ -119,7 +119,7 @@ def workbook_open(
             # 애플리케이션 정보
             app_info = {
                 "version": str(getattr(app, "version", "Unknown")),
-                "visible": getattr(app, "visible", visible),
+                "visible": bool(getattr(app, "visible", visible)),
                 "calculation_mode": str(getattr(app, "calculation", "Unknown")),
             }
 
