@@ -42,9 +42,16 @@ oa excel workbook-info --workbook-name "파일.xlsx" --include-sheets  # 특정 
 
 ### 데이터 작업
 ```bash
-# 데이터 읽기/쓰기
+# 데이터 읽기/쓰기/변환
 oa excel range-read --range "A1:C10"
 oa excel range-write --range "A1" --data '["이름", "나이", "부서"]'
+oa excel range-convert --range "A1:C10"  # 문자열→숫자 자동 변환
+
+# 형식 변환 상세 옵션
+oa excel range-convert --range "A1:Z100" --remove-comma  # "1,234" → 1234
+oa excel range-convert --range "B2:B100" --remove-currency  # "₩1,000" → 1000
+oa excel range-convert --range "C1:C50" --parse-percent  # "50%" → 0.5
+oa excel range-convert --range "D1:D100" --expand table --no-save  # 테이블 전체 변환, 저장 안 함
 
 # 테이블 처리 (기본)
 oa excel table-read --output-file "data.csv"
@@ -242,7 +249,23 @@ oa excel pivot-configure --pivot-name "SalesPivot" \
 oa excel table-create --range "A1:F100" --table-name "AnalysisData" --headers
 ```
 
-### 6. 에러 방지 패턴
+### 6. 회계 데이터 정리 자동화
+```bash
+# 문자열 형식의 회계 데이터를 숫자로 일괄 변환
+oa excel range-convert --range "A2:F1000" --expand table --remove-currency --remove-comma
+# → "₩1,234,567" → 1234567로 자동 변환
+# → 피벗테이블이나 계산에 바로 사용 가능
+
+# 백분율 데이터 변환
+oa excel range-convert --range "G1:G100" --parse-percent
+# → "15.5%" → 0.155로 변환하여 수식에서 바로 활용
+
+# 괄호형 음수 처리 (회계 양식)
+oa excel range-convert --range "H1:H200" --remove-comma
+# → "(1,000)" → -1000으로 자동 변환
+```
+
+### 7. 에러 방지 패턴
 ```bash
 # 안전한 워크플로우: 확인 → 연결 → 작업
 oa excel workbook-list | grep "target.xlsx"  # 파일 열림 확인
@@ -291,6 +314,7 @@ AI가 감지한 문제를 최적 순서로 자동 해결합니다:
 
 - **🤖 AI 데이터 분석**: 5가지 일반적인 Excel 데이터 문제를 자동 감지하고 해결방안 제시
 - **🔄 지능형 자동 변환**: AI가 감지한 모든 문제를 최적 순서로 자동 해결
+- **📊 스마트 형식 변환**: 쉼표, 통화기호(₩,$,€,¥,£), 백분율, 괄호형 음수를 숫자로 자동 변환
 - **자동 워크북 선택**: 옵션 없이 활성 워크북 자동 사용으로 Excel 재실행 없이 연속 작업
 - **`--workbook-name`**: 파일명으로 직접 접근, 경로 불필요
 - **워크북 연결 방법**: 옵션 없음(활성), `--file-path`(파일), `--workbook-name`(이름)

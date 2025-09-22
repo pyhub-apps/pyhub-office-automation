@@ -333,7 +333,7 @@ AI agents should use these commands to understand available functionality:
 AI agents should use these commands to understand current work context:
 - `oa excel workbook-list` - Discover all currently open workbooks
 - `oa excel workbook-list --detailed` - Get comprehensive list with file info, sheet counts, save status
-- `oa excel workbook-info --use-active --include-sheets` - Analyze active workbook structure
+- `oa excel workbook-info --include-sheets` - Analyze active workbook structure
 
 ### Parameter Handling
 - All inputs via CLI options: `--option-name value`

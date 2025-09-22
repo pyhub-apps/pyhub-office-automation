@@ -104,7 +104,7 @@ def get_fallback_message(message_type: str) -> str:
 
 ## 연결 방법
 1. --file-path: 파일 경로로 연결
-2. --use-active: 활성 워크북 사용
+2. 옵션 없음: 활성 워크북 자동 사용 (기본값)
 3. --workbook-name: 워크북 이름으로 연결
 
 ## 에러 방지
@@ -123,6 +123,21 @@ def load_welcome_message() -> str:
 
 
 def load_llm_guide() -> str:
-    """LLM 가이드를 로드합니다."""
+    """LLM 가이드를 로드합니다. README.md 내용을 사용합니다."""
+    # README.md 파일 읽기 시도
+    try:
+        # 프로젝트 루트 경로 계산
+        current_file = Path(__file__)
+        # utils -> pyhub_office_automation -> 프로젝트 루트
+        project_root = current_file.parent.parent.parent
+        readme_path = project_root / "README.md"
+
+        if readme_path.exists() and readme_path.is_file():
+            with open(readme_path, "r", encoding="utf-8") as f:
+                return f.read()
+    except Exception as e:
+        print(f"Warning: Failed to load README.md: {e}")
+
+    # README.md 로드 실패 시 기존 llm-guide.md 시도
     content = load_resource_text("llm-guide.md")
     return content if content is not None else get_fallback_message("llm-guide")

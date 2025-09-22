@@ -176,11 +176,11 @@ def llm_guide(output_format: str = typer.Option("text", "--format", help="출력
             "essential_commands": {
                 "discovery": ["oa info", "oa excel list --format json", "oa hwp list --format json"],
                 "context": ["oa excel workbook-list --detailed", "oa excel workbook-info --include-sheets"],
-                "workflow": ["연속 작업시 --use-active 또는 --workbook-name 사용"],
+                "workflow": ["연속 작업시 활성 워크북 자동 사용 또는 --workbook-name 사용"],
             },
             "connection_methods": [
                 "--file-path: 파일 경로로 연결",
-                "--use-active: 활성 워크북 사용",
+                "옵션 없음: 활성 워크북 자동 사용 (기본값)",
                 "--workbook-name: 워크북 이름으로 연결",
             ],
         }
