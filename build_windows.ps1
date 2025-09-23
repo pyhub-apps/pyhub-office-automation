@@ -236,6 +236,11 @@ except Exception as e:
             $buildArgs += @("--exclude-module", $module)
         }
 
+        # 리소스 파일 추가
+        $buildArgs += @("--add-data", "pyhub_office_automation\resources;pyhub_office_automation\resources")
+        $buildArgs += @("--add-data", "README.md;.")
+        Write-Host "   Adding resources: pyhub_office_automation\resources and README.md"
+
         # 메인 스크립트 경로
         $buildArgs += "pyhub_office_automation\cli\main.py"
     }
@@ -367,6 +372,20 @@ Git 태그: $gitTag
         }
         catch {
             Write-Warning "Info 테스트 실패 (예상됨 - Office 프로그램이 설치되지 않은 경우): $($_.Exception.Message)"
+        }
+
+        # llm-guide 리소스 로딩 테스트
+        Write-Host "   Testing llm-guide resource loading..."
+        try {
+            $output = & $exePath llm-guide --format text 2>&1
+            if ($output -like "*초심자 대응 가이드*") {
+                Write-Host "   ✅ llm-guide resource loading successful"
+            } else {
+                Write-Warning "llm-guide 리소스 로딩 실패 - fallback 메시지만 출력됨"
+            }
+        }
+        catch {
+            Write-Warning "llm-guide 테스트 실패: $($_.Exception.Message)"
         }
 
         Write-Host "✅ Basic tests completed"

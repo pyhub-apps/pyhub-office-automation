@@ -2,10 +2,14 @@
 
 
 a = Analysis(
-    ['main.py'],
+    ['pyhub_office_automation/cli/main.py'],
     pathex=[],
     binaries=[],
-    datas=[('pyhub_office_automation', 'pyhub_office_automation'), ('.headver', '.')],
+    datas=[
+        ('pyhub_office_automation/resources', 'pyhub_office_automation/resources'),
+        ('README.md', '.'),
+        ('.headver', '.'),
+    ],
     hiddenimports=['pyhub_office_automation'],
     hookspath=[],
     hooksconfig={},

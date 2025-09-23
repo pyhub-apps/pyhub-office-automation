@@ -134,10 +134,13 @@ if [ "$USE_SPEC" = true ] && [ -f "oa.spec" ]; then
     fi
 else
     echo "   Building with command-line arguments..."
+    echo "   Adding resources: pyhub_office_automation/resources and README.md"
     pyinstaller \
       --$BUILD_TYPE \
       --name oa \
       --console \
+      --add-data "pyhub_office_automation/resources:pyhub_office_automation/resources" \
+      --add-data "README.md:." \
       --exclude-module matplotlib \
       --exclude-module scipy \
       --exclude-module sklearn \
@@ -266,6 +269,18 @@ if [ "$TEST" = true ]; then
         echo "   ✅ Info test completed"
     else
         echo "   ℹ️ Info test failed (expected - Office not available): $info_output"
+    fi
+
+    # llm-guide 리소스 로딩 테스트
+    echo "   Testing llm-guide resource loading..."
+    if llm_output=$("$exe_path" llm-guide --format text 2>&1); then
+        if echo "$llm_output" | grep -q "초심자 대응 가이드"; then
+            echo "   ✅ llm-guide resource loading successful"
+        else
+            echo "   ⚠️ llm-guide resource loading failed - fallback message only"
+        fi
+    else
+        echo "   ⚠️ llm-guide test failed: $llm_output"
     fi
 
     echo "✅ Basic tests completed"
