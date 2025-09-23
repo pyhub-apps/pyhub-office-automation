@@ -419,7 +419,8 @@ def _display_status(status_info: Dict):
 
         table.add_row(agent_name, filename, exists_status, context_status, last_modified)
 
-    console.print(f"\n{table}")
+    console.print(f"\n")
+    console.print(table)
 
     # 권장 액션
     missing_files = [agent for agent, info in status_info["ai_files"].items() if not info["exists"]]
