@@ -81,6 +81,7 @@ from pyhub_office_automation.excel.workbook_list import workbook_list
 from pyhub_office_automation.excel.workbook_open import workbook_open
 from pyhub_office_automation.utils.resource_loader import load_llm_guide, load_welcome_message
 from pyhub_office_automation.version import get_version, get_version_info
+from pyhub_office_automation.cli.ai_setup import ai_setup_app
 
 # Typer 앱 생성
 app = typer.Typer(help="pyhub-office-automation: AI 에이전트를 위한 Office 자동화 도구")
@@ -373,9 +374,10 @@ def excel_list_temp(
         console.print()
 
 
-# Excel 앱을 메인 앱에 등록
+# 서브 앱을 메인 앱에 등록
 app.add_typer(excel_app, name="excel")
 app.add_typer(hwp_app, name="hwp")
+app.add_typer(ai_setup_app, name="ai-setup")
 
 
 @app.command()

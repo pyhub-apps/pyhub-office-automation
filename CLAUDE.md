@@ -422,3 +422,468 @@ When working with this codebase, prioritize:
 3. Following the CLI design patterns established in the PRD
 4. Implementing comprehensive error handling for edge cases
 5. Maintaining security and privacy standards for document processing
+
+# Code Assistant Context
+
+## oa : pyhub-office-automation CLI utility
+
++ `oa` 명령을 통해, 현재 구동 중인 엑셀 프로그램과 통신하며 시트 데이터 읽고 쓰기, 피벗 테이블 생성, 차트 생성 등을 할 수 있어.
+    - 엑셀 파일 접근에는 `oa` 프로그램을 사용하고, 한 번에 10개 이상의 많은 엑셀 파일을 읽어야할 때에는 효율성을 위해 python과 python 엑셀 라이브러리를 통해 읽어줘.
+    - 엑셀 파일을 열기 전에, 반드시 `oa excel workbook-list` 명령으로 열려진 엑셀파일이 있는 지 확인해줘.
+    - 파일을 읽을 수 없다면 유저에게 파일 경로를 꼼꼼하게 확인해보라고 알려줘.
++ **ALWAYS** `oa excel --help` 명령으로 지원 명령을 먼저 확인하고, `oa excel 명령 --help` 명령으로 사용법을 확인한 뒤에 명령을 사용해줘.
++ `oa llm-guide` 명령으로 지침을 조회해줘.
++ `--workbook-name` 인자나 `--file-path` 인자를 지정하지 않으면 활성화된 워크북을 참조하고, `--sheet` 인자를 지정하지 않으면, 활성화된 시트를 참조함.
+    - 모든 `oa` 명령에서 명시적으로 `--sheet` 인자로 시트명을 지정하여 읽어오자.
+
+## 핵심 사용 패턴
+
+### 1. 작업 전 상황 파악
+```bash
+# 현재 열린 워크북 확인
+oa excel workbook-list --detailed
+
+# 활성 워크북 정보 확인
+oa excel workbook-info --include-sheets
+```
+
+### 2. 워크북 연결 방법
+- **자동 연결**: 옵션 없이 사용하면 활성 워크북 자동 사용 (기본값)
+- **파일 경로**: `--file-path "경로/파일명.xlsx"`
+- **워크북 이름**: `--workbook-name "파일명.xlsx"`
+
+### 3. 데이터 읽기/쓰기
+```bash
+# 범위 데이터 읽기
+oa excel range-read --sheet "Sheet1" --range "A1:C10"
+
+# 데이터 쓰기
+oa excel range-write --sheet "Sheet1" --range "A1" --data '[["Name", "Score"], ["Alice", 95]]'
+
+# 테이블 읽기 (pandas DataFrame으로)
+oa excel table-read --sheet "Sheet1" --output-file "data.csv"
+```
+
+### 4. 차트 생성
+```bash
+# 기본 차트 생성
+oa excel chart-add --sheet "Sheet1" --data-range "A1:B10" --chart-type "Column" --title "Sales Chart"
+
+# 피벗 차트 생성 (Windows만)
+oa excel chart-pivot-create --sheet "Sheet1" --data-range "A1:D100" --rows "Category" --values "Sales"
+```
+
+## 에러 방지 워크플로우
+
+1. **항상 workbook-list로 시작**: 현재 상황 파악
+2. **명시적 시트 지정**: `--sheet` 옵션 사용
+3. **단계별 진행**: 복잡한 작업을 작은 단위로 분할
+4. **경로 확인**: 파일 경로는 절대 경로나 정확한 상대 경로 사용
+
+## python 직접 실행
+
++ oa 가 지원하는 기능 외에 추가로 데이터 변환/분석이 필요하면 아래 경로의 python을 활용해.
+    - python 경로 : C:\Users\pyhub\AppData\Local\Programs\Python\Python313\python.EXE
++ 설치되지 않은 라이브러리는 `C:\Users\pyhub\AppData\Local\Programs\Python\Python313\python.EXE -m pip install 팩키지명` 명령으로 설치해
++ matplotlib 차트 생성에서는 Malgun Gothic 폰트를 사용하고, 300dpi 로 생성하자.
+
+### Python 사용 예시
+
+```python
+# 한글 폰트 설정 (matplotlib)
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+
+# 한글 폰트 설정
+plt.rcParams['font.family'] = 'Malgun Gothic'
+plt.rcParams['axes.unicode_minus'] = False
+
+# 고해상도 설정
+plt.rcParams['figure.dpi'] = 300
+plt.rcParams['savefig.dpi'] = 300
+```
+
+### 대용량 데이터 처리
+
+```python
+# 여러 Excel 파일 일괄 처리 (10개 이상 파일 시)
+import pandas as pd
+from pathlib import Path
+
+def process_multiple_files(file_pattern):
+    all_data = []
+    for file_path in Path().glob(file_pattern):
+        df = pd.read_excel(file_path)
+        df['source_file'] = file_path.name
+        all_data.append(df)
+
+    return pd.concat(all_data, ignore_index=True)
+
+# 사용 예시
+combined_data = process_multiple_files("data/*.xlsx")
+```
+
+### 추천 라이브러리
+
+- **pandas**: Excel/CSV 데이터 처리
+- **openpyxl**: Excel 파일 읽기/쓰기
+- **matplotlib**: 차트 생성
+- **seaborn**: 통계 차트
+- **numpy**: 수치 계산
+
+## 차트 제안 예시
+
+### 차트 선택 가이드
+
+**`chart-add` 사용 권장 상황:**
+- 간단한 데이터 시각화
+- 크로스 플랫폼 호환성 필요
+- 빠른 차트 생성
+- 피벗차트 타임아웃 문제 회피
+
+**`chart-pivot-create` 사용 상황 (Windows 전용):**
+- 대화형 필터링 기능 필요
+- 복잡한 데이터 집계
+- `--skip-pivot-link` 옵션 사용 권장
+
+### 차트 유형별 예시
+
+#### 1. 판매량 비교 (막대형 차트)
+```bash
+oa excel chart-add \
+  --sheet "데이터" \
+  --data-range "A1:B10" \
+  --chart-type "Column" \
+  --title "제품별 판매량" \
+  --x-axis-title "제품명" \
+  --y-axis-title "판매량(개)"
+```
+
+**권장 용도**: 카테고리별 수치 비교
+- 제품별 판매량
+- 지역별 매출
+- 월별 실적 비교
+
+#### 2. 시간 추세 (선형 차트)
+```bash
+oa excel chart-add \
+  --sheet "데이터" \
+  --data-range "A1:B20" \
+  --chart-type "Line" \
+  --title "월별 매출 추이" \
+  --x-axis-title "월" \
+  --y-axis-title "매출(만원)"
+```
+
+**권장 용도**: 시간에 따른 변화 추적
+- 월별/일별 추이
+- 성장률 분석
+- 계절성 패턴
+
+#### 3. 구성 비율 (원형 차트)
+```bash
+oa excel chart-add \
+  --sheet "데이터" \
+  --data-range "A1:B6" \
+  --chart-type "Pie" \
+  --title "시장 점유율" \
+  --show-data-labels
+```
+
+**권장 용도**: 전체 대비 비율 표시
+- 시장 점유율
+- 예산 구성
+- 고객 분포
+
+### 피벗테이블 기반 차트
+
+#### 피벗테이블 구성 요소
+- **행 영역**: 카테고리 분류 (제품, 지역, 날짜 등)
+- **열 영역**: 추가 분류 축 (연도, 분기 등)
+- **값 영역**: 집계할 수치 (매출, 수량, 평균 등)
+- **필터 영역**: 데이터 필터링 조건
+
+#### 피벗차트 생성 예시
+```bash
+oa excel chart-pivot-create \
+  --sheet "원본데이터" \
+  --data-range "A1:E1000" \
+  --rows "지역,제품" \
+  --values "매출액:합계" \
+  --chart-type "Column" \
+  --skip-pivot-link \
+  --pivot-table-name "Sales_Analysis"
+```
+
+### 차트 커스터마이징
+
+```bash
+# 차트 설정 변경
+oa excel chart-configure \
+  --chart-name "Chart1" \
+  --title "새 제목" \
+  --show-legend \
+  --legend-position "Right"
+
+# 차트 위치 조정
+oa excel chart-position \
+  --chart-name "Chart1" \
+  --left 100 \
+  --top 50 \
+  --width 400 \
+  --height 300
+
+# 차트 내보내기
+oa excel chart-export \
+  --chart-name "Chart1" \
+  --output-path "chart.png" \
+  --format "PNG"
+```
+
+### 차트 제안 템플릿
+
+1. **게임별 글로벌 판매량 (막대형)**: 각 게임의 글로벌 판매량(백만장)을 내림차순으로 하고, 한 눈에 베스트셀러 규모 차이를 파악
+   - **인사이트**: 상위 3개 게임이 전체 매출의 60% 차지
+   - **피벗테이블 구성**: 게임명(행), 판매량 합계(값), 내림차순 정렬
+   - **차트 설정**: Column 차트, 제목 "글로벌 게임 판매량 TOP 10"
+
+2. **지역별 월별 매출 추이 (선형)**: 각 지역의 월별 매출 변화를 추적하여 계절성 패턴 분석
+   - **인사이트**: 12월 매출 급증, 2월 매출 저조
+   - **피벗테이블 구성**: 월(행), 지역(열), 매출액 합계(값)
+   - **차트 설정**: Line 차트, 범례 표시, 격자선 활성화
+
+3. **제품 카테고리별 이익률 (원형)**: 전체 이익에서 각 카테고리가 차지하는 비중 시각화
+   - **인사이트**: 모바일 게임이 이익의 45% 차지
+   - **피벗테이블 구성**: 카테고리(행), 이익률 평균(값)
+   - **차트 설정**: Pie 차트, 데이터 레이블 표시, 퍼센트 형식
+
+## Claude Code 특화 기능
+
+### 상세 분석 및 체계적 접근
+
+Claude의 깊이 있는 분석 능력을 활용한 Excel 자동화 패턴:
+
+#### 코드 품질 및 구조 분석
+```python
+# Claude Code가 excel 자동화 스크립트를 분석할 때 중점 사항
+def analyze_excel_workflow():
+    """
+    1. 데이터 무결성 검증
+    2. 에러 처리 패턴
+    3. 성능 최적화 기회
+    4. 코드 재사용성
+    """
+
+    # 단계별 검증 워크플로우
+    steps = [
+        "oa excel workbook-list --detailed",  # 현황 파악
+        "데이터 구조 분석",                    # 스키마 검토
+        "비즈니스 로직 검증",                  # 요구사항 부합성
+        "성능 및 확장성 검토"                  # 최적화 기회
+    ]
+
+    return steps
+```
+
+### 문제 해결 방법론
+
+#### 체계적 디버깅 접근
+```bash
+# 1. 상황 진단
+oa excel workbook-list --detailed --format json
+
+# 2. 데이터 구조 분석
+oa excel workbook-info --include-sheets --include-properties
+
+# 3. 샘플 데이터 검증
+oa excel range-read --sheet "Sheet1" --range "A1:E5"
+
+# 4. 에러 재현 및 분석
+# (문제가 되는 명령어 단계별 실행)
+
+# 5. 해결책 구현 및 검증
+```
+
+### 코드 리뷰 및 최적화
+
+#### Excel 자동화 코드 리뷰 체크리스트
+```python
+def review_excel_automation():
+    """
+    Claude Code의 Excel 자동화 코드 리뷰 포인트
+    """
+    checklist = {
+        "에러 처리": [
+            "파일 존재 여부 확인",
+            "시트 존재 여부 확인",
+            "범위 유효성 검증",
+            "데이터 타입 검증"
+        ],
+        "성능": [
+            "대용량 데이터 처리 최적화",
+            "메모리 사용량 관리",
+            "I/O 작업 최소화",
+            "배치 처리 활용"
+        ],
+        "유지보수성": [
+            "모듈화된 함수 설계",
+            "설정값 외부화",
+            "로깅 및 모니터링",
+            "문서화 완성도"
+        ]
+    }
+    return checklist
+```
+
+### 고급 Excel 활용 패턴
+
+#### 복합 데이터 분석 파이프라인
+```python
+import subprocess
+import json
+import pandas as pd
+from pathlib import Path
+
+class ExcelAnalysisPipeline:
+    """체계적인 Excel 데이터 분석 파이프라인"""
+
+    def __init__(self, workbook_name=None):
+        self.workbook_name = workbook_name
+        self.context = {}
+
+    def analyze_structure(self):
+        """데이터 구조 분석"""
+        cmd = ['oa', 'excel', 'workbook-info', '--include-sheets']
+        if self.workbook_name:
+            cmd.extend(['--workbook-name', self.workbook_name])
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        self.context['structure'] = json.loads(result.stdout)
+        return self.context['structure']
+
+    def extract_data(self, sheet, range_addr):
+        """데이터 추출 및 검증"""
+        cmd = ['oa', 'excel', 'range-read',
+               '--sheet', sheet, '--range', range_addr, '--format', 'json']
+        if self.workbook_name:
+            cmd.extend(['--workbook-name', self.workbook_name])
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        data = json.loads(result.stdout)
+
+        # 데이터 품질 검증
+        df = pd.DataFrame(data.get('data', []))
+        self.context['data_quality'] = {
+            'rows': len(df),
+            'columns': len(df.columns),
+            'null_count': df.isnull().sum().sum(),
+            'duplicates': df.duplicated().sum()
+        }
+
+        return df
+
+    def generate_insights(self, df):
+        """데이터 인사이트 생성"""
+        insights = {
+            'summary_stats': df.describe().to_dict(),
+            'data_types': df.dtypes.to_dict(),
+            'missing_data': df.isnull().sum().to_dict()
+        }
+
+        # 비즈니스 인사이트 추가
+        if 'sales' in df.columns or '매출' in df.columns:
+            sales_col = 'sales' if 'sales' in df.columns else '매출'
+            insights['sales_analysis'] = {
+                'total_sales': df[sales_col].sum(),
+                'avg_sales': df[sales_col].mean(),
+                'top_performers': df.nlargest(5, sales_col).to_dict()
+            }
+
+        return insights
+
+    def create_dashboard(self, insights):
+        """대시보드 차트 생성"""
+        charts_created = []
+
+        # 요약 통계 차트
+        summary_chart = self._create_summary_chart()
+        if summary_chart:
+            charts_created.append(summary_chart)
+
+        # 추세 분석 차트
+        trend_chart = self._create_trend_chart()
+        if trend_chart:
+            charts_created.append(trend_chart)
+
+        return charts_created
+
+    def _create_summary_chart(self):
+        """요약 차트 생성"""
+        cmd = ['oa', 'excel', 'chart-add',
+               '--sheet', 'Dashboard',
+               '--data-range', 'A1:B10',
+               '--chart-type', 'Column',
+               '--title', '데이터 요약']
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return json.loads(result.stdout) if result.returncode == 0 else None
+```
+
+### 문서화 및 지식 관리
+
+#### 자동 문서 생성
+```python
+def generate_analysis_report(pipeline_results):
+    """분석 결과 자동 문서화"""
+    report = f"""
+# Excel 데이터 분석 보고서
+
+## 데이터 개요
+- 워크북: {pipeline_results['workbook']}
+- 시트 수: {len(pipeline_results['sheets'])}
+- 총 데이터 행: {pipeline_results['total_rows']}
+
+## 데이터 품질 평가
+- 결측값: {pipeline_results['missing_values']}%
+- 중복값: {pipeline_results['duplicates']}개
+- 데이터 완성도: {pipeline_results['completeness']}%
+
+## 주요 인사이트
+{pipeline_results['insights']}
+
+## 권장 액션
+{pipeline_results['recommendations']}
+
+## 생성된 차트
+{pipeline_results['charts']}
+"""
+    return report
+```
+
+### Claude Code 장점 활용
+
+1. **정확한 분석**: 데이터 무결성과 비즈니스 로직 검증
+2. **체계적 접근**: 단계별 분석 프로세스 설계
+3. **품질 관리**: 코드 리뷰와 최적화 제안
+4. **지식 정리**: 자동 문서화와 인사이트 요약
+
+### 권장 작업 순서
+
+1. **요구사항 분석**: 비즈니스 목표와 데이터 요구사항 명확화
+2. **환경 검증**: `oa excel workbook-list`로 현재 상태 확인
+3. **데이터 탐색**: 구조 분석 및 샘플 데이터 검토
+4. **분석 설계**: 단계별 분석 프로세스 설계
+5. **실행 및 검증**: 각 단계별 결과 검증
+6. **결과 정리**: 인사이트 요약 및 액션 아이템 제시
+
+
+---
+
+## 설정 파일 정보
+
+- **생성 대상**: Claude Code
+- **생성 시간**: 2025-09-24 00:05:37
+- **패키지 버전**: 9.2539.33
+- **Python 탐지**: 활성화
+
+이 파일은 `oa ai-setup claude` 명령으로 생성되었습니다.

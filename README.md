@@ -31,6 +31,59 @@ oa excel range-read --range "A1:C10"
 oa excel range-read --file-path "/path/to/file.xlsx" --range "A1:C10"
 ```
 
+## 🤖 AI 코드 어시스턴트 설정
+
+각 AI 에이전트에 최적화된 설정 파일을 자동으로 생성합니다:
+
+### 지원 대상
+- **Claude Code** → CLAUDE.md 업데이트/생성
+- **Gemini CLI** → GEMINI.md 생성
+- **Codex CLI** → AGENTS.md 생성
+- **모든 AI** → 전체 파일 생성
+
+### 사용법
+```bash
+# Claude Code 사용자
+oa ai-setup claude
+
+# Gemini CLI 사용자
+oa ai-setup gemini
+
+# Codex CLI 사용자
+oa ai-setup codex
+
+# 모든 AI 지원 파일 생성
+oa ai-setup all
+```
+
+### 자동 생성되는 내용
+설정 파일에는 다음 내용이 포함됩니다:
+
+- ✅ **`oa` 명령어 사용 가이드**: 기본 사용법과 권장 패턴
+- ✅ **Python 경로 자동 탐지**: 설치된 Python 환경 자동 설정
+- ✅ **Excel 데이터 차트 제안 템플릿**: 데이터 유형별 차트 추천
+- ✅ **에러 처리 및 디버깅 가이드**: 자주 발생하는 문제 해결법
+- ✅ **워크북 연결 최적화**: 효율적인 Excel 파일 접근 방법
+
+### Python 환경 자동 탐지
+시스템의 Python 설치를 자동으로 감지하여 지침에 포함:
+- PATH 환경변수 확인
+- 일반적인 설치 경로 스캔 (`anaconda3`, `Programs/Python` 등)
+- matplotlib 한글 폰트 설정 (Malgun Gothic, 300dpi)
+
+### 예시 출력
+```
+✅ AI 에이전트 설정 완료!
+- 파일 생성: GEMINI.md
+- Python 경로 감지: C:\Users\user\anaconda3\python.exe
+- 차트 템플릿 추가: 5개 예시
+- 다음 명령으로 확인: cat GEMINI.md
+
+💡 사용 팁: AI 에이전트에서 이 파일을 자동으로 읽도록 설정하세요.
+```
+
+> **참고**: 이 기능은 [GitHub Issue #56](https://github.com/pyhub-apps/pyhub-office-automation/issues/56)으로 계획되어 있으며, 향후 업데이트에서 구현될 예정입니다.
+
 ## 📊 핵심 Excel 명령어
 
 ### 상황 파악
