@@ -29,11 +29,18 @@ oa excel workbook-list --detailed
 # 🆕 테이블 구조와 샘플 데이터 즉시 파악 (AI 에이전트 최적화)
 oa excel table-list
 
-# 활성 워크북에서 데이터 읽기 (Excel이 이미 열려있는 경우)
-oa excel range-read --range "A1:C10"
+# 🔥 발견한 테이블 데이터 읽기 (완전한 table-driven 워크플로우)
+oa excel table-read --table-name "GameData" --limit 100
 
-# 파일로 직접 접근
-oa excel range-read --file-path "/path/to/file.xlsx" --range "A1:C10"
+# 대용량 데이터 처리 (페이징과 샘플링)
+oa excel table-read --table-name "GameData" --offset 500 --limit 100
+oa excel table-read --table-name "GameData" --limit 50 --sample-mode
+
+# 특정 컬럼만 선택하여 Context 절약
+oa excel table-read --table-name "GameData" --columns "게임명,글로벌 판매량" --limit 100
+
+# 기존 방식: 일반 셀 범위 읽기 (Excel Table 외부 데이터용)
+oa excel range-read --range "A1:C10"
 ```
 
 ## 🤖 AI 코드 어시스턴트 설정
