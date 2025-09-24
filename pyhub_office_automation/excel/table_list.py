@@ -23,6 +23,81 @@ from .utils import (
 )
 
 
+def get_table_columns_and_sample_data(table_range, sheet_obj, has_headers=True, sample_rows=5):
+    """
+    테이블의 컬럼 리스트와 샘플 데이터를 가져옵니다.
+
+    Args:
+        table_range: xlwings Range 객체
+        sheet_obj: xlwings Worksheet 객체
+        has_headers: 헤더 여부
+        sample_rows: 가져올 샘플 행 수
+
+    Returns:
+        dict: {"columns": [...], "sample_data": [...]}
+    """
+    try:
+        columns = []
+        sample_data = []
+
+        # xlwings Range 객체를 직접 사용하여 데이터 읽기
+        all_data = table_range.value
+
+        if not all_data:
+            return {"columns": [], "sample_data": []}
+
+        # 데이터가 단일 행인 경우 리스트로 감싸기
+        if not isinstance(all_data, list):
+            all_data = [[all_data]]
+        elif len(all_data) > 0 and not isinstance(all_data[0], list):
+            all_data = [all_data]
+
+        # 컬럼 정보 추출
+        if has_headers and len(all_data) > 0:
+            header_row = all_data[0]
+            columns = [str(val) if val is not None else f"Column_{i+1}" for i, val in enumerate(header_row)]
+            data_rows = all_data[1:]  # 헤더 제외한 데이터 행들
+        else:
+            # 헤더가 없는 경우 기본 컬럼명 생성
+            if len(all_data) > 0:
+                columns = [f"Column_{i+1}" for i in range(len(all_data[0]))]
+                data_rows = all_data
+            else:
+                columns = []
+                data_rows = []
+
+        # 샘플 데이터 추출 (최대 sample_rows개)
+        sample_data = data_rows[:sample_rows] if data_rows else []
+
+        # 셀 길이 제한 (50자)
+        def truncate_cell_value(value):
+            if value is None:
+                return None
+            str_value = str(value)
+            return str_value[:50] + "..." if len(str_value) > 50 else str_value
+
+        # 샘플 데이터의 각 셀에 길이 제한 적용
+        truncated_sample_data = []
+        for row in sample_data:
+            if isinstance(row, list):
+                truncated_row = [truncate_cell_value(cell) for cell in row]
+            else:
+                truncated_row = [truncate_cell_value(row)]
+            truncated_sample_data.append(truncated_row)
+
+        return {
+            "columns": columns,
+            "sample_data": truncated_sample_data
+        }
+
+    except Exception as e:
+        # 오류 발생 시 기본값 반환
+        return {
+            "columns": [],
+            "sample_data": []
+        }
+
+
 def table_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
@@ -91,62 +166,109 @@ def table_list(
                 try:
                     # 시트의 모든 테이블 조회
                     for table in sheet_obj.tables:
-                        table_info = {
-                            "name": table.name,
-                            "sheet": sheet_obj.name,
-                        }
+                        # 기본 정보 (항상 포함)
+                        try:
+                            table_info = {
+                                "name": table.name,
+                                "sheet": sheet_obj.name,
+                                "range": table.range.address,
+                                "row_count": table.range.rows.count,
+                                "column_count": table.range.columns.count,
+                            }
+                        except:
+                            # 기본 정보 수집 실패 시 최소 정보만
+                            table_info = {
+                                "name": table.name,
+                                "sheet": sheet_obj.name,
+                                "range": "Unknown",
+                                "row_count": 0,
+                                "column_count": 0,
+                            }
 
-                        # 상세 정보 추가
-                        if detailed:
-                            try:
-                                # 기본 정보
+                        # 유용한 정보 추가 (기본으로 포함) - AI 에이전트에게 유용한 정보들
+                        try:
+                            # COM API를 통한 기본 유용 정보 (Windows만)
+                            list_object = None
+                            for lo in sheet_obj.api.ListObjects:
+                                if lo.Name == table.name:
+                                    list_object = lo
+                                    break
+
+                            if list_object:
+                                # TableStyle은 COM 객체이므로 Name 속성을 통해 문자열로 변환
+                                try:
+                                    style_name = list_object.TableStyle.Name if hasattr(list_object.TableStyle, 'Name') else str(list_object.TableStyle)
+                                except:
+                                    style_name = "TableStyleMedium2"
+
                                 table_info.update(
                                     {
-                                        "range": table.range.address,
-                                        "row_count": table.range.rows.count,
-                                        "column_count": table.range.columns.count,
+                                        "has_headers": list_object.HeaderRowRange is not None,
+                                        "style": style_name,
                                     }
                                 )
+                                # 데이터만 있는 행 수 계산 (헤더 제외)
+                                if list_object.DataBodyRange:
+                                    table_info["data_rows"] = list_object.DataBodyRange.Rows.Count
+                                else:
+                                    table_info["data_rows"] = max(0, table_info["row_count"] - (1 if table_info.get("has_headers") else 0))
+                            else:
+                                # ListObject를 찾지 못한 경우 기본값
+                                table_info.update({
+                                    "has_headers": True,  # 대부분의 Table이 헤더를 가짐
+                                    "style": "Unknown",
+                                    "data_rows": max(0, table_info["row_count"] - 1)  # 헤더 제외
+                                })
+                        except:
+                            # COM API 접근 실패 시 기본값 설정
+                            table_info.update({
+                                "has_headers": True,
+                                "style": "Unknown",
+                                "data_rows": max(0, table_info["row_count"] - 1)
+                            })
 
-                                # COM API를 통한 추가 정보 (Windows만)
-                                try:
-                                    list_object = None
-                                    for lo in sheet_obj.api.ListObjects:
-                                        if lo.Name == table.name:
-                                            list_object = lo
-                                            break
+                        # 컬럼 리스트와 샘플 데이터 추가 (항상 포함)
+                        try:
+                            if table_info.get("range") != "Unknown" and table.range:
+                                columns_and_data = get_table_columns_and_sample_data(
+                                    table.range,
+                                    sheet_obj,
+                                    has_headers=table_info.get("has_headers", True),
+                                    sample_rows=5
+                                )
+                                table_info.update({
+                                    "columns": columns_and_data["columns"],
+                                    "sample_data": columns_and_data["sample_data"]
+                                })
+                            else:
+                                table_info.update({
+                                    "columns": [],
+                                    "sample_data": []
+                                })
+                        except Exception as e:
+                            # 컬럼/샘플 데이터 수집 실패 시 빈 값으로 설정
+                            table_info.update({
+                                "columns": [],
+                                "sample_data": []
+                            })
 
-                                    if list_object:
-                                        table_info.update(
-                                            {
-                                                "has_headers": list_object.HeaderRowRange is not None,
-                                                "style": getattr(list_object, "TableStyle", "Unknown"),
-                                                "data_range": (
-                                                    list_object.DataBodyRange.Address if list_object.DataBodyRange else None
-                                                ),
-                                                "header_range": (
-                                                    list_object.HeaderRowRange.Address if list_object.HeaderRowRange else None
-                                                ),
-                                                "total_range": (
-                                                    list_object.TotalsRowRange.Address if list_object.TotalsRowRange else None
-                                                ),
-                                            }
-                                        )
-                                except:
-                                    # COM API 접근 실패 시 기본값 설정
-                                    table_info.update(
-                                        {
-                                            "has_headers": True,
-                                            "style": "Unknown",
-                                            "data_range": None,
-                                            "header_range": None,
-                                            "total_range": None,
-                                        }
-                                    )
-
+                        # --detailed 옵션: 고급 정보만 추가 (범위 세부 정보 등)
+                        if detailed:
+                            try:
+                                if list_object:
+                                    table_info.update({
+                                        "data_range": (
+                                            list_object.DataBodyRange.Address if list_object.DataBodyRange else None
+                                        ),
+                                        "header_range": (
+                                            list_object.HeaderRowRange.Address if list_object.HeaderRowRange else None
+                                        ),
+                                        "total_range": (
+                                            list_object.TotalsRowRange.Address if list_object.TotalsRowRange else None
+                                        ),
+                                    })
                             except Exception as e:
-                                # 상세 정보 수집 실패 시 기본 정보만 포함
-                                table_info.update({"error": f"상세 정보 수집 실패: {str(e)}"})
+                                table_info.update({"detailed_error": f"고급 정보 수집 실패: {str(e)}"})
 
                         sheet_tables.append(table_info)
                         total_tables += 1
@@ -231,19 +353,49 @@ def table_list(
                             typer.echo(f"📄 {table['sheet']}:")
                             current_sheet = table["sheet"]
 
-                        # 테이블 정보 출력
+                        # 테이블 정보 출력 (유용한 기본 정보를 모두 표시)
+                        typer.echo(f"  🏷️ {table['name']}")
+
+                        # 범위 정보 (항상 표시)
+                        if "range" in table and table["range"] != "Unknown":
+                            typer.echo(f"     📍 범위: {table['range']}")
+
+                        # 크기 정보 (전체/데이터 구분하여 표시)
+                        if table.get('row_count', 0) > 0 or table.get('column_count', 0) > 0:
+                            total_rows = table['row_count']
+                            data_rows = table.get('data_rows', total_rows - 1)
+                            columns = table['column_count']
+                            typer.echo(f"     📊 크기: {total_rows}행({data_rows}개 데이터) × {columns}열")
+
+                        # 헤더 및 스타일 정보 (기본으로 표시)
+                        if "has_headers" in table:
+                            header_status = "있음" if table["has_headers"] else "없음"
+                            typer.echo(f"     📋 헤더: {header_status}")
+
+                        if "style" in table and table["style"] != "Unknown":
+                            typer.echo(f"     🎨 스타일: {table['style']}")
+
+                        # 컬럼 정보 (항상 표시)
+                        if "columns" in table and table["columns"]:
+                            columns_text = ", ".join(table["columns"])
+                            typer.echo(f"     📋 컬럼 ({len(table['columns'])}개):")
+                            typer.echo(f"       {columns_text}")
+
+                        # 샘플 데이터 (항상 표시)
+                        if "sample_data" in table and table["sample_data"]:
+                            typer.echo(f"     📄 샘플 데이터 (상위 {len(table['sample_data'])}행):")
+                            for i, row in enumerate(table["sample_data"], 1):
+                                row_text = str(row)
+                                typer.echo(f"       {i}. {row_text}")
+
+                        # --detailed 옵션: 고급 범위 세부 정보만 추가 표시
                         if detailed:
-                            typer.echo(f"  🏷️ {table['name']}")
-                            if "range" in table:
-                                typer.echo(f"     📍 범위: {table['range']}")
-                                typer.echo(f"     📊 크기: {table['row_count']}행 × {table['column_count']}열")
-                            if "style" in table:
-                                typer.echo(f"     🎨 스타일: {table['style']}")
-                                typer.echo(f"     📋 헤더: {'있음' if table.get('has_headers', True) else '없음'}")
                             if "data_range" in table and table["data_range"]:
-                                typer.echo(f"     📄 데이터: {table['data_range']}")
-                        else:
-                            typer.echo(f"  🏷️ {table['name']}")
+                                typer.echo(f"     📄 데이터 범위: {table['data_range']}")
+                            if "header_range" in table and table["header_range"]:
+                                typer.echo(f"     📋 헤더 범위: {table['header_range']}")
+                            if "total_range" in table and table["total_range"]:
+                                typer.echo(f"     🔢 합계 범위: {table['total_range']}")
                 else:
                     typer.echo()
                     typer.echo("📋 Excel Table이 없습니다.")

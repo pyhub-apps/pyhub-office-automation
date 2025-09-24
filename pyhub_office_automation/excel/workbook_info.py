@@ -24,6 +24,7 @@ from .utils import (
     get_slicers_summary,
     normalize_path,
 )
+from .metadata_utils import get_workbook_tables_summary
 
 
 def workbook_info(
@@ -35,6 +36,7 @@ def workbook_info(
     include_charts: bool = typer.Option(False, "--include-charts", help="차트 요약 정보 포함"),
     include_pivots: bool = typer.Option(False, "--include-pivots", help="피벗테이블 요약 정보 포함"),
     include_slicers: bool = typer.Option(False, "--include-slicers", help="슬라이서 요약 정보 포함"),
+    include_metadata: bool = typer.Option(False, "--include-metadata", help="Excel Table 메타데이터 정보 포함"),
     include_all: bool = typer.Option(False, "--include-all", help="모든 추가 정보 포함"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
@@ -55,6 +57,7 @@ def workbook_info(
       • --include-charts: 차트 요약 정보
       • --include-pivots: 피벗테이블 요약 정보
       • --include-slicers: 슬라이서 요약 정보
+      • --include-metadata: Excel Table 메타데이터 정보
       • --include-all: 위의 모든 정보 포함
 
     \b
@@ -63,6 +66,7 @@ def workbook_info(
       oa excel workbook-info --workbook-name "Sales.xlsx" --include-properties
       oa excel workbook-info --file-path "data.xlsx" --include-all
       oa excel workbook-info --include-charts --include-pivots --include-slicers
+      oa excel workbook-info --include-metadata --include-sheets
     """
     book = None
     try:
@@ -74,6 +78,7 @@ def workbook_info(
             include_charts = True
             include_pivots = True
             include_slicers = True
+            include_metadata = True
 
         # 옵션 검증 (이제 빈 옵션은 자동으로 활성 워크북 사용)
         options_count = sum([bool(file_path), bool(workbook_name)])
@@ -237,6 +242,11 @@ def workbook_info(
                 slicers_summary = get_slicers_summary(book)
                 workbook_data["slicers"] = slicers_summary
 
+            # Excel Table 메타데이터 정보 추가
+            if include_metadata:
+                metadata_summary = get_workbook_tables_summary(book)
+                workbook_data["tables_metadata"] = metadata_summary
+
             # 애플리케이션 정보
             app_info = {
                 "version": str(getattr(book.app, "version", "Unknown")),
@@ -256,6 +266,7 @@ def workbook_info(
                     "include_charts": include_charts,
                     "include_pivots": include_pivots,
                     "include_slicers": include_slicers,
+                    "include_metadata": include_metadata,
                 },
             }
 
@@ -273,6 +284,10 @@ def workbook_info(
                 detail_level.append(f"피벗테이블({workbook_data['pivot_tables']['total_count']}개)")
             if include_slicers:
                 detail_level.append(f"슬라이서({workbook_data['slicers']['total_count']}개)")
+            if include_metadata:
+                tables_count = workbook_data['tables_metadata']['total_tables']
+                metadata_count = workbook_data['tables_metadata']['tables_with_metadata']
+                detail_level.append(f"테이블 메타데이터({metadata_count}/{tables_count}개)")
 
             if detail_level:
                 detail_str = ", ".join(detail_level)

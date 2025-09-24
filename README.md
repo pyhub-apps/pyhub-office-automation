@@ -9,6 +9,7 @@ Excel과 HWP 문서를 명령줄에서 제어하는 Python 패키지입니다. J
 - **구조화된 JSON 출력**: 모든 명령어가 AI 파싱에 최적화된 JSON 반환
 - **스마트 연결 방법**: 옵션 없이 활성 워크북 자동 선택, `--workbook-name`으로 Excel 재실행 없이 연속 작업
 - **컨텍스트 인식**: `workbook-list`로 현재 상황 파악 후 적절한 작업 수행
+- **🆕 테이블 구조 즉시 파악**: `table-list`로 컬럼명+샘플데이터를 한 번에 제공, 추가 API 호출 불필요
 - **에러 방지**: 작업 전 상태 확인으로 안전한 자동화 워크플로우
 - **한국 환경 최적화**: 한글 파일명 지원, HWP 자동화 (Windows)
 
@@ -23,6 +24,9 @@ oa info
 
 # 현재 열린 Excel 파일 확인
 oa excel workbook-list --detailed
+
+# 🆕 테이블 구조와 샘플 데이터 즉시 파악 (AI 에이전트 최적화)
+oa excel table-list
 
 # 활성 워크북에서 데이터 읽기 (Excel이 이미 열려있는 경우)
 oa excel range-read --range "A1:C10"
@@ -106,13 +110,15 @@ oa excel range-convert --range "B2:B100" --remove-currency  # "₩1,000" → 100
 oa excel range-convert --range "C1:C50" --parse-percent  # "50%" → 0.5
 oa excel range-convert --range "D1:D100" --expand table --no-save  # 테이블 전체 변환, 저장 안 함
 
-# 테이블 처리 (기본)
+# 테이블 처리
+oa excel table-list                           # 🆕 모든 테이블 구조+샘플 데이터 (AI 최적화)
 oa excel table-read --output-file "data.csv"
 oa excel table-write --range "A1" --data-file "data.csv"
+oa excel table-analyze --table-name "Sales"  # 🆕 특정 테이블 메타데이터 생성
+oa excel metadata-generate                    # 🆕 모든 테이블 메타데이터 일괄 생성
 
 # Excel Table 관리 (Windows 전용)
 oa excel table-create --range "A1:D100" --table-name "SalesData"  # 범위를 Excel Table로 변환
-oa excel table-list --detailed                                   # Excel Table 목록 조회
 oa excel table-write --data-file "data.csv" --table-name "AutoTable"  # 데이터 쓰기 + Table 생성
 ```
 

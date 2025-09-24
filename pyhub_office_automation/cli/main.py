@@ -74,9 +74,11 @@ from pyhub_office_automation.excel.table_sort import table_sort
 from pyhub_office_automation.excel.table_sort_clear import table_sort_clear
 from pyhub_office_automation.excel.table_sort_info import table_sort_info
 from pyhub_office_automation.excel.table_write import table_write
+from pyhub_office_automation.excel.table_analyze import table_analyze
 from pyhub_office_automation.excel.textbox_add import textbox_add
 from pyhub_office_automation.excel.workbook_create import workbook_create
 from pyhub_office_automation.excel.workbook_info import workbook_info
+from pyhub_office_automation.excel.metadata_generate import metadata_generate
 from pyhub_office_automation.excel.workbook_list import workbook_list
 from pyhub_office_automation.excel.workbook_open import workbook_open
 from pyhub_office_automation.utils.resource_loader import load_llm_guide, load_welcome_message
@@ -226,6 +228,7 @@ excel_app.command("workbook-list")(workbook_list)
 excel_app.command("workbook-open")(workbook_open)
 excel_app.command("workbook-create")(workbook_create)
 excel_app.command("workbook-info")(workbook_info)
+excel_app.command("metadata-generate")(metadata_generate)
 
 # Sheet Commands
 excel_app.command("sheet-activate")(sheet_activate)
@@ -241,6 +244,7 @@ excel_app.command("table-sort")(table_sort)
 excel_app.command("table-sort-clear")(table_sort_clear)
 excel_app.command("table-sort-info")(table_sort_info)
 excel_app.command("table-write")(table_write)
+excel_app.command("table-analyze")(table_analyze)
 
 # Chart Commands
 excel_app.command("chart-add")(chart_add)
@@ -285,6 +289,7 @@ def excel_list_temp(
         {"name": "workbook-open", "description": "Excel 워크북 열기", "category": "workbook"},
         {"name": "workbook-create", "description": "새 Excel 워크북 생성", "category": "workbook"},
         {"name": "workbook-info", "description": "워크북 정보 조회", "category": "workbook"},
+        {"name": "metadata-generate", "description": "워크북 전체 Excel Table 메타데이터 자동 생성", "category": "workbook"},
         # Sheet Commands
         {"name": "sheet-activate", "description": "시트 활성화", "category": "sheet"},
         {"name": "sheet-add", "description": "새 시트 추가", "category": "sheet"},
@@ -305,6 +310,7 @@ def excel_list_temp(
         {"name": "table-sort-clear", "description": "테이블 정렬 해제", "category": "table"},
         {"name": "table-sort-info", "description": "테이블 정렬 상태 확인", "category": "table"},
         {"name": "table-write", "description": "DataFrame을 Excel 테이블로 쓰기 (선택적 Table 생성)", "category": "table"},
+        {"name": "table-analyze", "description": "Excel Table 분석 및 메타데이터 자동 생성", "category": "table"},
         # Chart Commands
         {"name": "chart-add", "description": "차트 추가", "category": "chart"},
         {"name": "chart-configure", "description": "차트 설정", "category": "chart"},

@@ -184,9 +184,12 @@ Excel commands are organized by category for better usability:
 - `range-read` - Read data from cell ranges
 - `range-write` - Write data to cell ranges
 
-**Table Operations (2 commands)**
+**Table Operations (5 commands)**
 - `table-read` - Read table data into pandas DataFrame
 - `table-write` - Write pandas DataFrame as Excel table
+- `table-list` - List all Excel tables with columns and sample data
+- `table-analyze` - Analyze specific table and generate metadata
+- `metadata-generate` - Batch generate metadata for all tables
 
 **Chart Operations (7 commands)**
 - `chart-add` - Create static chart from data range
@@ -341,6 +344,7 @@ AI agents should use these commands to understand current work context:
 - `oa excel workbook-list` - Discover all currently open workbooks
 - `oa excel workbook-list --detailed` - Get comprehensive list with file info, sheet counts, save status
 - `oa excel workbook-info --include-sheets` - Analyze active workbook structure
+- `oa excel table-list` - **Enhanced**: List all Excel tables with complete structure, columns, and sample data for immediate context understanding
 
 ### Parameter Handling
 - All inputs via CLI options: `--option-name value`
@@ -364,6 +368,27 @@ oa excel workbook-info --workbook-name "Sales.xlsx" --include-sheets
 
 # 3. Perform operations on identified workbook and sheets
 oa excel range-read --workbook-name "Sales.xlsx" --sheet "Data" --range "A1:F100"
+```
+
+#### Enhanced Table-Driven Analysis (New)
+```bash
+# 1. Get complete table overview with structure and sample data
+oa excel table-list
+
+# Response provides immediate insights:
+# - Table names and locations
+# - Column structures (all columns shown)
+# - Sample data (top 5 rows with 50-char limit per cell)
+# - Data types and business context
+# - No additional API calls needed for basic analysis
+
+# 2. AI agent can now suggest analysis without further data exploration:
+# - "I see GameData table with sales columns - shall I create regional sales charts?"
+# - "The table has 11 columns including genre and platform - want genre analysis?"
+# - "998 rows of game sales data detected - ready for top performers analysis?"
+
+# 3. Proceed directly with targeted analysis based on discovered structure
+oa excel chart-add --sheet "Data" --data-range "GameData[글로벌 판매량]" --chart-type "Column"
 ```
 
 #### Multi-Workbook Analysis
