@@ -163,6 +163,29 @@ The project includes cross-platform build scripts for creating standalone execut
 - **Entry Point**: `oa` command registered via `setup.py` entry_points
 - **Installation**: `pip install pyhub-office-automation`
 
+### Release Management (HeadVer Versioning)
+**IMPORTANT**: 항상 표준화된 버전 태그 생성 스크립트를 사용하세요.
+
+```bash
+# 표준 버전 태그 생성 스크립트 사용
+python scripts/create_version_tag.py --auto-increment
+
+# 특정 빌드 번호로 생성
+python scripts/create_version_tag.py 19 --message "Fix critical bug"
+
+# 미리보기만 (실제 태그 생성하지 않음)
+python scripts/create_version_tag.py --dry-run --auto-increment
+```
+
+**HeadVer 형식**: `v{major}.{yearweek}.{build}`
+- **major**: `.headver` 파일의 메이저 버전 (예: 10)
+- **yearweek**: 년도 뒤 2자리 + ISO 주차 2자리 (예: 2539 = 2025년 39주차)
+- **build**: 빌드 번호 (자동 증가 또는 수동 지정)
+
+**GitHub Actions 자동 빌드**:
+- `v*` 태그 푸시 시 자동으로 EXE 빌드 및 릴리즈 생성
+- 스크립트에서 직접 푸시 여부 선택 가능
+
 ## Excel Automation Features (xlwings)
 
 ### Command Structure (Updated: Issue #16)
