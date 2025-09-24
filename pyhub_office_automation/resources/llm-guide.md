@@ -158,8 +158,130 @@ oa excel workbook-list --detailed --format json
 # 활성 워크북 구조 분석
 oa excel workbook-info --include-sheets --format json
 
+# 🆕 혁신적 테이블 컨텍스트 즉시 파악 (AI 최적화)
+oa excel table-list --format json
+# → 한 번의 호출로 모든 테이블의 구조, 컬럼, 샘플 데이터 획득
+# → 추가 API 호출 없이 완전한 비즈니스 컨텍스트 이해 가능
+
 # 특정 워크북 상세 분석
 oa excel workbook-info --workbook-name "Sales.xlsx" --include-sheets
+```
+
+### 1-1. 🔥 Enhanced Table-Driven Analysis (혁신적 워크플로우)
+
+**기존 방식** (3번 호출 필요):
+```bash
+oa excel table-list              # 테이블 이름만 확인
+oa excel range-read --range ...  # 구조 파악을 위한 추가 호출
+oa excel range-read --range ...  # 샘플 데이터를 위한 추가 호출
+```
+
+**🆕 새로운 방식** (1번 호출로 완료):
+```bash
+oa excel table-list --format json
+```
+
+#### 📊 실제 응답 예제 (GameData 테이블)
+```json
+{
+  "success": true,
+  "command": "table-list",
+  "data": {
+    "tables": [
+      {
+        "name": "GameData",
+        "sheet": "Data",
+        "range": "$A$1:$K$999",
+        "row_count": 999,
+        "column_count": 11,
+        "has_headers": true,
+        "style": "TableStyleMedium3",
+        "data_rows": 998,
+        "columns": [
+          "순위", "게임명", "플랫폼", "발행일", "장르", "퍼블리셔",
+          "북미 판매량", "유럽 판매량", "일본 판매량", "기타 판매량", "글로벌 판매량"
+        ],
+        "sample_data": [
+          ["1.0", "Wii 스포츠", "닌텐도 Wii", "2006.0", "스포츠", "닌텐도", "41.49", "29.02", "3.77", "8.46", "82.74"],
+          ["2.0", "슈퍼 마리오브라더스", "닌텐도S", "1985.0", "횡스크롤", "닌텐도", "29.08", "3.58", "6.81", "0.77", "40.24"],
+          ["3.0", "마리오 카트 Wii", "닌텐도 Wii", "2008.0", "레이싱", "닌텐도", "15.85", "12.88", "3.79", "3.31", "35.82"]
+        ]
+      }
+    ],
+    "summary": {
+      "total_tables": 1,
+      "sheets_with_tables": 1,
+      "sheets_scanned": 3
+    }
+  }
+}
+```
+
+#### 🚀 AI 에이전트 즉시 활용 시나리오
+
+**🎯 시나리오 1: 즉시 데이터 분석 제안**
+```bash
+# 1번의 table-list 호출로 AI가 즉시 파악:
+# - 게임 판매량 데이터 (998개 게임)
+# - 지역별 판매량 컬럼 4개 (북미, 유럽, 일본, 기타)
+# - 플랫폼/장르별 분류 가능
+# - 시계열 데이터 (발행일)
+
+# AI 즉시 제안 가능:
+"998개 게임의 글로벌 판매 데이터를 발견했습니다!
+- 지역별 판매량 비교 차트를 만들어드릴까요?
+- 장르별/플랫폼별 분석은 어떠세요?
+- 발행 연도별 트렌드 분석도 가능합니다!"
+```
+
+**📊 시나리오 2: 적절한 차트 타입 자동 추천**
+```bash
+# 컬럼 구조 분석으로 AI가 즉시 추천:
+# - 순위 + 글로벌 판매량 → Top 10 막대형 차트
+# - 지역별 판매량 → 지역 비교 차트
+# - 장르별 집계 → 원형/도넛 차트
+# - 발행일 × 판매량 → 시계열 선형 차트
+
+# 자동 생성 예제:
+oa excel chart-add --sheet "Data" --data-range "GameData[글로벌 판매량]" --chart-type "Column" --title "게임별 글로벌 판매량 Top 10"
+```
+
+**🔍 시나리오 3: 데이터 품질 즉시 평가**
+```bash
+# 샘플 데이터만으로 AI가 즉시 평가:
+# - "41.49" 등 숫자 데이터 정상 (백만장 단위)
+# - "Wii 스포츠" 등 게임명 정상
+# - "2006.0" 발행일 형식 확인 필요
+# - NULL 값 없음 확인
+
+# AI 즉시 제안:
+"데이터 품질이 양호합니다. 998행 모두 분석 가능한 상태로 보입니다.
+발행일이 실수 형태인데 연도로 변환하여 분석하겠습니다."
+```
+
+#### ⚡ 성능 혁신: 67% API 호출 감소
+| 작업 | 기존 방식 | 새로운 방식 | 개선율 |
+|------|-----------|-------------|---------|
+| 테이블 구조 파악 | 3번 호출 | **1번 호출** | **-67%** |
+| 컬럼 정보 확인 | 별도 호출 필요 | **즉시 제공** | **-100%** |
+| 샘플 데이터 확인 | 별도 호출 필요 | **즉시 제공** | **-100%** |
+| 비즈니스 컨텍스트 | 수동 추론 | **자동 파악** | **즉시** |
+
+#### 🤖 AI 에이전트 Best Practice
+
+```bash
+# ✅ 권장: 작업 시작 시 한 번만 호출
+oa excel table-list --format json
+
+# ✅ 모든 정보를 한 번에 받아서 분석/제안 진행
+# - 테이블 구조 즉시 파악
+# - 적절한 차트 타입 자동 추천
+# - 데이터 품질 사전 검증
+# - 비즈니스 시나리오 자동 제안
+
+# ❌ 피해야 할 패턴: 불필요한 추가 호출
+# oa excel range-read ... (이미 sample_data에 포함됨)
+# oa excel workbook-info ... (이미 충분한 컨텍스트 제공됨)
 ```
 
 ### 2. Safe Operation (안전한 작업)
@@ -173,6 +295,27 @@ oa excel workbook-list | grep "target.xlsx"
 # 패턴 2: 활성 워크북 직접 사용 (가장 안전)
 oa excel range-read --range "A1:C10"
 oa excel range-write --range "D1" --data '["결과"]'
+```
+
+### 2-1. 🆕 Table Metadata Management (테이블 메타데이터 관리)
+
+```bash
+# 🎯 개별 테이블 심화 분석 및 메타데이터 생성
+oa excel table-analyze --table-name "GameData" --format json
+# → 특정 테이블의 상세 메타데이터 자동 생성
+# → 데이터 타입 추론, 태그 자동 생성
+# → Metadata 시트에 체계적으로 저장
+
+# 🔄 워크북 전체 테이블 일괄 메타데이터 생성
+oa excel metadata-generate --format json
+# → 모든 테이블 자동 분석
+# → 룰 기반 비즈니스 컨텍스트 추론
+# → 통합 메타데이터 관리 시스템
+
+# 📊 메타데이터 포함 워크북 정보
+oa excel workbook-info --include-metadata --format json
+# → 기존 기능 + 메타데이터 통계
+# → 관리되는 테이블 vs 미관리 테이블 현황
 ```
 
 ### 3. Efficient Batch Processing (효율적 일괄 처리)

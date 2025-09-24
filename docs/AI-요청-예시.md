@@ -141,7 +141,7 @@ oa excel table-create --range "A1:C100" --table-name "정리테이블"
 oa excel table-sort --table-name "정리테이블" --sort-key "이름" --order "asc"
 
 # 3. 결과 확인
-oa excel table-list --detailed
+oa excel table-list
 ```
 
 #### 📋 "빈 셀이나 빈 행 제거해줘"

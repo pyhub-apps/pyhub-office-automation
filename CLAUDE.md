@@ -892,6 +892,78 @@ def generate_analysis_report(pipeline_results):
 3. **품질 관리**: 코드 리뷰와 최적화 제안
 4. **지식 정리**: 자동 문서화와 인사이트 요약
 
+#### 🔥 Claude Code + table-list 최적 활용법
+
+**즉시 분석 패턴**:
+```bash
+# Claude Code가 선호하는 효율적 워크플로우
+oa excel table-list --format json
+# ☝️ 한 번의 호출로 Claude가 즉시 파악:
+# - 테이블 구조 (11개 컬럼: 순위, 게임명, 플랫폼, 발행일, 장르, 퍼블리셔, 판매량x4, 글로벌판매량)
+# - 샘플 데이터 (Wii 스포츠 82.74M, 슈퍼 마리오 40.24M 등)
+# - 데이터 품질 (998행, 정형화된 숫자 데이터)
+# - 비즈니스 컨텍스트 (게임 판매 분석 데이터)
+
+# Claude가 즉시 제안 가능한 분석들:
+# 1. "글로벌 판매량 Top 10 막대 차트를 만들어드릴까요?"
+# 2. "지역별 판매량 비교 (북미 vs 유럽 vs 일본 vs 기타)는 어떨까요?"
+# 3. "장르별 집계나 플랫폼별 분석도 가능합니다."
+# 4. "발행 연도별 트렌드 분석도 해볼까요?"
+```
+
+**Smart Chart Recommendation Engine**:
+```python
+def claude_smart_chart_suggestions(table_data):
+    """
+    Claude Code가 table-list 데이터를 분석해 최적 차트 추천
+    """
+    recommendations = []
+
+    # 컬럼 분석 기반 자동 추천
+    columns = table_data.get("columns", [])
+    sample_data = table_data.get("sample_data", [])
+
+    if "글로벌 판매량" in columns and "게임명" in columns:
+        recommendations.append({
+            "type": "Column",
+            "title": "게임별 글로벌 판매량 Top 10",
+            "reason": "순위 데이터와 판매량 수치로 Top 10 시각화 최적",
+            "command": "oa excel chart-add --data-range 'GameData[글로벌 판매량]' --chart-type 'Column'"
+        })
+
+    if "북미 판매량" in columns and "유럽 판매량" in columns:
+        recommendations.append({
+            "type": "Scatter",
+            "title": "북미 vs 유럽 판매량 상관관계",
+            "reason": "두 지역 판매량 간의 상관성 분석",
+            "command": "oa excel chart-add --x-range 'GameData[북미 판매량]' --y-range 'GameData[유럽 판매량]'"
+        })
+
+    return recommendations
+
+# 실제 활용: Claude가 즉시 적절한 차트 제안
+chart_suggestions = claude_smart_chart_suggestions(table_list_response["data"]["tables"][0])
+```
+
+**Data Quality Instant Assessment**:
+```python
+def claude_data_quality_check(sample_data):
+    """
+    샘플 데이터만으로 Claude가 즉시 품질 평가
+    """
+    quality_report = {
+        "data_completeness": "✅ NULL 값 없음",
+        "data_types": "✅ 숫자 데이터 정상 (41.49, 29.02 등)",
+        "business_logic": "✅ 판매량 합계 로직 확인 가능 (지역별 → 글로벌)",
+        "recommendations": [
+            "발행일을 연도 형식으로 변환하여 시계열 분석",
+            "판매량 단위 백만장으로 해석하여 차트 레이블링",
+            "상위 게임들의 플랫폼 트렌드 분석 가능"
+        ]
+    }
+    return quality_report
+```
+
 ### 권장 작업 순서
 
 1. **요구사항 분석**: 비즈니스 목표와 데이터 요구사항 명확화

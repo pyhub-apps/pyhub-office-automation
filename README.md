@@ -13,6 +13,7 @@ Excel과 HWP 문서를 명령줄에서 제어하는 Python 패키지입니다. J
 - **에러 방지**: 작업 전 상태 확인으로 안전한 자동화 워크플로우
 - **한국 환경 최적화**: 한글 파일명 지원, HWP 자동화 (Windows)
 
+
 ## 🚀 빠른 시작
 
 ```bash
@@ -292,7 +293,7 @@ oa excel pivot-refresh --pivot-name "PivotTable1"
 oa excel table-write --data-file "sales.csv" --table-name "SalesData" --table-style "TableStyleMedium5"
 
 # 2단계: Excel Table 확인
-oa excel table-list --detailed
+oa excel table-list
 
 # 3단계: Excel Table 기반 피벗테이블 생성 (범위 자동 확장!)
 oa excel pivot-create --source-range "SalesData" --auto-position --pivot-name "SalesPivot"
