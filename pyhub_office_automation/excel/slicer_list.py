@@ -25,9 +25,10 @@ from .utils import (
 def slicer_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="슬라이서를 조회할 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
-    detailed: bool = typer.Option(False, "--detailed", help="상세 정보 포함 (슬라이서 항목, 연결된 피벗테이블 등)"),
-    include_items: bool = typer.Option(False, "--include-items", help="슬라이서 항목 목록 포함"),
-    show_connections: bool = typer.Option(False, "--show-connections", help="연결된 피벗테이블 정보 표시"),
+    brief: bool = typer.Option(False, "--brief", help="간단한 정보만 포함 (기본: 상세 정보 포함)"),
+    detailed: bool = typer.Option(True, "--detailed/--no-detailed", help="상세 정보 포함 (슬라이서 항목, 연결된 피벗테이블 등)"),
+    include_items: bool = typer.Option(True, "--include-items/--no-include-items", help="슬라이서 항목 목록 포함"),
+    show_connections: bool = typer.Option(True, "--show-connections/--no-show-connections", help="연결된 피벗테이블 정보 표시"),
     filter_field: Optional[str] = typer.Option(None, "--filter-field", help="특정 필드의 슬라이서만 필터링"),
     filter_sheet: Optional[str] = typer.Option(None, "--filter-sheet", help="특정 시트의 슬라이서만 필터링"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
@@ -145,6 +146,12 @@ def slicer_list(
 
     try:
         with ExecutionTimer() as timer:
+            # brief 옵션 처리 - 간단한 정보만 포함
+            if brief:
+                detailed = False
+                include_items = False
+                show_connections = False
+
             # 워크북 연결
             book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 

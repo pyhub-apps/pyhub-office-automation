@@ -101,19 +101,20 @@ def chart_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 조회할 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="특정 시트의 차트만 조회 (지정하지 않으면 모든 시트)"),
-    detailed: bool = typer.Option(False, "--detailed", help="차트의 상세 정보 포함"),
+    brief: bool = typer.Option(False, "--brief", help="간단한 정보만 포함 (기본: 상세 정보 포함)"),
+    detailed: bool = typer.Option(True, "--detailed/--no-detailed", help="차트의 상세 정보 포함 (기본: True)"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
 ):
     """
-    워크시트의 모든 차트 정보를 조회합니다.
+    워크시트의 모든 차트 정보를 조회합니다. (기본적으로 상세 정보 포함)
 
-    워크북의 모든 시트를 검색하여 차트를 찾고, 각 차트의 기본 정보나 상세 정보를 반환합니다.
+    워크북의 모든 시트를 검색하여 차트를 찾고, 상세한 차트 정보를 반환합니다.
     차트 관리, 대시보드 분석, 차트 인벤토리 파악에 유용합니다.
 
     === 워크북 접근 방법 ===
     - --file-path: 파일 경로로 워크북 열기
-        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+    - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
     === 조회 범위 지정 ===
     --sheet 옵션으로 조회 범위를 제한할 수 있습니다:
@@ -122,34 +123,33 @@ def chart_list(
     • 특정 시트: --sheet "Dashboard" (해당 시트만 조회)
     • 여러 시트: 명령어를 여러 번 실행
 
-    === 정보 상세도 선택 ===
-    --detailed 플래그로 정보의 상세도를 조절합니다:
+    === 정보 상세도 선택 (기본값: 상세 정보 포함) ===
 
-    ▶ 기본 정보 (--detailed 없음):
-      • 차트 이름, 인덱스 번호
-      • 위치 (셀 주소), 크기 (픽셀)
-      • 소속 시트명
-
-    ▶ 상세 정보 (--detailed 포함):
-      • 기본 정보 + 추가 정보
+    ▶ 상세 정보 (기본값):
+      • 차트 이름, 인덱스 번호, 위치, 크기
       • 차트 유형 (column, pie, line 등)
       • 차트 제목, 범례 설정
       • 데이터 소스 범위 (Windows만)
       • 차트 스타일 정보
 
+    ▶ 간단 정보 (--brief 사용):
+      • 차트 이름, 인덱스 번호
+      • 위치 (셀 주소), 크기 (픽셀)
+      • 소속 시트명
+
     === 활용 시나리오별 예제 ===
 
-    # 1. 현재 워크북의 모든 차트 간단 조회
+    # 1. 현재 워크북의 모든 차트 상세 조회 (기본)
     oa excel chart-list
 
-    # 2. 특정 시트의 차트만 상세 조회
-    oa excel chart-list --sheet "Dashboard" --detailed
+    # 2. 특정 시트의 차트만 조회
+    oa excel chart-list --sheet "Dashboard"
 
-    # 3. 파일의 모든 차트 상세 분석
-    oa excel chart-list --file-path "report.xlsx" --detailed
+    # 3. 파일의 모든 차트 간단 조회
+    oa excel chart-list --file-path "report.xlsx" --brief
 
     # 4. 차트 인벤토리 텍스트 형식으로 출력
-    oa excel chart-list --workbook-name "Sales.xlsx" --detailed --format text
+    oa excel chart-list --workbook-name "Sales.xlsx" --format text
 
     === 출력 활용 방법 ===
     • JSON 출력: AI 에이전트가 파싱하여 차트 정보 분석
@@ -169,6 +169,10 @@ def chart_list(
     book = None
 
     try:
+        # brief 옵션 처리 - 간단한 정보만 포함
+        if brief:
+            detailed = False
+
         # 워크북 연결
         book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
@@ -240,6 +244,7 @@ def chart_list(
             "charts": charts_info,
             "query_info": {
                 "target_sheet": sheet if sheet else "all_sheets",
+                "brief": brief,
                 "detailed": detailed,
                 "platform": platform.system(),
             },

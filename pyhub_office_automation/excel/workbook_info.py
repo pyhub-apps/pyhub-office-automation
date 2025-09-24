@@ -30,18 +30,18 @@ from .metadata_utils import get_workbook_tables_summary
 def workbook_info(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="조회할 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 찾기"),
-    include_sheets: bool = typer.Option(False, "--include-sheets", help="시트 목록 및 상세 정보 포함"),
-    include_names: bool = typer.Option(False, "--include-names", help="정의된 이름(Named Ranges) 포함"),
-    include_properties: bool = typer.Option(False, "--include-properties", help="파일 속성 정보 포함"),
-    include_charts: bool = typer.Option(False, "--include-charts", help="차트 요약 정보 포함"),
-    include_pivots: bool = typer.Option(False, "--include-pivots", help="피벗테이블 요약 정보 포함"),
-    include_slicers: bool = typer.Option(False, "--include-slicers", help="슬라이서 요약 정보 포함"),
-    include_metadata: bool = typer.Option(False, "--include-metadata", help="Excel Table 메타데이터 정보 포함"),
-    include_all: bool = typer.Option(False, "--include-all", help="모든 추가 정보 포함"),
+    minimal: bool = typer.Option(False, "--minimal", help="기본 정보만 포함 (시트, 속성, 차트 등 제외)"),
+    include_sheets: bool = typer.Option(True, "--include-sheets/--no-include-sheets", help="시트 목록 및 상세 정보 포함"),
+    include_names: bool = typer.Option(True, "--include-names/--no-include-names", help="정의된 이름(Named Ranges) 포함"),
+    include_properties: bool = typer.Option(True, "--include-properties/--no-include-properties", help="파일 속성 정보 포함"),
+    include_charts: bool = typer.Option(True, "--include-charts/--no-include-charts", help="차트 요약 정보 포함"),
+    include_pivots: bool = typer.Option(True, "--include-pivots/--no-include-pivots", help="피벗테이블 요약 정보 포함"),
+    include_slicers: bool = typer.Option(True, "--include-slicers/--no-include-slicers", help="슬라이서 요약 정보 포함"),
+    include_metadata: bool = typer.Option(True, "--include-metadata/--no-include-metadata", help="Excel Table 메타데이터 정보 포함"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
     """
-    특정 Excel 워크북의 상세 정보를 조회합니다.
+    특정 Excel 워크북의 상세 정보를 조회합니다. (기본적으로 모든 정보 포함)
 
     \b
     워크북 접근 방법:
@@ -50,35 +50,36 @@ def workbook_info(
       • --workbook-name: 열린 워크북 이름으로 접근
 
     \b
-    정보 포함 옵션:
-      • --include-sheets: 시트 목록 및 상세 정보
-      • --include-names: 정의된 이름(Named Ranges)
-      • --include-properties: 파일 속성 정보
-      • --include-charts: 차트 요약 정보
-      • --include-pivots: 피벗테이블 요약 정보
-      • --include-slicers: 슬라이서 요약 정보
-      • --include-metadata: Excel Table 메타데이터 정보
-      • --include-all: 위의 모든 정보 포함
+    정보 포함 옵션 (기본값: 모든 정보 포함):
+      • --minimal: 기본 정보만 포함 (워크북명, 시트수 등)
+      • --no-include-sheets: 시트 상세 정보 제외
+      • --no-include-names: 정의된 이름(Named Ranges) 제외
+      • --no-include-properties: 파일 속성 정보 제외
+      • --no-include-charts: 차트 요약 정보 제외
+      • --no-include-pivots: 피벗테이블 요약 정보 제외
+      • --no-include-slicers: 슬라이서 요약 정보 제외
+      • --no-include-metadata: Excel Table 메타데이터 정보 제외
 
     \b
     사용 예제:
-      oa excel workbook-info --include-sheets
-      oa excel workbook-info --workbook-name "Sales.xlsx" --include-properties
-      oa excel workbook-info --file-path "data.xlsx" --include-all
-      oa excel workbook-info --include-charts --include-pivots --include-slicers
-      oa excel workbook-info --include-metadata --include-sheets
+      oa excel workbook-info                                    # 모든 정보 포함 (기본)
+      oa excel workbook-info --minimal                          # 기본 정보만
+      oa excel workbook-info --workbook-name "Sales.xlsx"       # 모든 정보 포함
+      oa excel workbook-info --file-path "data.xlsx"            # 모든 정보 포함
+      oa excel workbook-info --no-include-charts --no-include-pivots  # 차트/피벗 제외
+      oa excel workbook-info --minimal --include-sheets         # 기본 정보 + 시트 정보만
     """
     book = None
     try:
-        # include-all 옵션 처리
-        if include_all:
-            include_sheets = True
-            include_names = True
-            include_properties = True
-            include_charts = True
-            include_pivots = True
-            include_slicers = True
-            include_metadata = True
+        # minimal 옵션 처리 - 모든 추가 정보를 False로 설정
+        if minimal:
+            include_sheets = False
+            include_names = False
+            include_properties = False
+            include_charts = False
+            include_pivots = False
+            include_slicers = False
+            include_metadata = False
 
         # 옵션 검증 (이제 빈 옵션은 자동으로 활성 워크북 사용)
         options_count = sum([bool(file_path), bool(workbook_name)])
@@ -260,6 +261,7 @@ def workbook_info(
                 "application": app_info,
                 "connection_method": "file_path" if file_path else ("workbook_name" if workbook_name else "active"),
                 "query_options": {
+                    "minimal": minimal,
                     "include_sheets": include_sheets,
                     "include_names": include_names,
                     "include_properties": include_properties,

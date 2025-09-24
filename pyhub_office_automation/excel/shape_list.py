@@ -27,8 +27,9 @@ def shape_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="도형을 조회할 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="도형을 조회할 시트 이름 (지정하지 않으면 활성 시트)"),
-    detailed: bool = typer.Option(False, "--detailed", help="상세 정보 포함 (색상, 투명도, 텍스트 등)"),
-    include_text: bool = typer.Option(False, "--include-text", help="텍스트 내용 포함 (Windows 전용)"),
+    brief: bool = typer.Option(False, "--brief", help="간단한 정보만 포함 (기본: 상세 정보 포함)"),
+    detailed: bool = typer.Option(True, "--detailed/--no-detailed", help="상세 정보 포함 (색상, 투명도, 텍스트 등)"),
+    include_text: bool = typer.Option(True, "--include-text/--no-include-text", help="텍스트 내용 포함 (Windows 전용)"),
     filter_type: Optional[str] = typer.Option(None, "--filter-type", help="특정 도형 타입만 필터링 (예: rectangle, oval)"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
@@ -113,6 +114,11 @@ def shape_list(
 
     try:
         with ExecutionTimer() as timer:
+            # brief 옵션 처리 - 간단한 정보만 포함
+            if brief:
+                detailed = False
+                include_text = False
+
             # 워크북 연결
             book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 

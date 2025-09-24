@@ -30,10 +30,9 @@ def pivot_list(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="조회할 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="특정 시트의 피벗테이블만 조회 (지정하지 않으면 전체 워크북)"),
-    include_details: bool = typer.Option(False, "--include-details", help="피벗테이블 상세 정보 포함 여부 (기본값: False)"),
-    include_ranges: bool = typer.Option(
-        False, "--include-ranges", help="피벗테이블 상세 범위 정보 포함 여부 (Windows 전용, 기본값: False)"
-    ),
+    brief: bool = typer.Option(False, "--brief", help="간단한 정보만 포함 (기본: 상세 정보 포함)"),
+    include_details: bool = typer.Option(True, "--include-details/--no-include-details", help="피벗테이블 상세 정보 포함 여부 (기본값: True)"),
+    include_ranges: bool = typer.Option(True, "--include-ranges/--no-include-ranges", help="피벗테이블 상세 범위 정보 포함 여부 (Windows 전용, 기본값: True)"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
 ):
@@ -58,6 +57,11 @@ def pivot_list(
     book = None
 
     try:
+        # brief 옵션 처리 - 간단한 정보만 포함
+        if brief:
+            include_details = False
+            include_ranges = False
+
         # 워크북 연결
         book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 

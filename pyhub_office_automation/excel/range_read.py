@@ -36,14 +36,14 @@ def range_read(
     range_str: str = typer.Option(..., "--range", help="읽을 셀 범위 (예: A1:C10, Sheet1!A1:C10)"),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="시트 이름 (미지정시 활성 시트 사용)"),
     expand: Optional[ExpandMode] = typer.Option(None, "--expand", help="범위 확장 모드 (table, down, right)"),
-    include_formulas: bool = typer.Option(False, "--include-formulas", help="공식 포함 여부"),
+    include_formulas: bool = typer.Option(True, "--include-formulas/--no-include-formulas", help="공식 포함 여부 (기본: True)"),
     output_format: OutputFormat = typer.Option(OutputFormat.JSON, "--format", help="출력 형식 선택"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
 ):
     """
-    Excel 셀 범위의 데이터를 읽습니다.
+    Excel 셀 범위의 데이터를 읽습니다. (기본적으로 공식 정보 포함)
 
-    지정된 범위의 셀 값을 읽어서 구조화된 형태로 반환합니다.
+    지정된 범위의 셀 값과 공식을 읽어서 구조화된 형태로 반환합니다.
 
     \b
     워크북 접근 방법:
@@ -58,9 +58,14 @@ def range_read(
       • right: 오른쪽으로 데이터가 있는 곳까지 확장
 
     \b
+    데이터 포함 옵션 (기본값: 공식 포함):
+      • --no-include-formulas: 공식 정보 제외하고 값만 반환
+
+    \b
     사용 예제:
-      oa excel range-read --file-path "data.xlsx" --range "A1:C10"
-      oa excel range-read --range "A1:C10"
+      oa excel range-read --file-path "data.xlsx" --range "A1:C10"                # 값과 공식 모두 포함
+      oa excel range-read --range "A1:C10"                                        # 기본 (공식 포함)
+      oa excel range-read --range "A1:C10" --no-include-formulas                  # 값만
       oa excel range-read --workbook-name "Sales.xlsx" --range "Sheet1!A1:C10" --format csv
       oa excel range-read --file-path "data.xlsx" --range "A1" --expand table
     """
