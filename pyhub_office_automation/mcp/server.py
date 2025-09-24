@@ -9,8 +9,16 @@ import json
 import logging
 from typing import Any, Dict, Optional
 
-from fastmcp import FastMCP
-from fastmcp.exceptions import ToolError
+try:
+    from fastmcp import FastMCP
+    from fastmcp.exceptions import ToolError
+
+    FASTMCP_AVAILABLE = True
+except ImportError:
+    # fastmcp가 없으면 MCP 서버 기능 비활성화
+    FastMCP = None
+    ToolError = Exception
+    FASTMCP_AVAILABLE = False
 
 from pyhub_office_automation.excel.chart_list import chart_list
 from pyhub_office_automation.excel.data_analyze import data_analyze
@@ -26,10 +34,28 @@ from pyhub_office_automation.version import get_version
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# FastMCP 서버 인스턴스 생성
-mcp = FastMCP(
-    name="PyHub Office Automation MCP", version=get_version(), instructions="Excel 분석을 위한 최소 도구 세트 (FastMCP 기반)"
-)
+# FastMCP 서버 인스턴스 생성 (조건부)
+if FASTMCP_AVAILABLE:
+    mcp = FastMCP(
+        name="PyHub Office Automation MCP",
+        version=get_version(),
+        instructions="Excel 분석을 위한 최소 도구 세트 (FastMCP 기반)",
+    )
+else:
+    logger.warning("fastmcp 패키지를 찾을 수 없습니다. MCP 서버 기능이 비활성화됩니다.")
+
+    # 더미 객체 생성하여 데코레이터 오류 방지
+    class DummyMCP:
+        def resource(self, path):
+            def decorator(func):
+                return func
+
+            return decorator
+
+        def tool(self, func):
+            return func
+
+    mcp = DummyMCP()
 
 # =============================================================================
 # Resources - 상태 정보 제공
