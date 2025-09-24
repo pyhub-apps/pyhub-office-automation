@@ -4,10 +4,10 @@
 크로스 플랫폼으로 포트 사용 상태를 확인하고 충돌을 방지합니다.
 """
 
+import logging
 import socket
 import sys
-import logging
-from typing import Optional, Tuple, Dict, Any
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -68,16 +68,12 @@ def check_port_with_recommendation(host: str, port: int) -> Dict[str, Any]:
         "is_available": False,
         "alternative_port": None,
         "message": "",
-        "can_proceed": False
+        "can_proceed": False,
     }
 
     # 요청된 포트 확인
     if not is_port_in_use(host, port):
-        result.update({
-            "is_available": True,
-            "message": f"포트 {port}를 사용할 수 있습니다.",
-            "can_proceed": True
-        })
+        result.update({"is_available": True, "message": f"포트 {port}를 사용할 수 있습니다.", "can_proceed": True})
         return result
 
     # 포트가 사용 중인 경우 대안 찾기
@@ -86,10 +82,7 @@ def check_port_with_recommendation(host: str, port: int) -> Dict[str, Any]:
     # 대안 포트 찾기
     alternative = find_available_port(host, port + 1, 50)
     if alternative:
-        result.update({
-            "alternative_port": alternative,
-            "message": f"포트 {port}가 이미 사용 중입니다. 대안: {alternative}"
-        })
+        result.update({"alternative_port": alternative, "message": f"포트 {port}가 이미 사용 중입니다. 대안: {alternative}"})
     else:
         result["message"] = f"포트 {port}가 이미 사용 중이며, 인근 포트도 모두 사용 중입니다."
 
@@ -112,7 +105,7 @@ def get_port_info(host: str, port: int) -> Dict[str, Any]:
         "port": port,
         "is_available": not is_port_in_use(host, port),
         "platform": sys.platform,
-        "check_method": "socket"
+        "check_method": "socket",
     }
 
     # OS별 추가 정보 수집 시도
@@ -120,21 +113,17 @@ def get_port_info(host: str, port: int) -> Dict[str, Any]:
         if sys.platform == "win32":
             # Windows: netstat으로 프로세스 정보 확인
             import subprocess
-            result = subprocess.run(
-                ['netstat', '-ano', f'findstr', f':{port}'],
-                capture_output=True, text=True, timeout=5
-            )
+
+            result = subprocess.run(["netstat", "-ano", f"findstr", f":{port}"], capture_output=True, text=True, timeout=5)
             if result.stdout.strip():
-                info["process_info"] = result.stdout.strip().split('\n')
+                info["process_info"] = result.stdout.strip().split("\n")
         else:
             # Unix/Linux: lsof로 프로세스 정보 확인
             import subprocess
-            result = subprocess.run(
-                ['lsof', '-i', f':{port}'],
-                capture_output=True, text=True, timeout=5
-            )
+
+            result = subprocess.run(["lsof", "-i", f":{port}"], capture_output=True, text=True, timeout=5)
             if result.stdout.strip():
-                info["process_info"] = result.stdout.strip().split('\n')
+                info["process_info"] = result.stdout.strip().split("\n")
     except Exception as e:
         logger.debug(f"프로세스 정보 수집 실패: {e}")
         info["process_info_error"] = str(e)

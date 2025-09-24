@@ -6,12 +6,12 @@ Python 환경 자동 탐지 유틸리티
 """
 
 import os
-import sys
-import subprocess
-import shutil
-from pathlib import Path
-from typing import List, Optional, Dict, Tuple
 import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 
 class PythonInfo:
@@ -26,11 +26,7 @@ class PythonInfo:
         return f"Python {self.version} at {self.path}"
 
     def to_dict(self) -> Dict:
-        return {
-            "path": self.path,
-            "version": self.version,
-            "is_recommended": self.is_recommended
-        }
+        return {"path": self.path, "version": self.version, "is_recommended": self.is_recommended}
 
 
 class PythonDetector:
@@ -139,10 +135,12 @@ class PythonDetector:
 
         # Homebrew 경로 (macOS)
         if sys.platform == "darwin":
-            common_paths.extend([
-                "/opt/homebrew/bin/python3",
-                "/usr/local/bin/python3",
-            ])
+            common_paths.extend(
+                [
+                    "/opt/homebrew/bin/python3",
+                    "/usr/local/bin/python3",
+                ]
+            )
 
         # 사용자 홈 경로
         user_home = Path.home()
@@ -167,6 +165,7 @@ class PythonDetector:
         """glob 패턴으로 Python 찾기"""
         try:
             import glob
+
             for path in glob.glob(pattern):
                 if os.path.isfile(path) and os.access(path, os.X_OK):
                     info = self._get_python_info(path)
@@ -179,12 +178,7 @@ class PythonDetector:
         """Python 경로에서 버전 정보 추출"""
         try:
             # python --version 실행
-            result = subprocess.run(
-                [python_path, "--version"],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
+            result = subprocess.run([python_path, "--version"], capture_output=True, text=True, timeout=5)
 
             if result.returncode == 0:
                 version_output = result.stdout.strip()
@@ -216,6 +210,7 @@ class PythonDetector:
 
     def _sort_by_version(self):
         """버전별로 정렬 (높은 버전 우선)"""
+
         def version_key(python_info: PythonInfo) -> Tuple[int, int, int]:
             try:
                 parts = python_info.version.split(".")

@@ -13,6 +13,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .metadata_utils import auto_generate_table_metadata, get_metadata_record, write_metadata_record
 from .utils import (
     ExecutionTimer,
     create_error_response,
@@ -21,11 +22,6 @@ from .utils import (
     get_sheet,
     normalize_path,
 )
-from .metadata_utils import (
-    auto_generate_table_metadata,
-    write_metadata_record,
-    get_metadata_record,
-)
 
 
 def table_analyze(
@@ -33,7 +29,9 @@ def table_analyze(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="시트 이름 (미지정시 Table 검색으로 자동 찾기)"),
-    update_metadata: bool = typer.Option(True, "--update-metadata/--no-update-metadata", help="Metadata 시트에 결과 저장 여부"),
+    update_metadata: bool = typer.Option(
+        True, "--update-metadata/--no-update-metadata", help="Metadata 시트에 결과 저장 여부"
+    ),
     force_overwrite: bool = typer.Option(False, "--force-overwrite", help="기존 메타데이터가 있어도 강제 덮어쓰기"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
@@ -133,13 +131,17 @@ def table_analyze(
                         break
 
                 if not target_sheet:
-                    raise ValueError(f"워크북에서 테이블 '{table_name}'을 찾을 수 없습니다. --sheet 옵션으로 시트를 지정해보세요.")
+                    raise ValueError(
+                        f"워크북에서 테이블 '{table_name}'을 찾을 수 없습니다. --sheet 옵션으로 시트를 지정해보세요."
+                    )
 
             # 기존 메타데이터 확인
             existing_metadata = get_metadata_record(book, table_name)
             if existing_metadata and not force_overwrite:
                 if update_metadata:
-                    typer.echo(f"⚠️ 테이블 '{table_name}'의 메타데이터가 이미 존재합니다. --force-overwrite 옵션을 사용하여 덮어쓰기하거나 --no-update-metadata로 분석만 수행하세요.")
+                    typer.echo(
+                        f"⚠️ 테이블 '{table_name}'의 메타데이터가 이미 존재합니다. --force-overwrite 옵션을 사용하여 덮어쓰기하거나 --no-update-metadata로 분석만 수행하세요."
+                    )
 
             # Table 메타데이터 자동 생성
             analysis_result = auto_generate_table_metadata(book, table_name, target_sheet_name)
@@ -159,7 +161,7 @@ def table_analyze(
                     column_info=analysis_result["column_info"],
                     row_count=analysis_result["row_count"],
                     tags=analysis_result["tags"],
-                    notes=analysis_result["notes"]
+                    notes=analysis_result["notes"],
                 )
                 saved_to_metadata = save_success
 
@@ -178,13 +180,15 @@ def table_analyze(
                 "metadata_action": {
                     "saved_to_metadata": saved_to_metadata,
                     "overwritten": force_overwrite and existing_metadata is not None,
-                    "skipped_reason": None if saved_to_metadata else ("existing_metadata" if existing_metadata else "update_disabled")
+                    "skipped_reason": (
+                        None if saved_to_metadata else ("existing_metadata" if existing_metadata else "update_disabled")
+                    ),
                 },
                 "workbook": workbook_info,
                 "options": {
                     "update_metadata": update_metadata,
                     "force_overwrite": force_overwrite,
-                }
+                },
             }
 
             # 성공 메시지 생성

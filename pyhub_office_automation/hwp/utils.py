@@ -32,7 +32,8 @@ def normalize_path(path: str) -> str:
     # macOS에서 한글 파일명 정규화 (NFC 형태로 변환)
     if platform.system() == "Darwin":
         import unicodedata
-        path = unicodedata.normalize('NFC', path)
+
+        path = unicodedata.normalize("NFC", path)
 
     # 절대 경로로 변환
     return str(Path(path).resolve())
@@ -51,6 +52,7 @@ def check_hwp_installed() -> bool:
     try:
         # pyhwpx import with warning suppression (COM 캐시 재구축 경고 방지)
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import pyhwpx
@@ -63,10 +65,7 @@ def check_hwp_installed() -> bool:
 
 
 def create_success_response(
-    data: Any = None,
-    processing_stats: Optional[Dict] = None,
-    metadata: Optional[Dict] = None,
-    command: str = "export"
+    data: Any = None, processing_stats: Optional[Dict] = None, metadata: Optional[Dict] = None, command: str = "export"
 ) -> Dict[str, Any]:
     """
     성공 응답 생성
@@ -80,11 +79,7 @@ def create_success_response(
     Returns:
         구조화된 성공 응답
     """
-    response = {
-        "command": command,
-        "version": get_version(),
-        "status": "success"
-    }
+    response = {"command": command, "version": get_version(), "status": "success"}
 
     if data is not None:
         response["data"] = data
@@ -98,11 +93,7 @@ def create_success_response(
     return response
 
 
-def create_error_response(
-    error_message: str,
-    error_type: str = "ClickException",
-    command: str = "export"
-) -> Dict[str, Any]:
+def create_error_response(error_message: str, error_type: str = "ClickException", command: str = "export") -> Dict[str, Any]:
     """
     에러 응답 생성
 
@@ -119,7 +110,7 @@ def create_error_response(
         "version": get_version(),
         "status": "error",
         "error_message": error_message,
-        "error_type": error_type
+        "error_type": error_type,
     }
 
 
@@ -177,19 +168,19 @@ def clean_html_content(html_content: str) -> str:
 
     # HWP 특유의 불필요한 CSS 클래스 제거
     patterns_to_remove = [
-        r'<meta[^>]*generator[^>]*>',  # Generator 메타 태그
-        r'class="[^"]*HwpObj[^"]*"',   # HWP 객체 클래스
+        r"<meta[^>]*generator[^>]*>",  # Generator 메타 태그
+        r'class="[^"]*HwpObj[^"]*"',  # HWP 객체 클래스
         r'style="[^"]*position:\s*absolute[^"]*"',  # 절대 위치 스타일
-        r'<!\-\-[^>]*\-\->',  # HTML 주석
+        r"<!\-\-[^>]*\-\->",  # HTML 주석
     ]
 
     cleaned_content = html_content
     for pattern in patterns_to_remove:
-        cleaned_content = re.sub(pattern, '', cleaned_content, flags=re.IGNORECASE)
+        cleaned_content = re.sub(pattern, "", cleaned_content, flags=re.IGNORECASE)
 
     # 불필요한 공백 정리
-    cleaned_content = re.sub(r'\n\s*\n', '\n', cleaned_content)
-    cleaned_content = re.sub(r'>\s+<', '><', cleaned_content)
+    cleaned_content = re.sub(r"\n\s*\n", "\n", cleaned_content)
+    cleaned_content = re.sub(r">\s+<", "><", cleaned_content)
 
     return cleaned_content.strip()
 
@@ -237,7 +228,7 @@ def validate_file_path(file_path: str) -> str:
     if not os.path.exists(normalized_path):
         raise typer.BadParameter(f"파일이 존재하지 않습니다: {normalized_path}")
 
-    if not normalized_path.lower().endswith('.hwp'):
+    if not normalized_path.lower().endswith(".hwp"):
         raise typer.BadParameter(f"HWP 파일만 지원됩니다: {normalized_path}")
 
     return normalized_path
@@ -266,4 +257,4 @@ def create_temp_html_file() -> str:
     Returns:
         임시 HTML 파일 경로
     """
-    return tempfile.mktemp(suffix='.html', prefix='hwp_export_')
+    return tempfile.mktemp(suffix=".html", prefix="hwp_export_")

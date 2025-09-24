@@ -7,9 +7,10 @@ FastAPI 기반으로 구현하여 Claude Desktop 및 기타 AI 서비스와 연�
 
 import logging
 import sys
-from typing import Dict, Any
+from typing import Any, Dict
+
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.types import ASGIApp
@@ -25,11 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # FastAPI 앱 생성
-app = FastAPI(
-    title="PyHub Office Automation MCP",
-    description="Excel 분석을 위한 MCP 서버 (Streamable HTTP)",
-    version="0.1.0"
-)
+app = FastAPI(title="PyHub Office Automation MCP", description="Excel 분석을 위한 MCP 서버 (Streamable HTTP)", version="0.1.0")
 
 # CORS 설정 - AI 서비스에서 접근 가능하도록
 app.add_middleware(
@@ -43,6 +40,7 @@ app.add_middleware(
 # =============================================================================
 # MCP Streamable HTTP 엔드포인트
 # =============================================================================
+
 
 @app.post("/mcp")
 async def mcp_endpoint(request: Request):
@@ -76,14 +74,10 @@ async def mcp_endpoint(request: Request):
                     "name": "PyHub Office Automation MCP",
                     "version": get_version(),
                     "instructions": "Excel 분석을 위한 최소 도구 세트 (FastMCP 기반)",
-                    "capabilities": {
-                        "resources": 2,
-                        "tools": 5,
-                        "prompts": 0
-                    }
-                }
+                    "capabilities": {"resources": 2, "tools": 5, "prompts": 0},
+                },
             },
-            "id": 1
+            "id": 1,
         }
 
         # SSE 스트림 응답이 요청된 경우
@@ -94,7 +88,7 @@ async def mcp_endpoint(request: Request):
                 headers={
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
-                }
+                },
             )
 
         # 일반 JSON 응답
@@ -104,14 +98,11 @@ async def mcp_endpoint(request: Request):
         logger.error(f"MCP endpoint error: {e}")
         error_response = {
             "jsonrpc": "2.0",
-            "error": {
-                "code": -32603,  # Internal error
-                "message": "Internal server error",
-                "data": str(e)
-            },
-            "id": None
+            "error": {"code": -32603, "message": "Internal server error", "data": str(e)},  # Internal error
+            "id": None,
         }
         return JSONResponse(content=error_response, status_code=500)
+
 
 async def _sse_generator(data: Dict[str, Any]):
     """SSE 형태로 데이터 스트리밍"""
@@ -119,7 +110,8 @@ async def _sse_generator(data: Dict[str, Any]):
 
     # SSE 이벤트 형식으로 데이터 전송
     sse_data = f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-    yield sse_data.encode('utf-8')
+    yield sse_data.encode("utf-8")
+
 
 @app.get("/mcp")
 async def mcp_info():
@@ -136,15 +128,15 @@ async def mcp_info():
             "server": {
                 "name": "PyHub Office Automation MCP",
                 "version": get_version(),
-                "instructions": "Excel 분석을 위한 최소 도구 세트 (FastMCP 기반)"
+                "instructions": "Excel 분석을 위한 최소 도구 세트 (FastMCP 기반)",
             },
             "capabilities": {
                 "resources": 2,  # resource://excel/workbooks, resource://excel/workbook/{name}/info
-                "tools": 5,      # 5개의 Excel 도구
-                "prompts": 0
+                "tools": 5,  # 5개의 Excel 도구
+                "prompts": 0,
             },
             "transport": "streamable_http",
-            "status": "running"
+            "status": "running",
         }
 
         return JSONResponse(content=server_info)
@@ -153,14 +145,17 @@ async def mcp_info():
         logger.error(f"MCP info error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # =============================================================================
 # 헬스 체크 및 상태 엔드포인트
 # =============================================================================
+
 
 @app.get("/health")
 async def health_check():
     """서버 헬스 체크"""
     return {"status": "healthy", "server": "PyHub Office Automation MCP"}
+
 
 @app.get("/")
 async def root():
@@ -168,24 +163,16 @@ async def root():
     return {
         "message": "PyHub Office Automation MCP Server",
         "version": "0.1.0",
-        "endpoints": {
-            "mcp": "/mcp (POST, GET)",
-            "health": "/health",
-            "docs": "/docs"
-        }
+        "endpoints": {"mcp": "/mcp (POST, GET)", "health": "/health", "docs": "/docs"},
     }
+
 
 # =============================================================================
 # 서버 실행 함수
 # =============================================================================
 
-def run_server(
-    host: str = "127.0.0.1",
-    port: int = 8765,
-    log_level: str = "info",
-    reload: bool = False,
-    force: bool = False
-):
+
+def run_server(host: str = "127.0.0.1", port: int = 8765, log_level: str = "info", reload: bool = False, force: bool = False):
     """
     MCP HTTP 서버 실행
 
@@ -220,13 +207,7 @@ def run_server(
     logger.info(f"API docs: http://{host}:{port}/docs")
 
     try:
-        uvicorn.run(
-            "pyhub_office_automation.mcp.http_server:app",
-            host=host,
-            port=port,
-            log_level=log_level,
-            reload=reload
-        )
+        uvicorn.run("pyhub_office_automation.mcp.http_server:app", host=host, port=port, log_level=log_level, reload=reload)
     except OSError as e:
         if "address already in use" in str(e).lower():
             logger.error(f"Port {port} is already in use. Use --force to override or try a different port.")
@@ -236,11 +217,7 @@ def run_server(
         else:
             raise
 
+
 if __name__ == "__main__":
     # 개발용 서버 실행
-    run_server(
-        host="0.0.0.0",  # 외부 접근 허용
-        port=8765,
-        log_level="info",
-        reload=True  # 개발용 자동 재로드
-    )
+    run_server(host="0.0.0.0", port=8765, log_level="info", reload=True)  # 외부 접근 허용  # 개발용 자동 재로드

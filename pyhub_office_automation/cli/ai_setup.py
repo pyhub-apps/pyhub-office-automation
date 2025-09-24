@@ -32,20 +32,20 @@ AI_AGENTS = {
         "name": "Codex CLI",
         "filename": "AGENTS.md",
         "description": "GitHub Codex CLI용 지침 파일",
-        "template": "codex_template.md"
+        "template": "codex_template.md",
     },
     "gemini": {
         "name": "Gemini CLI",
         "filename": "GEMINI.md",
         "description": "Google Gemini CLI용 지침 파일",
-        "template": "gemini_template.md"
+        "template": "gemini_template.md",
     },
     "claude": {
         "name": "Claude Code",
         "filename": "CLAUDE.md",
         "description": "Anthropic Claude Code용 지침 파일",
-        "template": "claude_template.md"
-    }
+        "template": "claude_template.md",
+    },
 }
 
 
@@ -58,8 +58,9 @@ class AISetupManager:
         self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.package_version = get_version()
 
-    def generate_ai_setup(self, agent_type: str, detect_python: bool = True,
-                         force: bool = False, dry_run: bool = False) -> Dict:
+    def generate_ai_setup(
+        self, agent_type: str, detect_python: bool = True, force: bool = False, dry_run: bool = False
+    ) -> Dict:
         """AI 에이전트별 설정 파일 생성"""
         if agent_type not in AI_AGENTS:
             raise ValueError(f"지원하지 않는 AI 에이전트: {agent_type}")
@@ -80,7 +81,7 @@ class AISetupManager:
             "output_file": str(output_file),
             "content_length": len(content),
             "timestamp": self.timestamp,
-            "sections": self._get_content_sections(content)
+            "sections": self._get_content_sections(content),
         }
 
         if not dry_run:
@@ -100,8 +101,7 @@ class AISetupManager:
 
         return result
 
-    def generate_all_setups(self, detect_python: bool = True,
-                           force: bool = False, dry_run: bool = False) -> List[Dict]:
+    def generate_all_setups(self, detect_python: bool = True, force: bool = False, dry_run: bool = False) -> List[Dict]:
         """모든 AI 에이전트 설정 파일 생성"""
         results = []
         for agent_type in AI_AGENTS.keys():
@@ -109,13 +109,15 @@ class AISetupManager:
                 result = self.generate_ai_setup(agent_type, detect_python, force, dry_run)
                 results.append(result)
             except Exception as e:
-                results.append({
-                    "agent_type": agent_type,
-                    "agent_name": AI_AGENTS[agent_type]["name"],
-                    "status": "error",
-                    "error": str(e),
-                    "success": False
-                })
+                results.append(
+                    {
+                        "agent_type": agent_type,
+                        "agent_name": AI_AGENTS[agent_type]["name"],
+                        "status": "error",
+                        "error": str(e),
+                        "success": False,
+                    }
+                )
         return results
 
     def get_status(self) -> Dict:
@@ -124,7 +126,7 @@ class AISetupManager:
             "timestamp": self.timestamp,
             "output_directory": str(self.output_dir),
             "python_detection": {},
-            "ai_files": {}
+            "ai_files": {},
         }
 
         # Python 감지 상태
@@ -134,7 +136,7 @@ class AISetupManager:
                 "found": True,
                 "path": python_info.path,
                 "version": python_info.version,
-                "is_recommended": python_info.is_recommended
+                "is_recommended": python_info.is_recommended,
             }
         else:
             status["python_detection"] = {"found": False}
@@ -149,13 +151,10 @@ class AISetupManager:
                     "filename": agent_info["filename"],
                     "size": stat.st_size,
                     "last_modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
-                    "has_ai_context": self._has_ai_context(file_path)
+                    "has_ai_context": self._has_ai_context(file_path),
                 }
             else:
-                status["ai_files"][agent_type] = {
-                    "exists": False,
-                    "filename": agent_info["filename"]
-                }
+                status["ai_files"][agent_type] = {"exists": False, "filename": agent_info["filename"]}
 
         return status
 
@@ -241,8 +240,9 @@ class AISetupManager:
 
             if context_match:
                 # 기존 섹션 교체
-                updated_content = re.sub(context_pattern, new_content.strip(),
-                                       existing_content, flags=re.MULTILINE | re.DOTALL)
+                updated_content = re.sub(
+                    context_pattern, new_content.strip(), existing_content, flags=re.MULTILINE | re.DOTALL
+                )
                 return updated_content
             else:
                 # 파일 끝에 추가
@@ -273,12 +273,11 @@ class AISetupManager:
 @ai_setup_app.command()
 def setup(
     agent_type: str = typer.Argument(..., help="AI 에이전트 타입 (codex, gemini, claude, all)"),
-    detect_python: bool = typer.Option(True, "--detect-python/--no-detect-python",
-                                     help="Python 환경 자동 탐지 여부"),
+    detect_python: bool = typer.Option(True, "--detect-python/--no-detect-python", help="Python 환경 자동 탐지 여부"),
     force: bool = typer.Option(False, "--force", help="기존 파일 덮어쓰기"),
     dry_run: bool = typer.Option(False, "--dry-run", help="실제 파일 생성 없이 미리보기"),
     output_dir: str = typer.Option(".", "--output-dir", help="출력 디렉토리 경로"),
-    output_format: str = typer.Option("text", "--format", help="출력 형식 (text, json)")
+    output_format: str = typer.Option("text", "--format", help="출력 형식 (text, json)"),
 ):
     """AI 에이전트별 맞춤형 설정 파일 생성"""
     try:
@@ -308,7 +307,7 @@ def setup(
 @ai_setup_app.command()
 def status(
     output_dir: str = typer.Option(".", "--output-dir", help="확인할 디렉토리 경로"),
-    output_format: str = typer.Option("text", "--format", help="출력 형식 (text, json)")
+    output_format: str = typer.Option("text", "--format", help="출력 형식 (text, json)"),
 ):
     """현재 AI 설정 파일 상태 확인"""
     try:
@@ -335,8 +334,8 @@ def _display_results(results: List[Dict], output_format: str, dry_run: bool):
                 "total": len(results),
                 "successful": sum(1 for r in results if r.get("success", False)),
                 "failed": sum(1 for r in results if not r.get("success", False)),
-                "dry_run": dry_run
-            }
+                "dry_run": dry_run,
+            },
         }
         typer.echo(json.dumps(output_data, ensure_ascii=False, indent=2))
     else:
@@ -365,7 +364,7 @@ def _display_results_table(results: List[Dict], dry_run: bool):
             result.get("agent_name", result["agent_type"]),
             result.get("output_file", "").split("/")[-1] if result.get("output_file") else "-",
             status,
-            sections_count
+            sections_count,
         )
 
     console.print(table)
@@ -424,8 +423,9 @@ def _display_status(status_info: Dict):
 
     # 권장 액션
     missing_files = [agent for agent, info in status_info["ai_files"].items() if not info["exists"]]
-    files_without_context = [agent for agent, info in status_info["ai_files"].items()
-                           if info["exists"] and not info["has_ai_context"]]
+    files_without_context = [
+        agent for agent, info in status_info["ai_files"].items() if info["exists"] and not info["has_ai_context"]
+    ]
 
     if missing_files or files_without_context:
         console.print("\n💡 [bold yellow]권장 액션:[/bold yellow]")

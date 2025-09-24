@@ -26,6 +26,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from pyhub_office_automation.cli.ai_setup import ai_setup_app
+
 # Chart 명령어 import
 from pyhub_office_automation.excel.chart_add import chart_add
 from pyhub_office_automation.excel.chart_configure import chart_configure
@@ -38,6 +40,7 @@ from pyhub_office_automation.excel.chart_position import chart_position
 # Data 명령어 import (Issue #39)
 from pyhub_office_automation.excel.data_analyze import data_analyze
 from pyhub_office_automation.excel.data_transform import data_transform
+from pyhub_office_automation.excel.metadata_generate import metadata_generate
 
 # Pivot 명령어 import
 from pyhub_office_automation.excel.pivot_configure import pivot_configure
@@ -67,6 +70,7 @@ from pyhub_office_automation.excel.slicer_add import slicer_add
 from pyhub_office_automation.excel.slicer_connect import slicer_connect
 from pyhub_office_automation.excel.slicer_list import slicer_list
 from pyhub_office_automation.excel.slicer_position import slicer_position
+from pyhub_office_automation.excel.table_analyze import table_analyze
 from pyhub_office_automation.excel.table_create import table_create
 from pyhub_office_automation.excel.table_list import table_list
 from pyhub_office_automation.excel.table_read import table_read
@@ -74,20 +78,17 @@ from pyhub_office_automation.excel.table_sort import table_sort
 from pyhub_office_automation.excel.table_sort_clear import table_sort_clear
 from pyhub_office_automation.excel.table_sort_info import table_sort_info
 from pyhub_office_automation.excel.table_write import table_write
-from pyhub_office_automation.excel.table_analyze import table_analyze
 from pyhub_office_automation.excel.textbox_add import textbox_add
 from pyhub_office_automation.excel.workbook_create import workbook_create
 from pyhub_office_automation.excel.workbook_info import workbook_info
-from pyhub_office_automation.excel.metadata_generate import metadata_generate
 from pyhub_office_automation.excel.workbook_list import workbook_list
 from pyhub_office_automation.excel.workbook_open import workbook_open
-from pyhub_office_automation.utils.resource_loader import load_llm_guide, load_welcome_message
-from pyhub_office_automation.version import get_version, get_version_info
+
 # HWP 명령어 import
 from pyhub_office_automation.hwp.hwp_export import hwp_export
-
-from pyhub_office_automation.cli.ai_setup import ai_setup_app
 from pyhub_office_automation.mcp.cli import mcp_app
+from pyhub_office_automation.utils.resource_loader import load_llm_guide, load_welcome_message
+from pyhub_office_automation.version import get_version, get_version_info
 
 # Typer 앱 생성
 app = typer.Typer(help="pyhub-office-automation: AI 에이전트를 위한 Office 자동화 도구")
@@ -556,8 +557,12 @@ def hwp_export_command(
     format_type: str = typer.Option("html", "--format", help="출력 형식 (현재 html만 지원)"),
     output_file: Optional[str] = typer.Option(None, "--output-file", help="HTML 저장 경로 (선택, 미지정시 표준출력)"),
     encoding: str = typer.Option("utf-8", "--encoding", help="출력 인코딩 (기본값: utf-8)"),
-    include_css: bool = typer.Option(False, "--include-css/--no-include-css", help="CSS 스타일 포함 여부 (기본값: False, 모든 CSS 제거)"),
-    include_images: bool = typer.Option(False, "--include-images/--no-include-images", help="이미지 포함 여부 (기본값: False, Base64 인코딩으로 포함)"),
+    include_css: bool = typer.Option(
+        False, "--include-css/--no-include-css", help="CSS 스타일 포함 여부 (기본값: False, 모든 CSS 제거)"
+    ),
+    include_images: bool = typer.Option(
+        False, "--include-images/--no-include-images", help="이미지 포함 여부 (기본값: False, Base64 인코딩으로 포함)"
+    ),
     temp_cleanup: bool = typer.Option(True, "--temp-cleanup/--no-temp-cleanup", help="임시 파일 자동 정리 (기본값: True)"),
     output_format: str = typer.Option("json", "--output-format", help="응답 출력 형식 (json)"),
 ):
@@ -570,7 +575,7 @@ def hwp_export_command(
         include_css=include_css,
         include_images=include_images,
         temp_cleanup=temp_cleanup,
-        output_format=output_format
+        output_format=output_format,
     )
 
 

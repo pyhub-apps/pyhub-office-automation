@@ -13,19 +13,8 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import (
-    ExecutionTimer,
-    create_error_response,
-    create_success_response,
-    get_or_open_workbook,
-    normalize_path,
-)
-from .metadata_utils import (
-    auto_generate_table_metadata,
-    write_metadata_record,
-    get_metadata_record,
-    ensure_metadata_sheet,
-)
+from .metadata_utils import auto_generate_table_metadata, ensure_metadata_sheet, get_metadata_record, write_metadata_record
+from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook, normalize_path
 
 
 def metadata_generate(
@@ -34,7 +23,9 @@ def metadata_generate(
     all_tables: bool = typer.Option(True, "--all-tables/--no-all-tables", help="모든 Table 처리 여부"),
     specific_sheet: Optional[str] = typer.Option(None, "--sheet", help="특정 시트의 Table만 처리"),
     force_overwrite: bool = typer.Option(False, "--force-overwrite", help="기존 메타데이터가 있어도 강제 덮어쓰기"),
-    skip_existing: bool = typer.Option(True, "--skip-existing/--no-skip-existing", help="기존 메타데이터가 있는 Table 건너뛰기"),
+    skip_existing: bool = typer.Option(
+        True, "--skip-existing/--no-skip-existing", help="기존 메타데이터가 있는 Table 건너뛰기"
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="실제 저장 없이 분석만 수행 (미리보기)"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
@@ -129,7 +120,7 @@ def metadata_generate(
                                 "sheet": sheet.name,
                                 "range": table.Range.Address.replace("$", ""),
                                 "row_count": table.Range.Rows.Count - 1,  # 헤더 제외
-                                "column_count": table.Range.Columns.Count
+                                "column_count": table.Range.Columns.Count,
                             }
                             sheet_tables.append(table_info)
                             all_found_tables.append(table_info)
@@ -141,7 +132,7 @@ def metadata_generate(
                                 "sheet": sheet.name,
                                 "range": table.range.address.replace("$", ""),
                                 "row_count": table.range.rows.count - 1,
-                                "column_count": table.range.columns.count
+                                "column_count": table.range.columns.count,
                             }
                             sheet_tables.append(table_info)
                             all_found_tables.append(table_info)
@@ -172,7 +163,7 @@ def metadata_generate(
                         "force_overwrite": force_overwrite,
                         "skip_existing": skip_existing,
                         "dry_run": dry_run,
-                    }
+                    },
                 }
 
                 response = create_success_response(
@@ -201,7 +192,7 @@ def metadata_generate(
                     "action": "none",
                     "success": False,
                     "message": "",
-                    "metadata": None
+                    "metadata": None,
                 }
 
                 try:
@@ -249,7 +240,7 @@ def metadata_generate(
                                     column_info=analysis_result["column_info"],
                                     row_count=analysis_result["row_count"],
                                     tags=analysis_result["tags"],
-                                    notes=analysis_result["notes"]
+                                    notes=analysis_result["notes"],
                                 )
 
                                 if save_success:
@@ -293,7 +284,7 @@ def metadata_generate(
                     "force_overwrite": force_overwrite,
                     "skip_existing": skip_existing,
                     "dry_run": dry_run,
-                }
+                },
             }
 
             # 성공 메시지 생성
@@ -337,13 +328,13 @@ def metadata_generate(
                 typer.echo(f"  📄 스캔한 시트: {processing_summary['total_sheets_scanned']}개")
                 typer.echo(f"  🏷️ 발견한 테이블: {processing_summary['total_tables_found']}개")
                 typer.echo(f"  ✅ 처리된 테이블: {processing_summary['tables_processed']}개")
-                if processing_summary['tables_created'] > 0:
+                if processing_summary["tables_created"] > 0:
                     typer.echo(f"    └ 새로 생성: {processing_summary['tables_created']}개")
-                if processing_summary['tables_updated'] > 0:
+                if processing_summary["tables_updated"] > 0:
                     typer.echo(f"    └ 업데이트: {processing_summary['tables_updated']}개")
-                if processing_summary['tables_skipped'] > 0:
+                if processing_summary["tables_skipped"] > 0:
                     typer.echo(f"  ⏭️ 건너뛴 테이블: {processing_summary['tables_skipped']}개")
-                if processing_summary['tables_failed'] > 0:
+                if processing_summary["tables_failed"] > 0:
                     typer.echo(f"  ❌ 실패한 테이블: {processing_summary['tables_failed']}개")
 
                 # 상세 결과 (실패한 것만 표시)

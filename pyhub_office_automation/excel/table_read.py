@@ -79,7 +79,7 @@ def table_read(
 
                     # 컬럼 선택
                     if columns and headers:
-                        selected_cols = [col.strip() for col in columns.split(',')]
+                        selected_cols = [col.strip() for col in columns.split(",")]
                         col_indices = []
                         selected_headers = []
                         for col in selected_cols:
@@ -113,8 +113,9 @@ def table_read(
                                 if middle_count > 0 and total_rows > first_count + last_count:
                                     middle_start = first_count
                                     middle_end = total_rows - last_count
-                                    middle_indices = range(middle_start, middle_end,
-                                                         max(1, (middle_end - middle_start) // middle_count))
+                                    middle_indices = range(
+                                        middle_start, middle_end, max(1, (middle_end - middle_start) // middle_count)
+                                    )
                                     sampled_data.extend([data[i] for i in middle_indices[:middle_count]])
 
                                 # 마지막 부분
@@ -170,7 +171,9 @@ def table_read(
                 # 테이블이 없으면 used_range로 읽기 시도 (후순위)
                 used_range = target_sheet.used_range
                 if not used_range:
-                    raise ValueError(f"시트({target_sheet.name})에 데이터가 없습니다. --table-name 또는 --range 옵션을 사용하세요.")
+                    raise ValueError(
+                        f"시트({target_sheet.name})에 데이터가 없습니다. --table-name 또는 --range 옵션을 사용하세요."
+                    )
 
                 values = used_range.value
 
@@ -216,14 +219,16 @@ def table_read(
 
             # 테이블 읽기 추가 정보
             if table_name:
-                data_content.update({
-                    "table_name": table_name,
-                    "sheet": target_sheet.name,
-                    "offset": offset if offset else 0,
-                    "limit": limit,
-                    "sample_mode": sample_mode,
-                    "selected_columns": columns.split(',') if columns else None,
-                })
+                data_content.update(
+                    {
+                        "table_name": table_name,
+                        "sheet": target_sheet.name,
+                        "offset": offset if offset else 0,
+                        "limit": limit,
+                        "sample_mode": sample_mode,
+                        "selected_columns": columns.split(",") if columns else None,
+                    }
+                )
 
             response = create_success_response(
                 data=data_content,

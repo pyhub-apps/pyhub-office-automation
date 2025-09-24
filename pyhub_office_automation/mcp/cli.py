@@ -4,23 +4,22 @@ PyHub Office Automation MCP CLI
 MCP 서버를 시작하고 관리하기 위한 명령어 인터페이스
 """
 
-import typer
 import sys
 from typing import Optional
+
+import typer
 from rich.console import Console
 from rich.table import Table
 
+from pyhub_office_automation.utils.port_checker import check_port_with_recommendation, find_available_port, get_port_info
+
 from .http_server import run_server
 from .server import mcp
-from pyhub_office_automation.utils.port_checker import (
-    check_port_with_recommendation,
-    get_port_info,
-    find_available_port
-)
 
 console = Console()
 
 mcp_app = typer.Typer(help="MCP (Model Context Protocol) 서버 관리")
+
 
 @mcp_app.command()
 def start(
@@ -28,7 +27,7 @@ def start(
     port: int = typer.Option(8765, "--port", "-p", help="서버 포트"),
     log_level: str = typer.Option("info", "--log-level", help="로그 레벨"),
     reload: bool = typer.Option(False, "--reload", help="개발용 자동 재로드"),
-    force: bool = typer.Option(False, "--force", help="포트 사용 중이어도 강제 실행")
+    force: bool = typer.Option(False, "--force", help="포트 사용 중이어도 강제 실행"),
 ):
     """MCP HTTP 서버 시작"""
     try:
@@ -46,6 +45,7 @@ def start(
         console.print(f"❌ [red]서버 시작 실패: {e}[/red]")
         sys.exit(1)
 
+
 @mcp_app.command()
 def info():
     """MCP 서버 정보 출력"""
@@ -61,13 +61,7 @@ def info():
         console.print(f"  • {resource}")
 
     # Tools 정보 (개발 모드에서는 하드코딩)
-    expected_tools = [
-        'excel_workbook_info',
-        'excel_range_read',
-        'excel_table_read',
-        'excel_data_analyze',
-        'excel_chart_list'
-    ]
+    expected_tools = ["excel_workbook_info", "excel_range_read", "excel_table_read", "excel_data_analyze", "excel_chart_list"]
     console.print(f"\n[bold cyan]Tools ({len(expected_tools)}):[/bold cyan]")
     if expected_tools:
         table = Table()
@@ -75,20 +69,21 @@ def info():
         table.add_column("Description", style="dim")
 
         tool_descriptions = {
-            'excel_workbook_info': '워크북 구조 및 정보 분석',
-            'excel_range_read': '셀 범위 데이터 읽기',
-            'excel_table_read': '테이블 데이터 읽기',
-            'excel_data_analyze': '데이터 구조 분석',
-            'excel_chart_list': '차트 목록 조회'
+            "excel_workbook_info": "워크북 구조 및 정보 분석",
+            "excel_range_read": "셀 범위 데이터 읽기",
+            "excel_table_read": "테이블 데이터 읽기",
+            "excel_data_analyze": "데이터 구조 분석",
+            "excel_chart_list": "차트 목록 조회",
         }
 
         for tool_name in expected_tools:
-            description = tool_descriptions.get(tool_name, '설명 없음')
+            description = tool_descriptions.get(tool_name, "설명 없음")
             table.add_row(tool_name, description)
 
         console.print(table)
     else:
         console.print("  (등록된 도구 없음)")
+
 
 @mcp_app.command()
 def test():
@@ -99,6 +94,7 @@ def test():
         # Import 테스트
         console.print("1. Import 테스트...", end=" ")
         from .server import mcp
+
         console.print("[green]✓[/green]")
 
         # 서버 인스턴스 테스트
@@ -110,13 +106,13 @@ def test():
         # Tools 등록 테스트 (간단히 처리)
         console.print("3. Tools 등록 테스트...", end=" ")
         # MCP 서버에 도구들이 정의되어 있는지 확인
-        assert hasattr(mcp, 'excel_workbook_info'), "excel_workbook_info not found"
+        assert hasattr(mcp, "excel_workbook_info"), "excel_workbook_info not found"
         console.print("[green]✓[/green]")
 
         # Resources 등록 테스트 (간단히 처리)
         console.print("4. Resources 등록 테스트...", end=" ")
         # 리소스 함수들이 정의되어 있는지 확인
-        assert hasattr(mcp, 'get_workbooks'), "get_workbooks not found"
+        assert hasattr(mcp, "get_workbooks"), "get_workbooks not found"
         console.print("[green]✓[/green]")
 
         console.print("\n[bold green]모든 테스트 통과![/bold green]")
@@ -128,12 +124,13 @@ def test():
         console.print(f"❌ [red]테스트 실패: {e}[/red]")
         sys.exit(1)
 
+
 @mcp_app.command()
 def check_port(
     port: int = typer.Argument(8765, help="확인할 포트 번호"),
     host: str = typer.Option("127.0.0.1", "--host", help="확인할 호스트"),
     detailed: bool = typer.Option(False, "--detailed", help="상세 정보 표시"),
-    find_alternative: bool = typer.Option(False, "--find-alternative", help="대안 포트 찾기")
+    find_alternative: bool = typer.Option(False, "--find-alternative", help="대안 포트 찾기"),
 ):
     """포트 사용 상태 확인 및 대안 제시"""
     console.print(f"[bold blue]포트 {port} 상태 확인 중...[/bold blue]")
@@ -180,6 +177,7 @@ def check_port(
             if result["alternative_port"]:
                 console.print(f"[yellow]대안 포트: {result['alternative_port']}[/yellow]")
 
+
 @mcp_app.command()
 def docs():
     """사용 가이드 및 문서 출력"""
@@ -213,6 +211,7 @@ def docs():
     console.print("   [green]oa mcp test[/green]         - 기본 테스트 실행")
     console.print("   [green]oa mcp check-port[/green]   - 포트 사용 상태 확인")
     console.print("   [green]oa mcp docs[/green]         - 이 가이드 출력")
+
 
 if __name__ == "__main__":
     mcp_app()

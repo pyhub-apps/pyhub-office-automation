@@ -36,7 +36,9 @@ def range_read(
     range_str: str = typer.Option(..., "--range", help="읽을 셀 범위 (예: A1:C10, Sheet1!A1:C10)"),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="시트 이름 (미지정시 활성 시트 사용)"),
     expand: Optional[ExpandMode] = typer.Option(None, "--expand", help="범위 확장 모드 (table, down, right)"),
-    include_formulas: bool = typer.Option(True, "--include-formulas/--no-include-formulas", help="공식 포함 여부 (기본: True)"),
+    include_formulas: bool = typer.Option(
+        True, "--include-formulas/--no-include-formulas", help="공식 포함 여부 (기본: True)"
+    ),
     output_format: OutputFormat = typer.Option(OutputFormat.JSON, "--format", help="출력 형식 선택"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
 ):

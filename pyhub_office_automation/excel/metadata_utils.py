@@ -12,20 +12,19 @@ import xlwings as xw
 
 from .utils import coords_to_excel_address
 
-
 # 메타데이터 시트의 표준 구조 정의
 METADATA_SHEET_NAME = "Metadata"
 METADATA_TABLE_NAME = "MetadataTable"
 METADATA_HEADERS = [
-    "Table_Name",      # Excel Table 이름
-    "Sheet_Name",      # 시트명
-    "Description",     # 테이블 설명
-    "Data_Type",       # 데이터 유형 카테고리
-    "Column_Info",     # 주요 컬럼 정보
-    "Row_Count",       # 데이터 행 수
-    "Last_Updated",    # 마지막 업데이트
-    "Tags",            # 태그 (쉼표 구분)
-    "Notes"            # 추가 메모
+    "Table_Name",  # Excel Table 이름
+    "Sheet_Name",  # 시트명
+    "Description",  # 테이블 설명
+    "Data_Type",  # 데이터 유형 카테고리
+    "Column_Info",  # 주요 컬럼 정보
+    "Row_Count",  # 데이터 행 수
+    "Last_Updated",  # 마지막 업데이트
+    "Tags",  # 태그 (쉼표 구분)
+    "Notes",  # 추가 메모
 ]
 
 
@@ -66,9 +65,7 @@ def ensure_metadata_sheet(workbook: xw.Book) -> xw.Sheet:
                 # COM API를 통해 Excel Table 생성
                 list_objects = metadata_sheet.api.ListObjects
                 excel_table = list_objects.Add(
-                    SourceType=1,  # xlSrcRange
-                    Source=table_range.api,
-                    XlListObjectHasHeaders=1  # xlYes
+                    SourceType=1, Source=table_range.api, XlListObjectHasHeaders=1  # xlSrcRange  # xlYes
                 )
                 excel_table.Name = METADATA_TABLE_NAME
                 excel_table.TableStyle = "TableStyleMedium2"
@@ -190,7 +187,7 @@ def write_metadata_record(
     column_info: str = "",
     row_count: int = 0,
     tags: str = "",
-    notes: str = ""
+    notes: str = "",
 ) -> bool:
     """
     Metadata 시트에 새로운 메타데이터 레코드를 추가하거나 업데이트합니다.
@@ -220,17 +217,7 @@ def write_metadata_record(
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # 새 레코드 데이터
-        new_record = [
-            table_name,
-            sheet_name,
-            description,
-            data_type,
-            column_info,
-            row_count,
-            current_time,
-            tags,
-            notes
-        ]
+        new_record = [table_name, sheet_name, description, data_type, column_info, row_count, current_time, tags, notes]
 
         # 기존 레코드에서 동일한 table_name 찾기
         update_row = None
@@ -338,7 +325,9 @@ def get_metadata_record(workbook: xw.Book, table_name: str) -> Optional[Dict[str
         return None
 
 
-def auto_generate_table_metadata(workbook: xw.Book, table_name: str, sheet_name: str) -> Dict[str, Union[str, int, float, bool]]:
+def auto_generate_table_metadata(
+    workbook: xw.Book, table_name: str, sheet_name: str
+) -> Dict[str, Union[str, int, float, bool]]:
     """
     Excel Table의 메타데이터를 자동으로 분석하고 생성합니다.
 
@@ -367,7 +356,7 @@ def auto_generate_table_metadata(workbook: xw.Book, table_name: str, sheet_name:
                             "range": table.Range.Address,
                             "row_count": table.Range.Rows.Count - 1,  # 헤더 제외
                             "column_count": table.Range.Columns.Count,
-                            "has_headers": table.HeaderRowRange is not None
+                            "has_headers": table.HeaderRowRange is not None,
                         }
                         break
             except:
@@ -382,7 +371,7 @@ def auto_generate_table_metadata(workbook: xw.Book, table_name: str, sheet_name:
                 "row_count": 0,
                 "tags": "auto-generated",
                 "notes": "자동 생성 - 테이블 분석 실패",
-                "success": False
+                "success": False,
             }
 
         # 데이터 분석
@@ -395,7 +384,7 @@ def auto_generate_table_metadata(workbook: xw.Book, table_name: str, sheet_name:
                 "row_count": 0,
                 "tags": "auto-generated,empty",
                 "notes": "자동 생성 - 데이터 없음",
-                "success": True
+                "success": True,
             }
 
         # 헤더와 데이터 분리
@@ -427,7 +416,7 @@ def auto_generate_table_metadata(workbook: xw.Book, table_name: str, sheet_name:
             "row_count": len(data_rows),
             "tags": ",".join(tags),
             "notes": f"자동 생성 ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')})",
-            "success": True
+            "success": True,
         }
 
     except Exception as e:
@@ -438,7 +427,7 @@ def auto_generate_table_metadata(workbook: xw.Book, table_name: str, sheet_name:
             "row_count": 0,
             "tags": "auto-generated,error",
             "notes": f"자동 생성 실패: {str(e)}",
-            "success": False
+            "success": False,
         }
 
 
@@ -491,13 +480,7 @@ def get_workbook_tables_summary(workbook: xw.Book) -> Dict[str, Union[int, List,
         Tables 요약 정보와 메타데이터
     """
     try:
-        summary = {
-            "total_tables": 0,
-            "tables_with_metadata": 0,
-            "by_sheet": {},
-            "all_tables": [],
-            "metadata_available": False
-        }
+        summary = {"total_tables": 0, "tables_with_metadata": 0, "by_sheet": {}, "all_tables": [], "metadata_available": False}
 
         # 메타데이터 레코드 읽기
         metadata_records = read_metadata_records(workbook)
@@ -518,7 +501,7 @@ def get_workbook_tables_summary(workbook: xw.Book) -> Dict[str, Union[int, List,
                                 "sheet": sheet.name,
                                 "range": table.Range.Address.replace("$", ""),
                                 "row_count": table.Range.Rows.Count - 1,  # 헤더 제외
-                                "column_count": table.Range.Columns.Count
+                                "column_count": table.Range.Columns.Count,
                             }
 
                             # 메타데이터 추가
@@ -528,7 +511,7 @@ def get_workbook_tables_summary(workbook: xw.Book) -> Dict[str, Union[int, List,
                                     "description": metadata.get("Description", ""),
                                     "data_type": metadata.get("Data_Type", ""),
                                     "tags": metadata.get("Tags", ""),
-                                    "last_updated": metadata.get("Last_Updated", "")
+                                    "last_updated": metadata.get("Last_Updated", ""),
                                 }
                                 summary["tables_with_metadata"] += 1
                             else:
@@ -549,7 +532,7 @@ def get_workbook_tables_summary(workbook: xw.Book) -> Dict[str, Union[int, List,
                                 "sheet": sheet.name,
                                 "range": table.range.address.replace("$", ""),
                                 "row_count": table.range.rows.count - 1,
-                                "column_count": table.range.columns.count
+                                "column_count": table.range.columns.count,
                             }
 
                             # 메타데이터 추가
@@ -559,7 +542,7 @@ def get_workbook_tables_summary(workbook: xw.Book) -> Dict[str, Union[int, List,
                                     "description": metadata.get("Description", ""),
                                     "data_type": metadata.get("Data_Type", ""),
                                     "tags": metadata.get("Tags", ""),
-                                    "last_updated": metadata.get("Last_Updated", "")
+                                    "last_updated": metadata.get("Last_Updated", ""),
                                 }
                                 summary["tables_with_metadata"] += 1
                             else:
@@ -574,10 +557,7 @@ def get_workbook_tables_summary(workbook: xw.Book) -> Dict[str, Union[int, List,
 
                 # 시트별 요약 추가
                 if sheet_tables:
-                    summary["by_sheet"][sheet.name] = {
-                        "count": len(sheet_tables),
-                        "tables": sheet_tables
-                    }
+                    summary["by_sheet"][sheet.name] = {"count": len(sheet_tables), "tables": sheet_tables}
 
             except Exception:
                 continue
@@ -591,5 +571,5 @@ def get_workbook_tables_summary(workbook: xw.Book) -> Dict[str, Union[int, List,
             "by_sheet": {},
             "all_tables": [],
             "metadata_available": False,
-            "error": "Tables 요약 생성 실패"
+            "error": "Tables 요약 생성 실패",
         }

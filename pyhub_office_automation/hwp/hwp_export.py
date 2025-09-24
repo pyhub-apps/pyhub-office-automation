@@ -34,8 +34,12 @@ def hwp_export(
     format_type: str = typer.Option("html", "--format", help="출력 형식 (현재 html만 지원)"),
     output_file: Optional[str] = typer.Option(None, "--output-file", help="HTML 저장 경로 (선택, 미지정시 표준출력)"),
     encoding: str = typer.Option("utf-8", "--encoding", help="출력 인코딩 (기본값: utf-8)"),
-    include_css: bool = typer.Option(False, "--include-css/--no-include-css", help="CSS 스타일 포함 여부 (기본값: False, 모든 CSS 제거)"),
-    include_images: bool = typer.Option(False, "--include-images/--no-include-images", help="이미지 포함 여부 (기본값: False, Base64 인코딩으로 포함)"),
+    include_css: bool = typer.Option(
+        False, "--include-css/--no-include-css", help="CSS 스타일 포함 여부 (기본값: False, 모든 CSS 제거)"
+    ),
+    include_images: bool = typer.Option(
+        False, "--include-images/--no-include-images", help="이미지 포함 여부 (기본값: False, Base64 인코딩으로 포함)"
+    ),
     temp_cleanup: bool = typer.Option(True, "--temp-cleanup/--no-temp-cleanup", help="임시 파일 자동 정리 (기본값: True)"),
     output_format: str = typer.Option("json", "--output-format", help="응답 출력 형식 (json)"),
 ):
@@ -75,18 +79,14 @@ def hwp_export(
         with ExecutionTimer() as timer:
             # 1. 기본 검증
             if platform.system() != "Windows":
-                error_response = create_error_response(
-                    "HWP 변환 기능은 Windows에서만 지원됩니다",
-                    "PlatformError"
-                )
+                error_response = create_error_response("HWP 변환 기능은 Windows에서만 지원됩니다", "PlatformError")
                 typer.echo(format_output(error_response, output_format))
                 raise typer.Exit(1)
 
             # 지원 형식 검증
             if format_type.lower() != "html":
                 error_response = create_error_response(
-                    f"지원하지 않는 형식입니다: {format_type} (현재 html만 지원)",
-                    "UnsupportedFormatError"
+                    f"지원하지 않는 형식입니다: {format_type} (현재 html만 지원)", "UnsupportedFormatError"
                 )
                 typer.echo(format_output(error_response, output_format))
                 raise typer.Exit(1)
@@ -95,7 +95,7 @@ def hwp_export(
             if not check_hwp_installed():
                 error_response = create_error_response(
                     "HWP 프로그램이 설치되어 있지 않습니다. 한글 프로그램을 설치한 후 다시 시도해 주세요.",
-                    "HWPNotInstalledError"
+                    "HWPNotInstalledError",
                 )
                 typer.echo(format_output(error_response, output_format))
                 raise typer.Exit(1)
@@ -112,17 +112,10 @@ def hwp_export(
                 output_dir.mkdir(parents=True, exist_ok=True)
 
             # 4. HWP → HTML 변환 실행
-            html_content = _convert_hwp_to_html(
-                validated_file_path,
-                temp_cleanup=temp_cleanup
-            )
+            html_content = _convert_hwp_to_html(validated_file_path, temp_cleanup=temp_cleanup)
 
             # 5. HTML 후처리 (charset 수정, CSS 처리, 이미지 처리)
-            html_content = _process_html_content(
-                html_content,
-                include_css=include_css,
-                include_images=include_images
-            )
+            html_content = _process_html_content(html_content, include_css=include_css, include_images=include_images)
 
             # 6. 출력 처리
             output_size = len(html_content.encode(encoding))
@@ -130,13 +123,10 @@ def hwp_export(
             if output_file:
                 # 파일로 저장
                 try:
-                    with open(output_file, 'w', encoding=encoding) as f:
+                    with open(output_file, "w", encoding=encoding) as f:
                         f.write(html_content)
                 except Exception as e:
-                    error_response = create_error_response(
-                        f"파일 저장 실패: {str(e)}",
-                        "FileWriteError"
-                    )
+                    error_response = create_error_response(f"파일 저장 실패: {str(e)}", "FileWriteError")
                     typer.echo(format_output(error_response, output_format))
                     raise typer.Exit(1)
             else:
@@ -151,26 +141,14 @@ def hwp_export(
                 "processing_time_ms": timer.duration_ms,
                 "css_included": include_css,
                 "images_included": include_images,
-                "temp_files_cleaned": temp_cleanup
+                "temp_files_cleaned": temp_cleanup,
             }
 
-            metadata = {
-                "encoding": encoding,
-                "source_format": "HWP",
-                "target_format": "HTML"
-            }
+            metadata = {"encoding": encoding, "source_format": "HWP", "target_format": "HTML"}
 
-            data = {
-                "input_file": validated_file_path,
-                "output_file": output_file,
-                "format": format_type.lower()
-            }
+            data = {"input_file": validated_file_path, "output_file": output_file, "format": format_type.lower()}
 
-            success_response = create_success_response(
-                data=data,
-                processing_stats=processing_stats,
-                metadata=metadata
-            )
+            success_response = create_success_response(data=data, processing_stats=processing_stats, metadata=metadata)
 
             typer.echo(format_output(success_response, output_format))
 
@@ -179,18 +157,12 @@ def hwp_export(
         raise
     except Exception as e:
         # 예상치 못한 에러 처리
-        error_response = create_error_response(
-            f"변환 중 오류가 발생했습니다: {str(e)}",
-            "UnexpectedError"
-        )
+        error_response = create_error_response(f"변환 중 오류가 발생했습니다: {str(e)}", "UnexpectedError")
         typer.echo(format_output(error_response, output_format))
         raise typer.Exit(1)
 
 
-def _convert_hwp_to_html(
-    file_path: str,
-    temp_cleanup: bool = True
-) -> str:
+def _convert_hwp_to_html(file_path: str, temp_cleanup: bool = True) -> str:
     """
     HWP 파일을 HTML로 변환하는 내부 함수
 
@@ -210,6 +182,7 @@ def _convert_hwp_to_html(
     try:
         # pyhwpx import with warning suppression (COM 캐시 재구축 경고 방지)
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import pyhwpx
@@ -230,9 +203,9 @@ def _convert_hwp_to_html(
 
         # HTML 파일 내용 읽기 (다양한 인코딩 시도)
         html_content = None
-        for encoding_try in ['utf-8', 'cp949', 'euc-kr', 'latin1']:
+        for encoding_try in ["utf-8", "cp949", "euc-kr", "latin1"]:
             try:
-                with open(temp_html_path, 'r', encoding=encoding_try) as f:
+                with open(temp_html_path, "r", encoding=encoding_try) as f:
                     html_content = f.read()
                 break
             except UnicodeDecodeError:
@@ -281,7 +254,7 @@ def _process_html_content(html_content: str, include_css: bool = False, include_
         r'<meta[^>]*charset\s*=\s*["\']?[^"\'>\s]*["\']?[^>]*>',
         '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">',
         html_content,
-        flags=re.IGNORECASE
+        flags=re.IGNORECASE,
     )
 
     # 2. CSS 처리
@@ -316,44 +289,39 @@ def _remove_all_css(html_content: str) -> str:
     import re
 
     # 1. <style> 태그 및 내용 모두 제거
-    html_content = re.sub(r'<style[^>]*>.*?</style>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+    html_content = re.sub(r"<style[^>]*>.*?</style>", "", html_content, flags=re.DOTALL | re.IGNORECASE)
 
     # 2. CSS 관련 스크립트 제거
-    html_content = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+    html_content = re.sub(r"<script[^>]*>.*?</script>", "", html_content, flags=re.DOTALL | re.IGNORECASE)
 
     # 3. 손상된 span 태그들을 우선적으로 복구 (HWP 특수 케이스)
     # HWP에서 font-family가 CSS와 함께 태그명에 붙어나오는 경우 처리
-    html_content = re.sub(
-        r'<span([^>]*?)([^"\s>]+)"([^>]*?)>',
-        r'<span\1\3">',
-        html_content,
-        flags=re.IGNORECASE
-    )
+    html_content = re.sub(r'<span([^>]*?)([^"\s>]+)"([^>]*?)>', r'<span\1\3">', html_content, flags=re.IGNORECASE)
 
     # 4. 완전히 깨진 태그들 복구 (태그명에 스타일이 붙은 경우)
     def fix_broken_span_tags(match):
         full_match = match.group(0)
         # span 태그명에 CSS가 붙어있는 경우를 찾아서 수정
-        if 'span' in full_match.lower():
+        if "span" in full_match.lower():
             # 간단히 span 태그로 변환
-            return '<span>'
+            return "<span>"
         return full_match
 
     html_content = re.sub(r'<span[^>]*[^"\s>]+["\'][^>]*>', fix_broken_span_tags, html_content, flags=re.IGNORECASE)
 
     # 5. 남은 style과 class 속성 정리
-    html_content = re.sub(r'\s*style\s*=\s*["\'][^"\']*["\']', '', html_content, flags=re.IGNORECASE)
-    html_content = re.sub(r'\s*class\s*=\s*["\'][^"\']*["\']', '', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'\s*style\s*=\s*["\'][^"\']*["\']', "", html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'\s*class\s*=\s*["\'][^"\']*["\']', "", html_content, flags=re.IGNORECASE)
 
     # 6. 시각적 레이아웃 속성 제거 (구조적 속성은 보존)
     html_content = _remove_layout_attributes(html_content)
 
     # 7. 빈 속성이나 잘못된 속성 정리
-    html_content = re.sub(r'<span\s*>', '<span>', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r"<span\s*>", "<span>", html_content, flags=re.IGNORECASE)
 
     # 8. 불필요한 공백 정리
-    html_content = re.sub(r'\n\s*\n', '\n', html_content)
-    html_content = re.sub(r'>\s+<', '><', html_content)
+    html_content = re.sub(r"\n\s*\n", "\n", html_content)
+    html_content = re.sub(r">\s+<", "><", html_content)
 
     return html_content.strip()
 
@@ -374,18 +342,18 @@ def _remove_layout_attributes(html_content: str) -> str:
     import re
 
     # 시각적 테이블 속성만 제거 (구조적 속성 보존)
-    html_content = re.sub(r'\s*cellspacing\s*=\s*["\'][^"\']*["\']', '', html_content, flags=re.IGNORECASE)
-    html_content = re.sub(r'\s*cellpadding\s*=\s*["\'][^"\']*["\']', '', html_content, flags=re.IGNORECASE)
-    html_content = re.sub(r'\s*valign\s*=\s*["\'][^"\']*["\']', '', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'\s*cellspacing\s*=\s*["\'][^"\']*["\']', "", html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'\s*cellpadding\s*=\s*["\'][^"\']*["\']', "", html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'\s*valign\s*=\s*["\'][^"\']*["\']', "", html_content, flags=re.IGNORECASE)
 
     # rowspan, colspan은 절대 제거하지 않음 - 테이블 데이터 구조의 핵심
 
     # 레이아웃용 공백 span 제거
-    html_content = re.sub(r'<span[^>]*>&nbsp;</span>', ' ', html_content, flags=re.IGNORECASE)
-    html_content = re.sub(r'<span[^>]*>\s*</span>', '', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r"<span[^>]*>&nbsp;</span>", " ", html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r"<span[^>]*>\s*</span>", "", html_content, flags=re.IGNORECASE)
 
     # 연속된 공백을 하나로 정리
-    html_content = re.sub(r'\s+', ' ', html_content)
+    html_content = re.sub(r"\s+", " ", html_content)
 
     return html_content
 
@@ -403,10 +371,10 @@ def _remove_all_images(html_content: str) -> str:
     import re
 
     # 모든 img 태그 제거
-    html_content = re.sub(r'<img[^>]*>', '', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r"<img[^>]*>", "", html_content, flags=re.IGNORECASE)
 
     # 불필요한 공백 정리
-    html_content = re.sub(r'\n\s*\n', '\n', html_content)
+    html_content = re.sub(r"\n\s*\n", "\n", html_content)
 
     return html_content.strip()
 
@@ -421,9 +389,9 @@ def _encode_images_to_base64(html_content: str) -> str:
     Returns:
         이미지가 Base64로 인코딩된 HTML 내용
     """
-    import re
     import base64
     import os
+    import re
     from urllib.parse import unquote
 
     def encode_image(match):
@@ -436,9 +404,9 @@ def _encode_images_to_base64(html_content: str) -> str:
         image_path = src_match.group(1)
 
         # file:// 프로토콜 제거
-        if image_path.startswith('file:///'):
+        if image_path.startswith("file:///"):
             image_path = image_path[8:]  # file:/// 제거
-        elif image_path.startswith('file://'):
+        elif image_path.startswith("file://"):
             image_path = image_path[7:]  # file:// 제거
 
         # URL 디코딩
@@ -447,43 +415,38 @@ def _encode_images_to_base64(html_content: str) -> str:
         # 파일이 존재하는지 확인
         if not os.path.exists(image_path):
             # 파일이 없으면 img 태그 제거
-            return ''
+            return ""
 
         try:
             # 파일 확장자로 MIME 타입 결정
             _, ext = os.path.splitext(image_path.lower())
             mime_types = {
-                '.png': 'image/png',
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.gif': 'image/gif',
-                '.bmp': 'image/bmp',
-                '.webp': 'image/webp'
+                ".png": "image/png",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".gif": "image/gif",
+                ".bmp": "image/bmp",
+                ".webp": "image/webp",
             }
-            mime_type = mime_types.get(ext, 'image/png')
+            mime_type = mime_types.get(ext, "image/png")
 
             # 파일을 Base64로 인코딩
-            with open(image_path, 'rb') as f:
+            with open(image_path, "rb") as f:
                 image_data = f.read()
-                base64_data = base64.b64encode(image_data).decode('utf-8')
+                base64_data = base64.b64encode(image_data).decode("utf-8")
 
             # src를 data URI로 교체
-            new_src = f'data:{mime_type};base64,{base64_data}'
-            new_img_tag = re.sub(
-                r'src\s*=\s*["\'][^"\']+["\']',
-                f'src="{new_src}"',
-                img_tag,
-                flags=re.IGNORECASE
-            )
+            new_src = f"data:{mime_type};base64,{base64_data}"
+            new_img_tag = re.sub(r'src\s*=\s*["\'][^"\']+["\']', f'src="{new_src}"', img_tag, flags=re.IGNORECASE)
 
             return new_img_tag
 
         except Exception:
             # 인코딩 실패 시 img 태그 제거
-            return ''
+            return ""
 
     # 모든 img 태그에 대해 Base64 인코딩 시도
-    html_content = re.sub(r'<img[^>]*>', encode_image, html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r"<img[^>]*>", encode_image, html_content, flags=re.IGNORECASE)
 
     return html_content
 

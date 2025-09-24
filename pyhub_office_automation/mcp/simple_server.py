@@ -2,15 +2,17 @@
 간단한 MCP HTTP 서버 - 디버깅용
 """
 
+import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-import uvicorn
 
 app = FastAPI(title="Simple MCP Server")
+
 
 @app.get("/")
 async def root():
     return {"message": "Simple MCP Server", "status": "running"}
+
 
 @app.get("/mcp")
 async def mcp_info():
@@ -21,20 +23,18 @@ async def mcp_info():
         "server": {
             "name": "PyHub Office Automation MCP",
             "version": get_version(),
-            "instructions": "Excel 분석을 위한 최소 도구 세트"
+            "instructions": "Excel 분석을 위한 최소 도구 세트",
         },
-        "capabilities": {
-            "resources": 2,
-            "tools": 5,
-            "prompts": 0
-        },
+        "capabilities": {"resources": 2, "tools": 5, "prompts": 0},
         "transport": "streamable_http",
-        "status": "running"
+        "status": "running",
     }
+
 
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8765)

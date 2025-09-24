@@ -14,6 +14,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .metadata_utils import get_workbook_tables_summary
 from .utils import (
     ExecutionTimer,
     create_error_response,
@@ -24,7 +25,6 @@ from .utils import (
     get_slicers_summary,
     normalize_path,
 )
-from .metadata_utils import get_workbook_tables_summary
 
 
 def workbook_info(
@@ -37,7 +37,9 @@ def workbook_info(
     include_charts: bool = typer.Option(True, "--include-charts/--no-include-charts", help="차트 요약 정보 포함"),
     include_pivots: bool = typer.Option(True, "--include-pivots/--no-include-pivots", help="피벗테이블 요약 정보 포함"),
     include_slicers: bool = typer.Option(True, "--include-slicers/--no-include-slicers", help="슬라이서 요약 정보 포함"),
-    include_metadata: bool = typer.Option(True, "--include-metadata/--no-include-metadata", help="Excel Table 메타데이터 정보 포함"),
+    include_metadata: bool = typer.Option(
+        True, "--include-metadata/--no-include-metadata", help="Excel Table 메타데이터 정보 포함"
+    ),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
     """
@@ -287,8 +289,8 @@ def workbook_info(
             if include_slicers:
                 detail_level.append(f"슬라이서({workbook_data['slicers']['total_count']}개)")
             if include_metadata:
-                tables_count = workbook_data['tables_metadata']['total_tables']
-                metadata_count = workbook_data['tables_metadata']['tables_with_metadata']
+                tables_count = workbook_data["tables_metadata"]["total_tables"]
+                metadata_count = workbook_data["tables_metadata"]["tables_with_metadata"]
                 detail_level.append(f"테이블 메타데이터({metadata_count}/{tables_count}개)")
 
             if detail_level:
