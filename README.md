@@ -100,9 +100,9 @@ oa ai-setup all
 
 ### 상황 파악
 ```bash
-oa excel workbook-list                    # 열린 파일 목록
-oa excel workbook-info                     # 활성 파일 정보
-oa excel workbook-info --workbook-name "파일.xlsx" --include-sheets  # 특정 파일 구조
+oa excel workbook-list                    # 열린 파일 목록 (상세 정보 포함)
+oa excel workbook-info                     # 활성 파일 정보 (모든 정보 포함)
+oa excel workbook-info --workbook-name "파일.xlsx"  # 특정 파일 구조 (모든 정보 포함)
 ```
 
 ### 데이터 작업
@@ -232,8 +232,8 @@ oa excel workbook-list
 # 파일이 열려있으면 --workbook-name, 없으면 --file-path 사용
 
 # 3단계: 연속 작업
-oa excel workbook-info --workbook-name "sales.xlsx" --include-sheets
-oa excel range-read --workbook-name "sales.xlsx" --range "Sheet1!A1:Z100"
+oa excel workbook-info --workbook-name "sales.xlsx"  # 모든 정보 자동 포함
+oa excel range-read --workbook-name "sales.xlsx" --range "Sheet1!A1:Z100"  # 값과 공식 자동 포함
 oa excel chart-add --workbook-name "sales.xlsx" --range "A1:C10"
 ```
 

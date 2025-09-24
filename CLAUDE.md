@@ -265,8 +265,8 @@ oa excel table-read --output-file "summary.csv"
 
 # Workbook discovery and information gathering (Issue #16)
 oa excel workbook-list  # List all open workbooks with details
-oa excel workbook-info --include-sheets  # Get active workbook info with sheet details
-oa excel workbook-info --workbook-name "Sales.xlsx" --include-sheets --include-properties  # Comprehensive info
+oa excel workbook-info  # Get active workbook info with all details (default)
+oa excel workbook-info --workbook-name "Sales.xlsx"  # Comprehensive info (all included by default)
 ```
 
 #### Benefits for AI Agents
@@ -341,9 +341,9 @@ AI agents should use these commands to understand available functionality:
 
 ### Context Discovery
 AI agents should use these commands to understand current work context:
-- `oa excel workbook-list` - Discover all currently open workbooks
+- `oa excel workbook-list` - Discover all currently open workbooks (comprehensive info by default)
 - `oa excel workbook-list` - Get comprehensive list with file info, sheet counts, save status
-- `oa excel workbook-info --include-sheets` - Analyze active workbook structure
+- `oa excel workbook-info` - Analyze active workbook structure (all details by default)
 - `oa excel table-list` - **Enhanced**: List all Excel tables with complete structure, columns, and sample data for immediate context understanding
 
 ### Parameter Handling
@@ -364,7 +364,7 @@ AI agents should use these commands to understand current work context:
 oa excel workbook-list
 
 # 2. Choose appropriate workbook and get structure
-oa excel workbook-info --workbook-name "Sales.xlsx" --include-sheets
+oa excel workbook-info --workbook-name "Sales.xlsx"  # All details included by default
 
 # 3. Perform operations on identified workbook and sheets
 oa excel range-read --workbook-name "Sales.xlsx" --sheet "Data" --range "A1:F100"
@@ -469,7 +469,7 @@ When working with this codebase, prioritize:
 oa excel workbook-list
 
 # 활성 워크북 정보 확인
-oa excel workbook-info --include-sheets
+oa excel workbook-info  # All details included by default
 ```
 
 ### 2. 워크북 연결 방법
@@ -718,7 +718,7 @@ def analyze_excel_workflow():
 oa excel workbook-list --format json
 
 # 2. 데이터 구조 분석
-oa excel workbook-info --include-sheets --include-properties
+oa excel workbook-info  # All details included by default
 
 # 3. 샘플 데이터 검증
 oa excel range-read --sheet "Sheet1" --range "A1:E5"
@@ -778,7 +778,7 @@ class ExcelAnalysisPipeline:
 
     def analyze_structure(self):
         """데이터 구조 분석"""
-        cmd = ['oa', 'excel', 'workbook-info', '--include-sheets']
+        cmd = ['oa', 'excel', 'workbook-info']  # All details included by default
         if self.workbook_name:
             cmd.extend(['--workbook-name', self.workbook_name])
 

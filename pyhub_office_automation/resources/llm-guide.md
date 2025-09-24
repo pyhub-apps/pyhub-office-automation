@@ -39,7 +39,7 @@
 ```bash
 # 필수 확인 명령어들
 oa excel workbook-list --format json
-oa excel workbook-info --include-sheets --format json
+oa excel workbook-info --format json  # All details included by default
 ```
 
 결과를 바탕으로 상황을 사용자에게 쉽게 설명:
@@ -290,7 +290,7 @@ oa excel table-read --table-name "MultiDim" --columns "날짜,매출" --limit 30
 oa excel workbook-list --format json
 
 # 활성 워크북 구조 분석
-oa excel workbook-info --include-sheets --format json
+oa excel workbook-info --format json  # All details included by default
 
 # 🆕 혁신적 테이블 컨텍스트 즉시 파악 (AI 최적화)
 oa excel table-list --format json
@@ -298,7 +298,7 @@ oa excel table-list --format json
 # → 추가 API 호출 없이 완전한 비즈니스 컨텍스트 이해 가능
 
 # 특정 워크북 상세 분석
-oa excel workbook-info --workbook-name "Sales.xlsx" --include-sheets
+oa excel workbook-info --workbook-name "Sales.xlsx"  # All details included by default
 ```
 
 ### 1-1. 🔥 Enhanced Table-Driven Analysis (혁신적 워크플로우)
@@ -447,7 +447,7 @@ oa excel metadata-generate --format json
 # → 통합 메타데이터 관리 시스템
 
 # 📊 메타데이터 포함 워크북 정보
-oa excel workbook-info --include-metadata --format json
+oa excel workbook-info --format json  # Metadata included by default
 # → 기존 기능 + 메타데이터 통계
 # → 관리되는 테이블 vs 미관리 테이블 현황
 ```
@@ -480,7 +480,7 @@ oa excel table-write --workbook-name "Report.xlsx" --data-file "processed.csv" -
 ```bash
 # 작업 전 검증
 oa excel workbook-list --format json  # JSON 파싱으로 워크북 존재 확인
-oa excel workbook-info --include-sheets  # 시트 구조 확인
+oa excel workbook-info  # 시트 구조 확인 (all details by default)
 
 # 실패 시 대안 경로
 # 1차: 활성 워크북 사용 시도
