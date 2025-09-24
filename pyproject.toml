@@ -31,6 +31,8 @@ dependencies = [
     "pandas>=2.0.0",
     "pathlib2>=2.3.0",
     "typing-extensions>=4.0.0",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
 ]
 
 [project.optional-dependencies]
