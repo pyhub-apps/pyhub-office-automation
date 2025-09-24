@@ -17,7 +17,7 @@ def analyze_excel_workflow():
 
     # 단계별 검증 워크플로우
     steps = [
-        "oa excel workbook-list --detailed",  # 현황 파악
+        "oa excel workbook-list",  # 현황 파악
         "데이터 구조 분석",                    # 스키마 검토
         "비즈니스 로직 검증",                  # 요구사항 부합성
         "성능 및 확장성 검토"                  # 최적화 기회
@@ -31,7 +31,7 @@ def analyze_excel_workflow():
 #### 체계적 디버깅 접근
 ```bash
 # 1. 상황 진단
-oa excel workbook-list --detailed --format json
+oa excel workbook-list --format json
 
 # 2. 데이터 구조 분석
 oa excel workbook-info --include-sheets --include-properties

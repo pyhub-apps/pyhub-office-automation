@@ -264,7 +264,7 @@ oa excel range-write --range "A1" --data '["Name", "Score"]'
 oa excel table-read --output-file "summary.csv"
 
 # Workbook discovery and information gathering (Issue #16)
-oa excel workbook-list --detailed  # List all open workbooks with details
+oa excel workbook-list  # List all open workbooks with details
 oa excel workbook-info --include-sheets  # Get active workbook info with sheet details
 oa excel workbook-info --workbook-name "Sales.xlsx" --include-sheets --include-properties  # Comprehensive info
 ```
@@ -342,7 +342,7 @@ AI agents should use these commands to understand available functionality:
 ### Context Discovery
 AI agents should use these commands to understand current work context:
 - `oa excel workbook-list` - Discover all currently open workbooks
-- `oa excel workbook-list --detailed` - Get comprehensive list with file info, sheet counts, save status
+- `oa excel workbook-list` - Get comprehensive list with file info, sheet counts, save status
 - `oa excel workbook-info --include-sheets` - Analyze active workbook structure
 - `oa excel table-list` - **Enhanced**: List all Excel tables with complete structure, columns, and sample data for immediate context understanding
 
@@ -361,7 +361,7 @@ AI agents should use these commands to understand current work context:
 #### Context-Aware Data Analysis
 ```bash
 # 1. Discover current work environment
-oa excel workbook-list --detailed
+oa excel workbook-list
 
 # 2. Choose appropriate workbook and get structure
 oa excel workbook-info --workbook-name "Sales.xlsx" --include-sheets
@@ -466,7 +466,7 @@ When working with this codebase, prioritize:
 ### 1. 작업 전 상황 파악
 ```bash
 # 현재 열린 워크북 확인
-oa excel workbook-list --detailed
+oa excel workbook-list
 
 # 활성 워크북 정보 확인
 oa excel workbook-info --include-sheets
@@ -701,7 +701,7 @@ def analyze_excel_workflow():
 
     # 단계별 검증 워크플로우
     steps = [
-        "oa excel workbook-list --detailed",  # 현황 파악
+        "oa excel workbook-list",  # 현황 파악
         "데이터 구조 분석",                    # 스키마 검토
         "비즈니스 로직 검증",                  # 요구사항 부합성
         "성능 및 확장성 검토"                  # 최적화 기회
@@ -715,7 +715,7 @@ def analyze_excel_workflow():
 #### 체계적 디버깅 접근
 ```bash
 # 1. 상황 진단
-oa excel workbook-list --detailed --format json
+oa excel workbook-list --format json
 
 # 2. 데이터 구조 분석
 oa excel workbook-info --include-sheets --include-properties

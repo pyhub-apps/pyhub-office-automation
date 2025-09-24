@@ -15,7 +15,7 @@
 **AI 실행 시퀀스**:
 ```bash
 # 1. 현황 파악
-oa excel workbook-list --detailed
+oa excel workbook-list
 oa excel workbook-info --include-sheets
 
 # 2. 데이터 확인
@@ -318,7 +318,7 @@ oa excel range-write --range "A25" --data "이 템플릿에 데이터를 입력�
 **AI 대응 시퀀스**:
 ```bash
 # 1. 현재 상황 파악
-oa excel workbook-list --detailed
+oa excel workbook-list
 
 # 2. 파일 경로 확인 및 대안 제시
 # 절대 경로로 다시 시도

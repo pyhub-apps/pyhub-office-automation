@@ -179,7 +179,7 @@ def llm_guide(output_format: str = typer.Option("text", "--format", help="출력
             ],
             "essential_commands": {
                 "discovery": ["oa info", "oa excel list --format json", "oa hwp list --format json"],
-                "context": ["oa excel workbook-list --detailed", "oa excel workbook-info --include-sheets"],
+                "context": ["oa excel workbook-list", "oa excel workbook-info --include-sheets"],
                 "workflow": ["연속 작업시 활성 워크북 자동 사용 또는 --workbook-name 사용"],
             },
             "connection_methods": [

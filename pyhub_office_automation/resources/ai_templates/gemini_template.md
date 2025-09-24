@@ -7,7 +7,7 @@ Gemini CLI의 연속 대화 특성을 활용하여 Excel 작업의 컨텍스트�
 #### 세션 시작 시 컨텍스트 설정
 ```bash
 # 작업 시작 시 실행할 명령들
-oa excel workbook-list --detailed  # 현재 상황 파악
+oa excel workbook-list  # 현재 상황 파악
 oa excel workbook-info --include-sheets  # 활성 워크북 구조 확인
 ```
 

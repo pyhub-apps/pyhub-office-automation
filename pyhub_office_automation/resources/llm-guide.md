@@ -38,7 +38,7 @@
 
 ```bash
 # 필수 확인 명령어들
-oa excel workbook-list --detailed --format json
+oa excel workbook-list --format json
 oa excel workbook-info --include-sheets --format json
 ```
 
@@ -287,7 +287,7 @@ oa excel table-read --table-name "MultiDim" --columns "날짜,매출" --limit 30
 
 ```bash
 # 전체 환경 파악 - 모든 작업 전 필수
-oa excel workbook-list --detailed --format json
+oa excel workbook-list --format json
 
 # 활성 워크북 구조 분석
 oa excel workbook-info --include-sheets --format json

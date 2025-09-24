@@ -23,8 +23,8 @@ pip install pyhub-office-automation
 # 설치 확인
 oa info
 
-# 현재 열린 Excel 파일 확인
-oa excel workbook-list --detailed
+# 현재 열린 Excel 파일 확인 (상세 정보 포함)
+oa excel workbook-list
 
 # 🆕 테이블 구조와 샘플 데이터 즉시 파악 (AI 에이전트 최적화)
 oa excel table-list

@@ -16,7 +16,7 @@
 ### 1. 작업 전 상황 파악
 ```bash
 # 현재 열린 워크북 확인
-oa excel workbook-list --detailed
+oa excel workbook-list
 
 # 활성 워크북 정보 확인
 oa excel workbook-info --include-sheets

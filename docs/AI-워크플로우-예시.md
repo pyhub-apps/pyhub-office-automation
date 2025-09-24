@@ -21,7 +21,7 @@
 
 ```bash
 # AI 실행
-oa excel workbook-list --detailed --format json
+oa excel workbook-list --format json
 ```
 
 **AI**: 현재 "2024년_판매데이터.xlsx"가 열려있네요. 이 파일로 작업할까요?
@@ -140,7 +140,7 @@ oa excel range-write --sheet "월간보고서" --range "A1" --data "🏢 월간 
 
 ```bash
 # AI 실행
-oa excel workbook-list --detailed --format json
+oa excel workbook-list --format json
 ```
 
 **AI**: 확인했습니다!
@@ -269,7 +269,7 @@ oa excel slicer-add --pivot-name "DashboardPivot1" --field "지점" --position "
 
 ```bash
 # AI 실행
-oa excel workbook-list --detailed --format json
+oa excel workbook-list --format json
 ```
 
 **AI**: 현재 이런 파일들이 열려있네요:

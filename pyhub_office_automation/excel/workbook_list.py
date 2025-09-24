@@ -19,16 +19,15 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 
 def workbook_list(
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
-    detailed: bool = typer.Option(False, "--detailed", help="상세 정보 포함 (파일 경로, 시트 수, 저장 상태 등)"),
 ):
     """
-    현재 열려있는 모든 Excel 워크북 목록을 조회합니다.
+    현재 열려있는 모든 Excel 워크북의 목록과 상세 정보를 조회합니다.
 
-    기본적으로 워크북 이름만 반환하며, --detailed 옵션으로 상세 정보를 포함할 수 있습니다.
+    각 워크북의 이름, 저장 상태, 파일 경로, 시트 수, 활성 시트 등의 정보를 제공합니다.
 
     예제:
         oa excel workbook-list
-        oa excel workbook-list --detailed --format text
+        oa excel workbook-list --format text
     """
     try:
         # 실행 시간 측정 시작
@@ -51,36 +50,36 @@ def workbook_list(
                         except:
                             saved_status = True  # 기본값으로 저장됨으로 가정
 
+                        # 기본 정보
                         workbook_info = {"name": normalize_path(book.name), "saved": saved_status}
 
                         # 저장되지 않은 워크북 체크
                         if not saved_status:
                             has_unsaved = True
 
-                        if detailed:
-                            # 상세 정보 추가
-                            workbook_info.update(
-                                {
-                                    "full_name": normalize_path(book.fullname),
-                                    "sheet_count": len(book.sheets),
-                                    "active_sheet": book.sheets.active.name if book.sheets else None,
-                                }
-                            )
+                        # 상세 정보 항상 추가
+                        workbook_info.update(
+                            {
+                                "full_name": normalize_path(book.fullname),
+                                "sheet_count": len(book.sheets),
+                                "active_sheet": book.sheets.active.name if book.sheets else None,
+                            }
+                        )
 
-                            # 파일 정보 추가 (파일이 실제로 존재하는 경우)
-                            try:
-                                file_path = Path(book.fullname)
-                                if file_path.exists():
-                                    file_stat = file_path.stat()
-                                    workbook_info.update(
-                                        {
-                                            "file_size_bytes": file_stat.st_size,
-                                            "last_modified": datetime.datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
-                                        }
-                                    )
-                            except (OSError, AttributeError):
-                                # 새 워크북이거나 파일 접근 불가능한 경우
-                                pass
+                        # 파일 정보 추가 (파일이 실제로 존재하는 경우)
+                        try:
+                            file_path = Path(book.fullname)
+                            if file_path.exists():
+                                file_stat = file_path.stat()
+                                workbook_info.update(
+                                    {
+                                        "file_size_bytes": file_stat.st_size,
+                                        "last_modified": datetime.datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
+                                    }
+                                )
+                        except (OSError, AttributeError):
+                            # 새 워크북이거나 파일 접근 불가능한 경우
+                            pass
 
                         workbooks_data.append(workbook_info)
 
@@ -134,7 +133,8 @@ def workbook_list(
                         status_icon = "💾" if wb.get("saved", True) else "⚠️"
                         typer.echo(f"{status_icon} {i}. {wb['name']}")
 
-                        if detailed and "full_name" in wb:
+                        # 상세 정보 항상 표시
+                        if "full_name" in wb:
                             typer.echo(f"   📁 경로: {wb['full_name']}")
                             typer.echo(f"   📄 시트 수: {wb['sheet_count']}")
                             typer.echo(f"   📑 활성 시트: {wb['active_sheet']}")
