@@ -83,6 +83,9 @@ from pyhub_office_automation.excel.workbook_list import workbook_list
 from pyhub_office_automation.excel.workbook_open import workbook_open
 from pyhub_office_automation.utils.resource_loader import load_llm_guide, load_welcome_message
 from pyhub_office_automation.version import get_version, get_version_info
+# HWP 명령어 import
+from pyhub_office_automation.hwp.hwp_export import hwp_export
+
 from pyhub_office_automation.cli.ai_setup import ai_setup_app
 from pyhub_office_automation.mcp.cli import mcp_app
 
@@ -514,8 +517,9 @@ def hwp_list(
 ):
     """HWP 자동화 명령어 목록 출력"""
     commands = [
-        {"name": "open-hwp", "description": "HWP 파일 열기", "version": "1.0.0", "status": "planned"},
-        {"name": "save-hwp", "description": "HWP 파일 저장", "version": "1.0.0", "status": "planned"},
+        {"name": "export", "description": "HWP 파일을 HTML로 변환", "version": "1.0.0", "status": "available"},
+        {"name": "open", "description": "HWP 파일 열기", "version": "1.0.0", "status": "planned"},
+        {"name": "save", "description": "HWP 파일 저장", "version": "1.0.0", "status": "planned"},
     ]
 
     hwp_data = {
@@ -544,6 +548,30 @@ def hwp_list(
             status_mark = "✓" if cmd["status"] == "available" else "○"
             console.print(f"  {status_mark} oa hwp {cmd['name']}")
             console.print(f"     {cmd['description']} (v{cmd['version']})")
+
+
+@hwp_app.command("export")
+def hwp_export_command(
+    file_path: str = typer.Option(..., "--file-path", help="변환할 HWP 파일의 절대 경로"),
+    format_type: str = typer.Option("html", "--format", help="출력 형식 (현재 html만 지원)"),
+    output_file: Optional[str] = typer.Option(None, "--output-file", help="HTML 저장 경로 (선택, 미지정시 표준출력)"),
+    encoding: str = typer.Option("utf-8", "--encoding", help="출력 인코딩 (기본값: utf-8)"),
+    include_css: bool = typer.Option(False, "--include-css/--no-include-css", help="CSS 스타일 포함 여부 (기본값: False, 모든 CSS 제거)"),
+    include_images: bool = typer.Option(False, "--include-images/--no-include-images", help="이미지 포함 여부 (기본값: False, Base64 인코딩으로 포함)"),
+    temp_cleanup: bool = typer.Option(True, "--temp-cleanup/--no-temp-cleanup", help="임시 파일 자동 정리 (기본값: True)"),
+    output_format: str = typer.Option("json", "--output-format", help="응답 출력 형식 (json)"),
+):
+    """HWP 파일을 HTML 형식으로 변환"""
+    hwp_export(
+        file_path=file_path,
+        format_type=format_type,
+        output_file=output_file,
+        encoding=encoding,
+        include_css=include_css,
+        include_images=include_images,
+        temp_cleanup=temp_cleanup,
+        output_format=output_format
+    )
 
 
 @app.command()
