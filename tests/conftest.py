@@ -2,6 +2,8 @@
 pytest 설정 및 공통 fixture
 """
 
+import gc
+import platform
 import sys
 import tempfile
 from pathlib import Path
@@ -12,6 +14,46 @@ import pytest
 # 프로젝트 루트를 Python 경로에 추가
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_excel_after_tests():
+    """
+    테스트 세션 종료 후 남은 Excel 인스턴스 정리
+    """
+    yield
+
+    # 테스트 완료 후 Excel 인스턴스 정리
+    try:
+        import xlwings as xw
+
+        # 모든 열려있는 Excel 앱 종료
+        try:
+            # 현재 활성 앱이 있으면 종료
+            apps = xw.apps
+            for app in apps:
+                try:
+                    app.quit()
+                except:
+                    pass
+        except:
+            pass
+
+        # 가비지 컬렉션
+        for _ in range(3):
+            gc.collect()
+
+        # Windows에서 COM 정리
+        if platform.system() == "Windows":
+            try:
+                import pythoncom
+
+                pythoncom.CoUninitialize()
+            except:
+                pass
+
+    except Exception as e:
+        print(f"Excel cleanup failed: {e}")
 
 
 @pytest.fixture

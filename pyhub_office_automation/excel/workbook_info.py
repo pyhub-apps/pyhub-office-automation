@@ -382,6 +382,27 @@ def workbook_info(
         raise typer.Exit(1)
 
     finally:
+        # COM 객체 명시적 해제
+        try:
+            # 가비지 컬렉션 강제 실행
+            import gc
+
+            gc.collect()
+
+            # Windows에서 COM 라이브러리 정리
+            import platform
+
+            if platform.system() == "Windows":
+                try:
+                    import pythoncom
+
+                    pythoncom.CoUninitialize()
+                except:
+                    pass
+
+        except:
+            pass
+
         # 리소스 정리 - 파일을 직접 연 경우만 종료 고려
         if book and file_path:
             try:

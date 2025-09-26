@@ -373,6 +373,27 @@ def chart_position(
         return 1
 
     finally:
+        # COM 객체 명시적 해제
+        try:
+            # 가비지 컬렉션 강제 실행
+            import gc
+
+            gc.collect()
+
+            # Windows에서 COM 라이브러리 정리
+            import platform
+
+            if platform.system() == "Windows":
+                try:
+                    import pythoncom
+
+                    pythoncom.CoUninitialize()
+                except:
+                    pass
+
+        except:
+            pass
+
         # 새로 생성한 워크북인 경우에만 정리
         if book and file_path and not workbook_name:
             try:

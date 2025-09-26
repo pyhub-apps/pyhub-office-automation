@@ -445,6 +445,14 @@ def chart_export(
         return 1
 
     finally:
+        # Simple COM resource cleanup
+        try:
+            import gc
+
+            gc.collect()
+        except:
+            pass
+
         # 새로 생성한 워크북인 경우에만 정리
         if book and file_path and not workbook_name:
             try:

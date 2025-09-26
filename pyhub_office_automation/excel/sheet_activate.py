@@ -182,6 +182,27 @@ def sheet_activate(
         raise typer.Exit(1)
 
     finally:
+        # COM 객체 명시적 해제
+        try:
+            # 가비지 컬렉션 강제 실행
+            import gc
+
+            gc.collect()
+
+            # Windows에서 COM 라이브러리 정리
+            import platform
+
+            if platform.system() == "Windows":
+                try:
+                    import pythoncom
+
+                    pythoncom.CoUninitialize()
+                except:
+                    pass
+
+        except:
+            pass
+
         # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
         if book and not visible and file_path:
             try:

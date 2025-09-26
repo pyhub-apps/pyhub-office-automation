@@ -223,12 +223,42 @@ def _convert_hwp_to_html(file_path: str, temp_cleanup: bool = True) -> str:
         raise Exception(f"HWP 변환 처리 중 오류: {str(e)}")
 
     finally:
-        # 리소스 정리
-        if hwp:
+        # HWP COM 리소스 정리
+        try:
+            if hwp:
+                try:
+                    # HWP COM 객체 정리
+                    hwp.quit()
+
+                    # COM 참조 해제
+                    if hasattr(hwp, "_app") and hwp._app is not None:
+                        try:
+                            hwp._app.Release()
+                            hwp._app = None
+                        except:
+                            pass
+
+                    del hwp
+                    hwp = None
+                except Exception:
+                    pass
+
+            # 가비지 컬렉션 강제 실행 (HWP COM 정리)
+            import gc
+
+            for _ in range(3):
+                gc.collect()
+
+            # Windows에서 COM 라이브러리 정리
             try:
-                hwp.quit()
-            except Exception:
-                pass  # 정리 실패해도 무시
+                import pythoncom
+
+                pythoncom.CoUninitialize()
+            except:
+                pass
+
+        except:
+            pass
 
         # 임시 파일 정리
         if temp_cleanup and temp_html_path:

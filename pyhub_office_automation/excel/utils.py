@@ -1148,6 +1148,249 @@ class ExecutionTimer:
         return 0.0
 
 
+class COMResourceManager:
+    """
+    COM 리소스 관리를 위한 컨텍스트 매니저
+
+    Windows COM 객체의 계층적 정리와 메모리 해제를 담당합니다.
+    xlwings와 pyhwpx에서 사용하는 COM 객체들을 안전하게 정리합니다.
+
+    사용 예시:
+        with COMResourceManager() as com_manager:
+            book = xw.Book()
+            com_manager.add(book)
+            sheet = book.sheets[0]
+            com_manager.add(sheet)
+            # 작업 수행
+            # 컨텍스트 종료시 자동으로 정리됨
+    """
+
+    def __init__(self, verbose: bool = False):
+        """
+        Args:
+            verbose: 디버깅을 위한 상세 로그 출력 여부
+        """
+        self.com_objects = []
+        self.api_refs = []
+        self.verbose = verbose
+        self._original_objects = []  # 디버깅용 원본 객체 참조 저장
+
+    def add(self, obj: Any, description: str = None) -> Any:
+        """
+        관리할 COM 객체 추가
+
+        Args:
+            obj: 관리할 COM 객체 (xw.Book, xw.Sheet, Chart 등)
+            description: 객체 설명 (디버깅용)
+
+        Returns:
+            추가된 객체 (체이닝 가능)
+        """
+        if obj is not None and obj not in self.com_objects:
+            self.com_objects.append(obj)
+
+            if self.verbose and description:
+                self._original_objects.append((obj, description))
+
+            # .api 속성이 있는 경우 별도로 추적
+            if hasattr(obj, "api") and obj.api is not None:
+                self.api_refs.append((obj, "api"))
+
+        return obj
+
+    def add_api_ref(self, parent_obj: Any, api_attr: str = "api"):
+        """
+        COM API 참조를 명시적으로 추가
+
+        Args:
+            parent_obj: API를 가진 부모 객체
+            api_attr: API 속성명 (기본: 'api')
+        """
+        if hasattr(parent_obj, api_attr):
+            api_obj = getattr(parent_obj, api_attr)
+            if api_obj is not None:
+                self.api_refs.append((parent_obj, api_attr))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        COM 객체 정리
+
+        계층적 정리 순서:
+        1. API 참조 해제 (자식 객체)
+        2. COM 객체 해제 (역순으로 - 자식에서 부모로)
+        3. 가비지 컬렉션 강제 실행
+        4. Windows에서 COM 라이브러리 정리
+        """
+        import gc
+
+        if self.verbose:
+            print(f"[COMResourceManager] 정리 시작: {len(self.com_objects)}개 객체")
+
+        # 1. API 참조 먼저 해제
+        for parent_obj, api_attr in self.api_refs:
+            try:
+                if hasattr(parent_obj, api_attr):
+                    api_obj = getattr(parent_obj, api_attr)
+                    if api_obj is not None:
+                        # COM 객체 해제 시도
+                        if hasattr(api_obj, "Release"):
+                            api_obj.Release()
+                        setattr(parent_obj, api_attr, None)
+                        del api_obj
+            except Exception as e:
+                if self.verbose:
+                    print(f"[COMResourceManager] API 해제 실패: {e}")
+
+        # 2. COM 객체 역순으로 정리 (자식 → 부모)
+        for obj in reversed(self.com_objects):
+            try:
+                # xlwings 객체 정리
+                if hasattr(obj, "close"):
+                    try:
+                        obj.close()
+                    except:
+                        pass
+
+                # 앱 객체 정리
+                if hasattr(obj, "quit"):
+                    try:
+                        obj.quit()
+                    except:
+                        pass
+
+                # 객체 삭제
+                del obj
+
+            except Exception as e:
+                if self.verbose:
+                    print(f"[COMResourceManager] 객체 정리 실패: {e}")
+
+        # 3. 리스트 비우기
+        self.com_objects.clear()
+        self.api_refs.clear()
+        self._original_objects.clear()
+
+        # 4. 가비지 컬렉션 강제 실행 (3번 반복으로 순환 참조까지 정리)
+        for _ in range(3):
+            gc.collect()
+
+        # 5. Windows에서 COM 라이브러리 정리
+        if platform.system() == "Windows":
+            try:
+                import pythoncom
+
+                pythoncom.CoUninitialize()
+            except:
+                # 이미 정리되었거나 초기화되지 않은 경우 무시
+                pass
+
+        if self.verbose:
+            print("[COMResourceManager] 정리 완료")
+
+        # 예외는 전파하지 않음 (정리는 항상 수행)
+        return False
+
+
+def run_with_timeout(func: Callable, timeout_seconds: int = 120, description: str = "작업") -> Any:
+    """
+    COM 작업에 타임아웃을 적용하는 래퍼 함수
+
+    주로 피벗차트 생성 등 타임아웃이 발생할 수 있는 COM 작업에 사용합니다.
+
+    Args:
+        func: 실행할 함수 (인자 없는 callable)
+        timeout_seconds: 타임아웃 시간 (초)
+        description: 작업 설명 (에러 메시지용)
+
+    Returns:
+        함수 실행 결과
+
+    Raises:
+        TimeoutError: 지정된 시간 내에 작업이 완료되지 않은 경우
+        Exception: 함수 실행 중 발생한 예외
+
+    사용 예시:
+        result = run_with_timeout(
+            lambda: chart.SetSourceData(pivot_table),
+            timeout_seconds=30,
+            description="피벗차트 데이터 소스 설정"
+        )
+    """
+    result = [None]
+    exception = [None]
+    completed = threading.Event()
+
+    def target():
+        try:
+            result[0] = func()
+        except Exception as e:
+            exception[0] = e
+        finally:
+            completed.set()
+
+    thread = threading.Thread(target=target)
+    thread.daemon = True  # 메인 프로세스 종료시 함께 종료
+    thread.start()
+
+    # 타임아웃까지 대기
+    if not completed.wait(timeout_seconds):
+        # 타임아웃 발생
+        raise TimeoutError(f"{description}이(가) {timeout_seconds}초 내에 완료되지 않았습니다")
+
+    # 예외가 발생했으면 다시 발생
+    if exception[0]:
+        raise exception[0]
+
+    return result[0]
+
+
+def cleanup_com_objects(*objects, verbose: bool = False):
+    """
+    여러 COM 객체를 한 번에 정리하는 헬퍼 함수
+
+    Args:
+        *objects: 정리할 COM 객체들
+        verbose: 디버깅 로그 출력 여부
+
+    사용 예시:
+        cleanup_com_objects(chart, sheet, book, verbose=True)
+    """
+    import gc
+
+    for obj in objects:
+        if obj is None:
+            continue
+
+        try:
+            # API 참조 해제
+            if hasattr(obj, "api"):
+                api_obj = obj.api
+                if api_obj is not None:
+                    if hasattr(api_obj, "Release"):
+                        api_obj.Release()
+                    obj.api = None
+                    del api_obj
+
+            # 객체별 정리 메서드 호출
+            if hasattr(obj, "close"):
+                obj.close()
+            elif hasattr(obj, "quit"):
+                obj.quit()
+
+            # 객체 삭제
+            del obj
+
+        except Exception as e:
+            if verbose:
+                print(f"[cleanup_com_objects] 정리 실패: {e}")
+
+    # 가비지 컬렉션
+    gc.collect()
+
+
 # ========== Shape 및 Slicer 관리 기능 (Issue #12) ==========
 
 # 뉴모피즘 스타일 정의

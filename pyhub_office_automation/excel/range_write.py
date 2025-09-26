@@ -263,6 +263,27 @@ def range_write(
         raise typer.Exit(1)
 
     finally:
+        # COM 객체 명시적 해제
+        try:
+            # 가비지 컬렉션 강제 실행
+            import gc
+
+            gc.collect()
+
+            # Windows에서 COM 라이브러리 정리
+            import platform
+
+            if platform.system() == "Windows":
+                try:
+                    import pythoncom
+
+                    pythoncom.CoUninitialize()
+                except:
+                    pass
+
+        except:
+            pass
+
         # 임시 파일 정리
         if temp_file_path:
             cleanup_temp_file(temp_file_path)
