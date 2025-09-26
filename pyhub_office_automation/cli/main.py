@@ -174,46 +174,92 @@ def welcome(output_format: str = typer.Option("text", "--format", help="출력 �
 
 
 @app.command()
-def llm_guide(output_format: str = typer.Option("text", "--format", help="출력 형식 선택 (text, json, markdown)")):
-    """LLM/AI 에이전트를 위한 상세 사용 지침"""
-    guide_content = load_llm_guide()
+def llm_guide(
+    ai_type: str = typer.Argument(
+        "default", help="AI 어시스턴트 타입 [default|codex|claude|gemini|copilot]", case_sensitive=False, show_default=True
+    ),
+    format: str = typer.Option("json", "--format", "-f", help="출력 형식 [json|text|markdown]", case_sensitive=False),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="상세 가이드 출력"),
+    lang: str = typer.Option("ko", "--lang", "-l", help="언어 선택 [ko|en]", case_sensitive=False),
+):
+    """AI 어시스턴트별 맞춤형 사용 가이드 제공
 
-    if output_format == "json":
-        # JSON 형식으로 출력 (AI 에이전트가 파싱하기 쉽도록)
-        guide_data = {
-            "guide_type": "llm_usage",
-            "content": guide_content,
-            "package_version": get_version(),
-            "target_audience": "LLM, AI Agent, Chatbot",
-            "key_principles": [
-                "명령어 발견 (Command Discovery)",
-                "컨텍스트 인식 (Context Awareness)",
-                "에러 방지 워크플로우",
-                "효율적인 연결 방법 활용",
-            ],
-            "essential_commands": {
-                "discovery": ["oa info", "oa excel list --format json", "oa hwp list --format json"],
-                "context": ["oa excel workbook-list", "oa excel workbook-info --include-sheets"],
-                "workflow": ["연속 작업시 활성 워크북 자동 사용 또는 --workbook-name 사용"],
-            },
-            "connection_methods": [
-                "--file-path: 파일 경로로 연결",
-                "옵션 없음: 활성 워크북 자동 사용 (기본값)",
-                "--workbook-name: 워크북 이름으로 연결",
-            ],
-        }
-        try:
-            json_output = json.dumps(guide_data, ensure_ascii=False, indent=2)
-            typer.echo(json_output)
-        except UnicodeEncodeError:
-            json_output = json.dumps(guide_data, ensure_ascii=True, indent=2)
-            typer.echo(json_output)
-    elif output_format == "markdown":
-        # 원본 마크다운 출력
-        typer.echo(guide_content)
-    else:
-        # 콘솔에 포맷팅된 출력
-        console.print(guide_content)
+    각 AI의 특성에 맞는 최적화된 가이드를 제공합니다:
+
+    - default: 범용 AI를 위한 표준 가이드
+    - codex: OpenAI Codex CLI (Less is More 원칙)
+    - claude: Claude Code (체계적 워크플로우)
+    - gemini: Gemini CLI (대화형 상호작용)
+    - copilot: GitHub Copilot (IDE 통합형)
+    """
+    from pyhub_office_automation.cli.ai_guides import AIAssistant, AIGuideGenerator, OutputFormat
+
+    # 지원되는 AI 타입 검증
+    supported_ai_types = [e.value for e in AIAssistant]
+    supported_formats = [e.value for e in OutputFormat]
+
+    ai_type_lower = ai_type.lower()
+    format_lower = format.lower()
+
+    # AI 타입 검증
+    if ai_type_lower not in supported_ai_types:
+        typer.echo(f"Error: '{ai_type}'는 지원하지 않는 AI 타입입니다.")
+        typer.echo(f"지원 타입: {', '.join(supported_ai_types)}")
+        typer.echo("기본값 'default'를 사용하거나 지원되는 타입을 선택하세요.")
+        raise typer.Exit(1)
+
+    # 출력 형식 검증
+    if format_lower not in supported_formats:
+        typer.echo(f"Error: '{format}'는 지원하지 않는 출력 형식입니다.")
+        typer.echo(f"지원 형식: {', '.join(supported_formats)}")
+        format_lower = "json"  # 기본값으로 폴백
+
+    # 언어 검증
+    if lang.lower() not in ["ko", "en"]:
+        typer.echo(f"Warning: '{lang}'는 지원하지 않는 언어입니다. 'ko'를 사용합니다.")
+        lang = "ko"
+
+    try:
+        # 가이드 생성
+        ai_enum = AIAssistant(ai_type_lower)
+        format_enum = OutputFormat(format_lower)
+
+        generator = AIGuideGenerator()
+        guide = generator.generate(ai_type=ai_enum, verbose=verbose, lang=lang.lower())
+
+        # 출력 형식에 따라 처리
+        if format_enum == OutputFormat.json:
+            try:
+                json_output = json.dumps(guide, ensure_ascii=False, indent=2)
+                typer.echo(json_output)
+            except UnicodeEncodeError:
+                json_output = json.dumps(guide, ensure_ascii=True, indent=2)
+                typer.echo(json_output)
+        elif format_enum == OutputFormat.markdown:
+            markdown_output = generator.to_markdown(guide)
+            typer.echo(markdown_output)
+        else:  # text
+            text_output = generator.to_text(guide)
+            typer.echo(text_output)
+
+    except ValueError as e:
+        # Enum 변환 실패 등 값 관련 오류
+        typer.echo(f"Error: 잘못된 값이 입력되었습니다: {e}")
+        raise typer.Exit(1)
+    except ImportError as e:
+        # 모듈 import 실패
+        typer.echo(f"Error: 필요한 모듈을 불러올 수 없습니다: {e}")
+        typer.echo("패키지 설치 상태를 확인하세요: oa info")
+        raise typer.Exit(1)
+    except (OSError, IOError) as e:
+        # 파일 읽기/쓰기 오류
+        typer.echo(f"Error: 파일 작업 중 오류가 발생했습니다: {e}")
+        raise typer.Exit(1)
+    except KeyError as e:
+        # 딕셔너리 키 누락 등
+        typer.echo(f"Error: 가이드 데이터 구조에 문제가 있습니다: {e}")
+        typer.echo("개발팀에 문의하세요.")
+        raise typer.Exit(1)
 
 
 excel_app = typer.Typer(help="Excel 자동화 명령어들", no_args_is_help=True)
