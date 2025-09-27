@@ -110,13 +110,27 @@ class AIGuideGenerator:
         return guide
 
     def _codex_guide(self, verbose: bool, lang: str) -> Dict[str, Any]:
-        """Codex: Less is More 최소주의 가이드 - 3-5줄 핵심만"""
-        # Codex 원칙: 과도한 설명 없이 필수 정보만
-        guide = {"cmd": "oa excel [operation] --format json", "flow": "workbook-list → table-list → operate", "out": "json"}
+        """Codex: Less is More 최소주의 가이드 - 핵심 정보를 간결하게"""
+        # Codex 원칙: 과도한 설명 없이 필수 정보만, 하지만 실용적이어야 함
+        guide = {
+            "pattern": "oa excel [operation] --format json",
+            "workflow": "workbook-list → table-list → operate",
+            "output": "json",
+            "core_commands": ["oa excel workbook-list", "oa excel table-list", "oa excel range-read --range A1:C10"],
+            "connection": ["auto", "--file-path", "--workbook-name"],
+        }
 
         if verbose:
-            guide["ex"] = "oa excel range-read --range A1:C10"
-            guide["conn"] = ["auto", "--file-path", "--workbook-name"]
+            guide["examples"] = [
+                "oa excel range-read --range A1:C10",
+                "oa excel chart-add --data-range A1:B20 --chart-type column",
+                "oa excel table-read --table-name GameData --limit 100",
+            ]
+            guide["tips"] = [
+                "Start with workbook-list to see what's available",
+                "Use table-list for immediate data structure insight",
+                "All commands return structured JSON for easy parsing",
+            ]
 
         return guide
 
