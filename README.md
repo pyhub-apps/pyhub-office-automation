@@ -96,6 +96,87 @@ oa ai-setup all
 
 > **참고**: 이 기능은 [GitHub Issue #56](https://github.com/pyhub-apps/pyhub-office-automation/issues/56)으로 계획되어 있으며, 향후 업데이트에서 구현될 예정입니다.
 
+## 🧠 AI별 맞춤형 가이드 시스템
+
+각 AI 어시스턴트의 특성에 최적화된 사용 가이드를 제공하는 `llm-guide` 명령어입니다. OpenAI Codex의 "Less is More" 원칙을 적용하여 각 AI가 가장 효율적으로 활용할 수 있는 형태로 정보를 제공합니다.
+
+### 지원 AI 어시스턴트 (5개)
+
+| AI 타입 | 특징 | 가이드 스타일 | 출력 라인수 |
+|---------|------|---------------|-------------|
+| **default** | 범용 표준 | 균형잡힌 워크플로우 | 15-20줄 |
+| **codex** | OpenAI Codex CLI | Less is More 최소주의 | 3-5줄 |
+| **claude** | Claude Code | 체계적, 안전성 중심 | 20-30줄 |
+| **gemini** | Gemini CLI | 대화형, 시각화 중심 | 15-25줄 |
+| **copilot** | GitHub Copilot | 범용 표준 (default와 동일) | 15-20줄 |
+
+### 사용법
+
+```bash
+# 기본 사용법 (AI 타입 필수)
+oa llm-guide <ai_type> [옵션]
+
+# AI별 최적화 가이드
+oa llm-guide default           # 범용 표준 가이드
+oa llm-guide codex             # 3-5줄 핵심만 (Less is More)
+oa llm-guide claude            # 체계적 4단계 워크플로우
+oa llm-guide gemini            # 대화형 제안 및 시각화
+oa llm-guide copilot           # IDE 통합 중심
+
+# 상세 모드 및 출력 형식
+oa llm-guide claude --verbose  # 상세 가이드 (에러 복구, 고급 팁 포함)
+oa llm-guide codex --format text      # 텍스트 형식
+oa llm-guide gemini --format markdown # 마크다운 형식
+oa llm-guide default --lang en        # 영어 출력 (향후 지원)
+```
+
+### Codex "Less is More" 원칙 적용 예시
+
+#### Before (기존 방식)
+```bash
+oa llm-guide
+# → 300+ 줄의 README 전체 출력
+```
+
+#### After (Codex 최적화)
+```bash
+oa llm-guide codex
+{
+  "cmd": "oa excel [operation] --format json",
+  "flow": "workbook-list → table-list → operate",
+  "out": "json"
+}
+# → 단 3줄의 핵심 정보만!
+```
+
+### AI별 가이드 특징
+
+#### 🔹 **Codex**: 극도로 간소화
+- 불필요한 설명 제거, 핵심 명령어만
+- JSON 형식으로 구조화된 최소 정보
+- "Less is More" 철학 완전 적용
+
+#### 🔹 **Claude**: 체계적 접근
+- 4단계 워크플로우: discover → analyze → plan → execute
+- 안전성 원칙과 에러 복구 전략
+- 상세 모드에서 컨텍스트 발견 및 스마트 실행 가이드
+
+#### 🔹 **Gemini**: 대화형 상호작용
+- 대화 흐름: 인사 → 상황파악 → 분석 → 제안 → 실행
+- 데이터 패턴별 스마트 제안 (매출, 시계열, 대용량)
+- 시각화 우선순위 및 배치 작업 예시
+
+#### 🔹 **Default/Copilot**: 범용 표준
+- 모든 AI가 공통으로 활용할 수 있는 균형잡힌 가이드
+- 표준 워크플로우와 연결 방법 제공
+- 예제와 모범 사례 포함
+
+### 출력 형식 옵션
+
+- **JSON** (기본): AI 파싱 최적화, 구조화된 데이터
+- **Text**: 사람이 읽기 쉬운 일반 텍스트
+- **Markdown**: 문서화 및 공유용 마크다운
+
 ## 📊 핵심 Excel 명령어
 
 ### 상황 파악
@@ -401,8 +482,16 @@ oa hwp list
 # 특정 명령어 도움말
 oa excel range-read --help
 
-# LLM 사용 가이드
-oa llm-guide
+# AI별 맞춤형 LLM 가이드
+oa llm-guide default           # 범용 표준 가이드
+oa llm-guide codex             # OpenAI Codex (Less is More 원칙)
+oa llm-guide claude --verbose  # Claude Code (체계적 워크플로우)
+oa llm-guide gemini            # Gemini CLI (대화형 상호작용)
+oa llm-guide copilot           # GitHub Copilot (IDE 통합형)
+
+# 출력 형식 변경
+oa llm-guide claude --format markdown
+oa llm-guide codex --format text
 ```
 
 ## 🖥️ 지원 플랫폼
