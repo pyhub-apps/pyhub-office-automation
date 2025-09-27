@@ -27,8 +27,7 @@ from rich.console import Console
 from rich.table import Table
 
 from pyhub_office_automation.cli.ai_setup import ai_setup_app
-from pyhub_office_automation.email.email_accounts import delete_email_account, list_email_accounts
-from pyhub_office_automation.email.email_config import email_config
+from pyhub_office_automation.email.email_accounts import accounts_app
 
 # Email 명령어 import
 from pyhub_office_automation.email.email_send import email_send
@@ -449,9 +448,7 @@ def excel_list_temp(
 
 # Email 명령어 등록
 email_app.command("send")(email_send)
-email_app.command("config")(email_config)
-email_app.command("accounts")(list_email_accounts)
-email_app.command("delete")(delete_email_account)
+email_app.add_typer(accounts_app, name="accounts")
 
 
 # Email list command
