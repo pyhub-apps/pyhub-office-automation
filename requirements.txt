@@ -9,6 +9,9 @@ xlwings>=0.30.0
 # HWP automation (Windows only)
 pyhwpx>=0.2.0; sys_platform == "win32"
 
+# Email automation
+keyring>=24.0.0
+
 # Development dependencies
 pytest>=7.0.0
 pytest-cov>=4.0.0

@@ -27,6 +27,11 @@ from rich.console import Console
 from rich.table import Table
 
 from pyhub_office_automation.cli.ai_setup import ai_setup_app
+from pyhub_office_automation.email.email_accounts import delete_email_account, list_email_accounts
+from pyhub_office_automation.email.email_config import email_config
+
+# Email 명령어 import
+from pyhub_office_automation.email.email_send import email_send
 
 # Chart 명령어 import
 from pyhub_office_automation.excel.chart_add import chart_add
@@ -264,6 +269,7 @@ def llm_guide(
 
 excel_app = typer.Typer(help="Excel 자동화 명령어들", no_args_is_help=True)
 hwp_app = typer.Typer(help="HWP 자동화 명령어들 (Windows 전용)", no_args_is_help=True)
+email_app = typer.Typer(help="AI 기반 이메일 자동화 명령어들", no_args_is_help=True)
 
 # Rich 콘솔 - UTF-8 인코딩 안전성 확보
 try:
@@ -441,9 +447,61 @@ def excel_list_temp(
         console.print()
 
 
+# Email 명령어 등록
+email_app.command("send")(email_send)
+email_app.command("config")(email_config)
+email_app.command("accounts")(list_email_accounts)
+email_app.command("delete")(delete_email_account)
+
+
+# Email list command
+@email_app.command("list")
+def email_list(
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
+):
+    """Email 자동화 명령어 목록 출력"""
+    commands = [
+        {"name": "send", "description": "AI 기반 이메일 생성 및 발송", "category": "core"},
+    ]
+
+    email_data = {
+        "category": "email",
+        "description": "AI 기반 이메일 자동화 명령어들",
+        "platform_requirement": "Windows (Outlook COM) / 크로스 플랫폼 (SMTP)",
+        "commands": commands,
+        "total_commands": len(commands),
+        "ai_providers": ["claude", "codex", "gemini", "openai", "anthropic"],
+        "package_version": get_version(),
+    }
+
+    if output_format == "json":
+        try:
+            json_output = json.dumps(email_data, ensure_ascii=False, indent=2)
+            typer.echo(json_output)
+        except UnicodeEncodeError:
+            json_output = json.dumps(email_data, ensure_ascii=True, indent=2)
+            typer.echo(json_output)
+    else:
+        console.print("=== Email 자동화 명령어 목록 ===", style="bold green")
+        console.print(f"Platform: {email_data['platform_requirement']}")
+        console.print(f"Total: {email_data['total_commands']} commands")
+        console.print(f"AI Providers: {', '.join(email_data['ai_providers'])}")
+        console.print()
+
+        for cmd in commands:
+            console.print(f"  • oa email {cmd['name']}")
+            console.print(f"    {cmd['description']}")
+        console.print()
+
+        console.print("📚 [bold yellow]AI 프롬프트 사용 예시:[/bold yellow]")
+        console.print('   [bold cyan]oa email send --to "user@example.com" --prompt "회의 일정 변경 안내"[/bold cyan]')
+        console.print('   [bold cyan]oa email send --to "team@company.com" --prompt "프로젝트 완료 보고"[/bold cyan]')
+
+
 # 서브 앱을 메인 앱에 등록
 app.add_typer(excel_app, name="excel")
 app.add_typer(hwp_app, name="hwp")
+app.add_typer(email_app, name="email")
 app.add_typer(ai_setup_app, name="ai-setup")
 # MCP 앱 조건부 추가
 if MCP_AVAILABLE and mcp_app:
