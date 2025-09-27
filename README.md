@@ -43,6 +43,33 @@ oa excel table-read --table-name "GameData" --columns "게임명,글로벌 판�
 oa excel range-read --range "A1:C10"
 ```
 
+## 📧 Email 자동화 (NEW)
+
+AI 기반 이메일 생성 및 다중 계정 관리 시스템입니다. Windows Credential Manager를 통한 안전한 자격증명 관리를 지원합니다.
+
+### 빠른 시작
+```bash
+# 계정 설정 (Gmail, Outlook, Naver 지원)
+oa email config --provider gmail --username your@gmail.com
+
+# 계정 목록 확인
+oa email accounts
+
+# AI로 이메일 생성 및 발송
+oa email send --to recipient@example.com --prompt "프로젝트 진행 상황 보고"
+
+# 특정 계정으로 발송
+oa email send --account work --to team@company.com --prompt "회의 일정 변경"
+```
+
+### 주요 기능
+- 🔐 **안전한 계정 관리**: Windows Credential Manager 연동
+- 🤖 **AI 이메일 생성**: 프롬프트로 자동 작성
+- 📨 **다중 계정 지원**: 업무/개인 계정 분리
+- 🔒 **앱 비밀번호**: OAuth2 없이 간단한 인증
+
+📚 상세 매뉴얼: [docs/email.md](docs/email.md)
+
 ## 🤖 AI 코드 어시스턴트 설정
 
 각 AI 에이전트에 최적화된 설정 파일을 자동으로 생성합니다:

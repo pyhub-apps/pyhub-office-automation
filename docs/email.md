@@ -12,6 +12,46 @@ pyhub-office-automation의 email 기능은 AI 기반 이메일 생성 및 발송
 - ✅ **앱 비밀번호 지원**: OAuth2 없이 간편한 인증
 - ✅ **크로스플랫폼 백엔드**: Outlook COM (Windows) + SMTP (범용)
 
+## 설치 요구사항
+
+### 필수 의존성
+
+**Python 버전**: Python 3.8 이상 (권장: Python 3.13+)
+
+**필수 라이브러리**:
+```bash
+# keyring - Windows Credential Manager 연동
+pip install keyring>=24.0.0
+
+# Windows에서 Outlook COM 사용 시 (선택사항)
+pip install pywin32
+```
+
+### 플랫폼별 지원
+
+#### Windows (권장)
+- ✅ **SMTP 백엔드**: 모든 이메일 제공자 지원
+- ✅ **Outlook COM**: Microsoft Outlook 연동 지원
+- ✅ **Credential Manager**: 완전 지원
+
+#### macOS/Linux
+- ✅ **SMTP 백엔드**: 모든 이메일 제공자 지원
+- ❌ **Outlook COM**: 지원하지 않음
+- ⚠️ **keyring**: 플랫폼별 백엔드 사용 (Keychain, SecretService 등)
+
+### 설치 확인
+
+```bash
+# pyhub-office-automation 패키지 설치 확인
+oa email --help
+
+# keyring 라이브러리 설치 확인
+python -c "import keyring; print('keyring 설치됨')"
+
+# Windows에서 pywin32 확인 (선택사항)
+python -c "import win32com.client; print('pywin32 설치됨')"
+```
+
 ## 명령어 개요
 
 ```bash
