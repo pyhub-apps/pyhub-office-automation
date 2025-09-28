@@ -77,13 +77,24 @@ try {
     # 기존 빌드 파일 정리
     if ($Clean) {
         Write-Host "🧹 Cleaning previous build files..."
-        $itemsToRemove = @("build", "dist", "oa.spec")
+        $itemsToRemove = @("build", "dist")
+
+        # UseSpec이 false인 경우에만 oa.spec 삭제
+        if (-not $UseSpec) {
+            $itemsToRemove += "oa.spec"
+        }
+
         foreach ($item in $itemsToRemove) {
             if (Test-Path $item) {
                 Remove-Item -Recurse -Force $item -ErrorAction SilentlyContinue
                 Write-Host "   Removed: $item"
             }
         }
+
+        if ($UseSpec -and (Test-Path "oa.spec")) {
+            Write-Host "   Preserved: oa.spec (UseSpec enabled)"
+        }
+
         Write-Host "   Cleanup completed"
     }
 
