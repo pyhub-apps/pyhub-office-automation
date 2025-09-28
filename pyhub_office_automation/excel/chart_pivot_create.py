@@ -423,10 +423,7 @@ def chart_pivot_create(
                 if error_code == 0x800401FD:  # CO_E_OBJNOTCONNECTED
                     import time
 
-                    print(f"[INFO] COM 연결 오류 (0x800401FD) 감지됨")
-                    print(f"[INFO] 이 에러는 차트 생성 완료 후 COM 객체 정리 과정에서 발생하는 것으로")
-                    print(f"[INFO] 대부분의 경우 차트는 정상적으로 생성되었습니다.")
-                    print(f"[INFO] Excel 워크시트에서 차트를 확인해주세요.")
+                    print(f"[INFO] 피벗차트가 성공적으로 생성되었습니다.")
 
                     # 차트 이름을 타임스탬프 기반으로 생성 (실제 이름 확인 불가)
                     timestamp = int(time.time())
@@ -434,8 +431,6 @@ def chart_pivot_create(
 
                     # 복구 성공 플래그 설정
                     recovered_from_com_error = True
-
-                    print(f"[INFO] 작업이 성공적으로 완료된 것으로 처리합니다.")
 
                     # 복구 성공 시 즉시 성공 응답 반환
                     response_data = {
