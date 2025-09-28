@@ -14,6 +14,7 @@ from pyhub_office_automation.version import get_version
 
 from .utils import (
     ExecutionTimer,
+    analyze_slicer_conflicts,
     create_error_response,
     create_success_response,
     get_or_open_workbook,
@@ -33,118 +34,62 @@ def slicer_list(
     show_connections: bool = typer.Option(
         True, "--show-connections/--no-show-connections", help="연결된 피벗테이블 정보 표시"
     ),
+    show_conflicts: bool = typer.Option(False, "--show-conflicts", help="SlicerCache 충돌 가능성 분석 표시 (Issue #71)"),
     filter_field: Optional[str] = typer.Option(None, "--filter-field", help="특정 필드의 슬라이서만 필터링"),
     filter_sheet: Optional[str] = typer.Option(None, "--filter-sheet", help="특정 시트의 슬라이서만 필터링"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
 ):
     """
-    Excel 워크북의 모든 슬라이서 정보를 조회합니다.
+    🔍 Excel 워크북의 모든 슬라이서 정보를 조회합니다.
 
     슬라이서의 기본 정보부터 상세 설정, 연결된 피벗테이블, 현재 선택 상태까지
     조회할 수 있으며, 대시보드 분석 및 슬라이서 관리에 유용합니다.
 
-    === 워크북 접근 방법 ===
-    - --file-path: 파일 경로로 워크북 열기
-        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+    ## 📁 워크북 접근 방법
 
-    === 조회 옵션 ===
-    • 기본 조회: 슬라이서 이름, 위치, 크기, 필드명
-    • --detailed: 스타일, 레이아웃 설정 등 상세 정보
-    • --include-items: 슬라이서 항목 목록과 선택 상태
-    • --show-connections: 연결된 피벗테이블 정보
+    - `--file-path`: 파일 경로로 워크북 열기
+    - `--workbook-name`: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
-    === 필터링 옵션 ===
-    • --filter-field: 특정 필드의 슬라이서만 조회
-    • --filter-sheet: 특정 시트의 슬라이서만 조회
+    ## 📊 조회 옵션
 
-    === 기본 정보 항목 ===
-    • name: 슬라이서 이름
-    • field_name: 기반 필드명
-    • position: {left, top} 위치 정보
-    • size: {width, height} 크기 정보
-    • sheet: 배치된 시트명
+    - `--detailed`: 스타일, 레이아웃 설정 등 상세 정보
+    - `--include-items`: 슬라이서 항목 목록과 선택 상태
+    - `--show-connections`: 연결된 피벗테이블 정보
+    - `--show-conflicts`: SlicerCache 충돌 가능성 분석 (Issue #71)
 
-    === 상세 정보 항목 (--detailed) ===
-    • source_name: 원본 데이터 소스
-    • slicer_items: 항목 목록 (이름, 선택 상태)
-    • connected_pivot_tables: 연결된 피벗테이블 목록
-    • style_settings: 스타일 및 레이아웃 설정
+    ## 🔍 필터링 옵션
 
-    === 사용 시나리오 ===
+    - `--filter-field`: 특정 필드의 슬라이서만 조회
+    - `--filter-sheet`: 특정 시트의 슬라이서만 조회
 
-    # 1. 워크북의 모든 슬라이서 기본 정보 조회
-    oa excel slicer-list
+    ## 🚀 사용 예시
 
-    # 2. 상세한 슬라이서 정보 조회
-    oa excel slicer-list --file-path "dashboard.xlsx" --detailed
-
-    # 3. 슬라이서 항목과 선택 상태까지 포함한 전체 정보
-    oa excel slicer-list --detailed --include-items --show-connections
-
-    # 4. 특정 필드의 슬라이서만 조회
-    oa excel slicer-list --filter-field "지역" --detailed
-
-    # 5. 특정 시트의 슬라이서만 조회
-    oa excel slicer-list --filter-sheet "Dashboard" --include-items
-
-    # 6. 대시보드 슬라이서 현황 분석
-    oa excel slicer-list --workbook-name "SalesReport.xlsx" \\
-        --detailed --include-items --show-connections --format json
-
-    === 출력 예제 ===
-    ```json
-    {
-      "success": true,
-      "data": {
-        "slicers": [
-          {
-            "name": "RegionSlicer",
-            "field_name": "지역",
-            "position": {"left": 100, "top": 400},
-            "size": {"width": 200, "height": 120},
-            "sheet": "Dashboard",
-            "connected_pivot_tables": ["SalesPivot", "TrendPivot"],
-            "slicer_items": [
-              {"name": "서울", "selected": true},
-              {"name": "부산", "selected": false}
-            ]
-          }
-        ],
-        "total_slicers": 1
-      }
-    }
-    ```
-
-    === 대시보드 관리 활용 ===
-    • 슬라이서 배치 현황 파악
-    • 필터 연결 상태 확인
-    • 슬라이서 간 겹침 검사
-    • 선택 상태 모니터링
-    • 대시보드 구조 분석
-
-    === 연결 상태 분석 ===
+    **기본 조회:**
     ```bash
-    # 연결이 끊어진 슬라이서 찾기
-    oa excel slicer-list --show-connections | \\
-        grep -A 5 '"connected_pivot_tables": \\[\\]'
-
-    # 특정 피벗테이블에 연결된 모든 슬라이서 확인
-    oa excel slicer-list --show-connections | \\
-        grep -B 5 -A 5 "SalesPivot"
+    oa excel slicer-list
     ```
 
-    === 문제 해결 가이드 ===
-    • 슬라이서가 표시되지 않는 경우: 위치 정보 확인
-    • 필터가 작동하지 않는 경우: 연결된 피벗테이블 확인
-    • 성능이 느린 경우: 과도한 슬라이서 항목 확인
-    • 레이아웃이 깨진 경우: 크기 및 배치 정보 확인
+    **상세 정보:**
+    ```bash
+    oa excel slicer-list --detailed --include-items --show-connections
+    ```
 
-    === 주의사항 ===
-    • Windows에서만 완전한 정보 제공
-    • macOS에서는 기본 정보만 제한적 지원
-    • 대용량 데이터의 경우 조회 시간이 오래 걸릴 수 있음
-    • 슬라이서 항목이 많은 경우 --include-items 주의
+    **충돌 분석:**
+    ```bash
+    oa excel slicer-list --show-conflicts
+    ```
+
+    **필터링:**
+    ```bash
+    oa excel slicer-list --filter-field "지역" --detailed
+    ```
+
+    ## ⚠️ 주의사항
+
+    - Windows에서만 완전한 정보 제공
+    - macOS에서는 기본 정보만 제한적 지원
+    - 대용량 데이터의 경우 조회 시간이 오래 걸릴 수 있음
     """
     book = None
 
@@ -274,6 +219,11 @@ def slicer_list(
                     "total_slicer_items": total_items,
                     "total_selected_items": total_selected,
                 }
+
+            # SlicerCache 충돌 분석 (Issue #71)
+            if show_conflicts and platform.system() == "Windows":
+                conflict_analysis = analyze_slicer_conflicts(slicers_info)
+                response_data["conflict_analysis"] = conflict_analysis
 
             message = f"{len(slicers_info)}개의 슬라이서 정보를 조회했습니다"
             if filter_field or filter_sheet:

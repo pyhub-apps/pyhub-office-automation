@@ -2704,6 +2704,248 @@ def apply_slicer_style(slicer, style_name: str = "slicer-box") -> bool:
 
 
 # =============================================================================
+# SlicerCache 관리 유틸리티 함수들 (Issue #71 해결)
+# =============================================================================
+
+
+def get_existing_slicer_cache(workbook: xw.Book, field_name: str):
+    """
+    특정 필드의 기존 SlicerCache를 찾습니다.
+
+    Args:
+        workbook: xlwings Book 객체
+        field_name: 찾을 필드 이름
+
+    Returns:
+        SlicerCache 객체 또는 None
+    """
+    if platform.system() != "Windows":
+        return None
+
+    try:
+        for slicer_cache in workbook.api.SlicerCaches():
+            # SlicerCache의 SourceName 또는 관련 필드 확인
+            try:
+                # 슬라이서 캐시가 연결된 피벗 필드 확인
+                if hasattr(slicer_cache, "PivotTables") and slicer_cache.PivotTables().Count > 0:
+                    pivot_table = slicer_cache.PivotTables(1)
+                    for pivot_field in pivot_table.PivotFields():
+                        if pivot_field.Name == field_name:
+                            return slicer_cache
+
+                # 캐시 이름이나 소스 필드명으로 확인
+                if hasattr(slicer_cache, "SourceName") and field_name in slicer_cache.SourceName:
+                    return slicer_cache
+
+            except Exception:
+                continue
+
+    except Exception:
+        pass
+
+    return None
+
+
+def get_slicer_cache_by_field(workbook: xw.Book, pivot_table_name: str, field_name: str):
+    """
+    특정 피벗테이블의 필드에 연결된 SlicerCache를 찾습니다.
+
+    Args:
+        workbook: xlwings Book 객체
+        pivot_table_name: 피벗테이블 이름
+        field_name: 필드 이름
+
+    Returns:
+        SlicerCache 객체 또는 None
+    """
+    if platform.system() != "Windows":
+        return None
+
+    try:
+        for slicer_cache in workbook.api.SlicerCaches():
+            try:
+                # 해당 슬라이서 캐시가 지정된 피벗테이블에 연결되어 있는지 확인
+                if hasattr(slicer_cache, "PivotTables"):
+                    for i in range(1, slicer_cache.PivotTables().Count + 1):
+                        pivot_table = slicer_cache.PivotTables(i)
+                        if pivot_table.Name == pivot_table_name:
+                            # 해당 피벗테이블에서 필드 확인
+                            for pivot_field in pivot_table.PivotFields():
+                                if pivot_field.Name == field_name:
+                                    return slicer_cache
+
+            except Exception:
+                continue
+
+    except Exception:
+        pass
+
+    return None
+
+
+def remove_slicer_cache(workbook: xw.Book, slicer_cache):
+    """
+    SlicerCache와 연관된 모든 슬라이서를 제거합니다.
+
+    Args:
+        workbook: xlwings Book 객체
+        slicer_cache: 제거할 SlicerCache 객체
+
+    Returns:
+        bool: 제거 성공 여부
+    """
+    if platform.system() != "Windows":
+        return False
+
+    try:
+        # 연결된 모든 슬라이서 제거
+        if hasattr(slicer_cache, "Slicers"):
+            slicers_to_remove = []
+            for i in range(1, slicer_cache.Slicers().Count + 1):
+                slicers_to_remove.append(slicer_cache.Slicers(i))
+
+            # 슬라이서 개별 삭제
+            for slicer in slicers_to_remove:
+                try:
+                    slicer.Delete()
+                except Exception:
+                    pass
+
+        # SlicerCache 자체 삭제
+        try:
+            slicer_cache.Delete()
+            return True
+        except Exception:
+            pass
+
+    except Exception:
+        pass
+
+    return False
+
+
+def check_slicer_cache_conflicts(workbook: xw.Book, pivot_table_name: str, field_name: str) -> dict:
+    """
+    슬라이서 생성 전 충돌 가능성을 확인합니다.
+
+    Args:
+        workbook: xlwings Book 객체
+        pivot_table_name: 피벗테이블 이름
+        field_name: 필드 이름
+
+    Returns:
+        dict: 충돌 정보와 해결 방법
+    """
+    result = {"has_conflict": False, "existing_cache": None, "conflict_type": None, "resolution_options": [], "message": ""}
+
+    if platform.system() != "Windows":
+        result["message"] = "Windows에서만 슬라이서 충돌 확인이 가능합니다"
+        return result
+
+    try:
+        # 1. 동일한 피벗테이블과 필드 조합 확인
+        existing_cache = get_slicer_cache_by_field(workbook, pivot_table_name, field_name)
+        if existing_cache:
+            result["has_conflict"] = True
+            result["existing_cache"] = existing_cache
+            result["conflict_type"] = "exact_match"
+            result["message"] = f"피벗테이블 '{pivot_table_name}'의 필드 '{field_name}'에 대한 SlicerCache가 이미 존재합니다"
+            result["resolution_options"] = [
+                "--force 옵션으로 기존 캐시 제거 후 재생성",
+                "--reuse-cache 옵션으로 기존 캐시에 새 슬라이서 추가",
+            ]
+            return result
+
+        # 2. 동일한 필드명의 다른 SlicerCache 확인
+        field_cache = get_existing_slicer_cache(workbook, field_name)
+        if field_cache:
+            result["has_conflict"] = True
+            result["existing_cache"] = field_cache
+            result["conflict_type"] = "field_name_conflict"
+            result["message"] = f"필드 '{field_name}'에 대한 다른 SlicerCache가 존재합니다"
+            result["resolution_options"] = ["다른 슬라이서 이름 사용", "--force 옵션으로 기존 캐시 제거 후 재생성"]
+
+    except Exception as e:
+        result["message"] = f"충돌 확인 중 오류 발생: {str(e)}"
+
+    return result
+
+
+def analyze_slicer_conflicts(slicers_info: List[Dict]) -> dict:
+    """
+    슬라이서 정보를 분석하여 잠재적 충돌을 감지합니다.
+
+    Args:
+        slicers_info: 슬라이서 정보 리스트
+
+    Returns:
+        dict: 충돌 분석 결과
+    """
+    analysis = {"potential_conflicts": [], "field_usage": {}, "recommendations": [], "conflict_count": 0}
+
+    # 필드별 SlicerCache 사용 현황 분석
+    field_mapping = {}
+    for slicer in slicers_info:
+        field_name = slicer.get("field_name", "Unknown")
+        pivot_tables = slicer.get("connected_pivot_tables", [])
+
+        if field_name not in field_mapping:
+            field_mapping[field_name] = {"slicers": [], "pivot_tables": set(), "cache_count": 0}
+
+        field_mapping[field_name]["slicers"].append(slicer.get("name", "Unknown"))
+        field_mapping[field_name]["pivot_tables"].update(pivot_tables)
+        field_mapping[field_name]["cache_count"] += 1
+
+    # 충돌 감지 및 분석
+    for field_name, info in field_mapping.items():
+        analysis["field_usage"][field_name] = {
+            "slicer_count": info["cache_count"],
+            "slicer_names": info["slicers"],
+            "connected_pivot_tables": list(info["pivot_tables"]),
+            "has_potential_conflict": info["cache_count"] > 1,
+        }
+
+        # 동일한 필드에 여러 SlicerCache가 있는 경우
+        if info["cache_count"] > 1:
+            conflict = {
+                "field_name": field_name,
+                "conflict_type": "multiple_caches_same_field",
+                "affected_slicers": info["slicers"],
+                "severity": "medium",
+                "description": f"필드 '{field_name}'에 {info['cache_count']}개의 SlicerCache가 존재합니다",
+                "resolution": "slicer-add --force 또는 --reuse-cache 옵션 사용",
+            }
+            analysis["potential_conflicts"].append(conflict)
+            analysis["conflict_count"] += 1
+
+        # 연결된 피벗테이블이 없는 경우
+        if info["cache_count"] > 0 and len(info["pivot_tables"]) == 0:
+            conflict = {
+                "field_name": field_name,
+                "conflict_type": "orphaned_slicer",
+                "affected_slicers": info["slicers"],
+                "severity": "low",
+                "description": f"필드 '{field_name}'의 슬라이서가 피벗테이블에 연결되지 않았습니다",
+                "resolution": "slicer-connect 명령어로 피벗테이블 연결 또는 불필요한 슬라이서 제거",
+            }
+            analysis["potential_conflicts"].append(conflict)
+
+    # 권장사항 생성
+    if analysis["conflict_count"] > 0:
+        analysis["recommendations"].extend(
+            [
+                "slicer-add 명령어 사용 시 --force 또는 --reuse-cache 옵션을 활용하세요",
+                "불필요한 SlicerCache는 정기적으로 정리하세요",
+                "동일한 필드에 대해서는 가능한 한 하나의 SlicerCache를 재사용하세요",
+            ]
+        )
+    else:
+        analysis["recommendations"].append("현재 SlicerCache 충돌이 감지되지 않았습니다")
+
+    return analysis
+
+
+# =============================================================================
 # 범위 관리 및 자동 배치 유틸리티 함수들
 # =============================================================================
 

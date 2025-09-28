@@ -17,13 +17,16 @@ from .utils import (
     ExecutionTimer,
     OutputFormat,
     SlicerStyle,
+    check_slicer_cache_conflicts,
     create_error_response,
     create_success_response,
     generate_unique_slicer_name,
     get_or_open_workbook,
     get_pivot_tables,
     get_sheet,
+    get_slicer_cache_by_field,
     normalize_path,
+    remove_slicer_cache,
     validate_slicer_position,
 )
 
@@ -44,105 +47,59 @@ def slicer_add(
     columns: int = typer.Option(1, "--columns", help="슬라이서 항목 열 개수 (기본값: 1)"),
     item_height: Optional[int] = typer.Option(None, "--item-height", help="슬라이서 항목 높이 (픽셀)"),
     show_header: bool = typer.Option(True, "--show-header", help="슬라이서 헤더 표시 (기본값: True)"),
+    force: bool = typer.Option(False, "--force", help="기존 SlicerCache 제거 후 재생성 (기본값: False)"),
+    reuse_cache: bool = typer.Option(
+        False, "--reuse-cache", help="기존 SlicerCache 재사용하여 새 슬라이서 추가 (기본값: False)"
+    ),
     output_format: OutputFormat = typer.Option(OutputFormat.JSON, "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
     save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)"),
 ):
     """
-    Excel 피벗테이블 기반 슬라이서를 생성합니다.
+    📊 Excel 피벗테이블 기반 슬라이서를 생성합니다.
 
-    피벗테이블의 특정 필드를 슬라이서로 만들어 대화형 대시보드 구성이 가능하며,
+    피벗테이블의 특정 필드를 슬라이서로 만들어 대화형 대시보드를 구성할 수 있습니다.
     여러 피벗테이블에 연결하여 통합 필터링 기능을 제공합니다.
 
-    === 워크북 접근 방법 ===
-    - --file-path: 파일 경로로 워크북 열기
-        - --workbook-name: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
+    ## 📁 워크북 접근 방법
 
-    === 슬라이서 생성 조건 ===
-    • 대상 피벗테이블이 존재해야 함
-    • 지정한 필드가 피벗테이블에 포함되어 있어야 함
-    • Windows에서만 완전 지원 (macOS 제한)
+    - `--file-path`: 파일 경로로 워크북 열기
+    - `--workbook-name`: 열린 워크북 이름으로 접근 (예: "Sales.xlsx")
 
-    === 슬라이서 설정 옵션 ===
-    • --pivot-table: 대상 피벗테이블 이름
-    • --field: 슬라이서로 만들 필드명
-    • --left, --top: 슬라이서 위치 (픽셀)
-    • --width, --height: 슬라이서 크기 (픽셀)
-    • --name: 슬라이서 고유 이름
-    • --caption: 사용자에게 표시될 제목
+    ## ✅ 슬라이서 생성 조건
 
-    === 스타일 및 레이아웃 ===
-    • --style: light, medium, dark 스타일
-    • --columns: 항목을 표시할 열 개수
-    • --item-height: 각 항목의 높이
-    • --show-header: 헤더(제목) 표시 여부
+    - 대상 피벗테이블이 존재해야 함
+    - 지정한 필드가 피벗테이블에 포함되어 있어야 함
+    - Windows에서만 완전 지원 (macOS 제한)
 
-    === 대시보드 구성 시나리오 ===
+    ## 🔧 중복 해결 옵션 (Issue #71)
 
-    # 1. 지역별 매출 필터 슬라이서
-    oa excel slicer-add --pivot-table "SalesPivot" --field "지역" \\
-        --left 90 --top 400 --width 200 --height 120 \\
-        --name "RegionSlicer" --caption "지역 선택" --columns 2
+    - `--force`: 기존 SlicerCache 제거 후 재생성
+    - `--reuse-cache`: 기존 SlicerCache에 새 슬라이서 추가
 
-    # 2. 기간 필터 슬라이서 (세로 레이아웃)
-    oa excel slicer-add --pivot-table "SalesPivot" --field "월" \\
-        --left 320 --top 400 --width 150 --height 180 \\
-        --name "MonthSlicer" --caption "기간" --columns 1 --style "medium"
+    **💡 Tip**: 동일한 필드에 대한 SlicerCache가 이미 존재할 때 사용
 
-    # 3. 제품 카테고리 슬라이서 (가로 레이아웃)
-    oa excel slicer-add --pivot-table "ProductPivot" --field "카테고리" \\
-        --left 500 --top 400 --width 300 --height 80 \\
-        --name "CategorySlicer" --caption "제품 분류" --columns 3 --item-height 25
+    ## 🚀 사용 예시
 
-    # 4. 판매자 필터 (어두운 스타일)
-    oa excel slicer-add --pivot-table "SalesPivot" --field "판매자" \\
-        --left 90 --top 550 --width 180 --height 150 \\
-        --name "SalespersonSlicer" --caption "담당자" --style "dark"
+    **기본 사용법:**
+    ```bash
+    oa excel slicer-add --pivot-table "SalesPivot" --field "지역"
+    ```
 
-    === 고급 대시보드 구성 ===
+    **중복 해결:**
+    ```bash
+    # 강제 재생성
+    oa excel slicer-add --pivot-table "SalesPivot" --field "지역" --force
 
-    # 다중 피벗테이블 연동 준비 (연결은 slicer-connect로)
-    # 1. 메인 매출 분석용
-    oa excel slicer-add --pivot-table "MainSalesPivot" --field "지역" \\
-        --left 100 --top 500 --width 200 --height 100 --name "MainRegionSlicer"
+    # 기존 캐시 재사용
+    oa excel slicer-add --pivot-table "SalesPivot" --field "지역" --reuse-cache
+    ```
 
-    # 2. 트렌드 분석용 (같은 필드, 다른 피벗테이블)
-    oa excel slicer-add --pivot-table "TrendPivot" --field "지역" \\
-        --left 320 --top 500 --width 200 --height 100 --name "TrendRegionSlicer"
+    ## ⚠️ 주의사항
 
-    # 3. 통합 슬라이서로 업그레이드 예정
-    # 이후 slicer-connect로 두 피벗테이블을 하나의 슬라이서에 연결
-
-    === 슬라이서 배치 가이드 ===
-
-    # 뉴모피즘 슬라이서 박스 내부 배치
-    # 1. 배경 도형 먼저 생성 (shape-add로)
-    oa excel shape-add --shape-type rounded_rectangle \\
-        --left 80 --top 380 --width 740 --height 140 \\
-        --style-preset slicer-box --name "SlicerBackground"
-
-    # 2. 슬라이서들을 배경 내부에 배치
-    oa excel slicer-add --pivot-table "SalesPivot" --field "지역" \\
-        --left 100 --top 400 --width 150 --height 100
-    oa excel slicer-add --pivot-table "SalesPivot" --field "월" \\
-        --left 270 --top 400 --width 150 --height 100
-    oa excel slicer-add --pivot-table "SalesPivot" --field "제품" \\
-        --left 440 --top 400 --width 150 --height 100
-    oa excel slicer-add --pivot-table "SalesPivot" --field "담당자" \\
-        --left 610 --top 400 --width 150 --height 100
-
-    === 사용 팁 ===
-    • 슬라이서 이름은 추후 연결 및 관리를 위해 명확하게 지정
-    • caption은 사용자 친화적인 한글 제목 권장
-    • 항목이 많은 필드는 columns를 늘려 공간 효율성 확보
-    • 대시보드 스타일에 맞는 style 선택
-    • 슬라이서 간 일정한 간격 유지로 정돈된 레이아웃 구성
-
-    === 주의사항 ===
-    • Windows에서만 모든 기능 지원
-    • 피벗테이블이 존재하지 않으면 생성 불가
-    • 필드명은 피벗테이블에 실제 존재하는 이름 사용
-    • 슬라이서 이름 중복 시 자동으로 숫자 추가
+    - Windows에서만 모든 기능 지원
+    - 피벗테이블이 존재하지 않으면 생성 불가
+    - 필드명은 피벗테이블에 실제 존재하는 이름 사용
     """
     book = None
 
@@ -191,6 +148,34 @@ def slicer_add(
                     f"필드 '{field}'를 피벗테이블에서 찾을 수 없습니다. " f"사용 가능한 필드: {', '.join(available_fields)}"
                 )
 
+            # SlicerCache 충돌 확인 및 처리 (Issue #71)
+            conflict_info = check_slicer_cache_conflicts(book, pivot_table, field)
+            existing_slicer_cache = None
+
+            if conflict_info["has_conflict"]:
+                if force:
+                    # 기존 캐시 제거 후 재생성
+                    if remove_slicer_cache(book, conflict_info["existing_cache"]):
+                        # 제거 성공, 계속 진행
+                        pass
+                    else:
+                        raise RuntimeError(f"기존 SlicerCache 제거에 실패했습니다")
+                elif reuse_cache:
+                    # 기존 캐시 재사용
+                    existing_slicer_cache = conflict_info["existing_cache"]
+                else:
+                    # 충돌 시 명확한 안내 메시지
+                    options_msg = "\n".join([f"  • {opt}" for opt in conflict_info["resolution_options"]])
+                    raise ValueError(
+                        f"{conflict_info['message']}\n\n"
+                        f"해결 방법:\n{options_msg}\n"
+                        f"  • 기존 슬라이서 확인: oa excel slicer-list"
+                    )
+
+            # 옵션 충돌 검사
+            if force and reuse_cache:
+                raise ValueError("--force와 --reuse-cache 옵션은 동시에 사용할 수 없습니다")
+
             # 슬라이서 이름 결정
             if not name:
                 name = generate_unique_slicer_name(book, f"{field}Slicer")
@@ -218,11 +203,15 @@ def slicer_add(
                 except:
                     raise ValueError(f"필드 '{field}'에 접근할 수 없습니다")
 
-                # 슬라이서 생성
-                slicer_cache = book.api.SlicerCaches.Add(Source=pivot_table_obj, SourceField=field_obj)
-
-                # 슬라이서 이름 설정
-                slicer_cache.Name = name
+                # 슬라이서 캐시 처리
+                if existing_slicer_cache:
+                    # 기존 캐시 재사용
+                    slicer_cache = existing_slicer_cache
+                else:
+                    # 새 슬라이서 캐시 생성
+                    slicer_cache = book.api.SlicerCaches.Add(Source=pivot_table_obj, SourceField=field_obj)
+                    # 슬라이서 이름 설정
+                    slicer_cache.Name = name
 
                 # 슬라이서 배치
                 slicer = slicer_cache.Slicers.Add(
@@ -288,12 +277,20 @@ def slicer_add(
                 "total_items": len(slicer_items),
                 "sheet": target_sheet.name,
                 "workbook": normalize_path(book.name),
+                "cache_action": "reused" if existing_slicer_cache else "created",
+                "conflict_resolved": conflict_info["has_conflict"],
             }
 
             if item_height:
                 response_data["settings"]["item_height"] = item_height
 
-            message = f"슬라이서 '{name}'이 성공적으로 생성되었습니다 ({len(slicer_items)}개 항목)"
+            # 메시지 생성
+            if existing_slicer_cache:
+                message = f"기존 SlicerCache를 재사용하여 슬라이서 '{name}'을 추가했습니다 ({len(slicer_items)}개 항목)"
+            elif conflict_info["has_conflict"] and force:
+                message = f"기존 SlicerCache를 제거하고 슬라이서 '{name}'을 재생성했습니다 ({len(slicer_items)}개 항목)"
+            else:
+                message = f"슬라이서 '{name}'이 성공적으로 생성되었습니다 ({len(slicer_items)}개 항목)"
 
             response = create_success_response(
                 data=response_data,
