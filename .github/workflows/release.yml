@@ -46,7 +46,7 @@ jobs:
           $versionPyPath = "pyhub_office_automation\__version__.py"
           $versionPyContent | Out-File -FilePath $versionPyPath -Encoding UTF8
 
-          uv run pwsh -File build_windows.ps1 -BuildType onefile -CiMode
+          uv run pwsh -File build_windows.ps1 -BuildType onefile -CiMode -UseSpec
 
           # 빌드 결과 확인
           if (-not (Test-Path "dist/oa.exe")) {
