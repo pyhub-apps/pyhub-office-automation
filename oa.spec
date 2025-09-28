@@ -6,15 +6,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=[
-        'keyring',
-        'keyring.backends',
-        'keyring.backends.Windows',
-        'keyring.backends._OS_X_API',
-        'keyring.backends.SecretService',
-        'win32cred',
-        'win32con',
-    ],
+    hiddenimports=[],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -43,5 +35,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='pyhub_office_automation\\assets\\icons\\logo.ico'
 )

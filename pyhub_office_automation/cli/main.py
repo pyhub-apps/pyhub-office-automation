@@ -90,17 +90,6 @@ from pyhub_office_automation.excel.workbook_open import workbook_open
 
 # HWP 명령어 import
 from pyhub_office_automation.hwp.hwp_export import hwp_export
-
-# MCP 모듈 조건부 import
-try:
-    from pyhub_office_automation.mcp.cli import mcp_app
-
-    MCP_AVAILABLE = True
-except ImportError as e:
-    print(f"[WARNING] MCP 서버 기능을 사용할 수 없습니다: {e}")
-    mcp_app = None
-    MCP_AVAILABLE = False
-
 from pyhub_office_automation.utils.resource_loader import load_llm_guide, load_welcome_message
 from pyhub_office_automation.version import get_version, get_version_info
 
@@ -500,17 +489,6 @@ app.add_typer(excel_app, name="excel")
 app.add_typer(hwp_app, name="hwp")
 app.add_typer(email_app, name="email")
 app.add_typer(ai_setup_app, name="ai-setup")
-# MCP 앱 조건부 추가
-if MCP_AVAILABLE and mcp_app:
-    app.add_typer(mcp_app, name="mcp")
-else:
-    # MCP 비활성화 상태를 알리는 더미 명령어
-    @app.command("mcp")
-    def mcp_disabled():
-        """MCP 서버 기능 (비활성화됨)"""
-        print("[ERROR] MCP 서버 기능을 사용할 수 없습니다.")
-        print("필요한 의존성이 설치되지 않았습니다: fastmcp, uvicorn")
-        print("설치: pip install fastmcp uvicorn")
 
 
 @app.command()

@@ -247,12 +247,6 @@ except Exception as e:
             $buildArgs += @("--exclude-module", $module)
         }
 
-        # MCP 서버용 패키지 메타데이터 포함 (fastmcp, uvicorn)
-        $buildArgs += @("--collect-data", "fastmcp")
-        $buildArgs += @("--collect-data", "uvicorn")
-        $buildArgs += @("--copy-metadata", "fastmcp")
-        $buildArgs += @("--copy-metadata", "uvicorn")
-        Write-Host "   Adding MCP server dependencies: fastmcp, uvicorn with metadata"
 
         # 리소스 파일 추가
         $buildArgs += @("--add-data", "pyhub_office_automation\resources;pyhub_office_automation\resources")

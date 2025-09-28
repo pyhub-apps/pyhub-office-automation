@@ -134,16 +134,11 @@ if [ "$USE_SPEC" = true ] && [ -f "oa.spec" ]; then
     fi
 else
     echo "   Building with command-line arguments..."
-    echo "   Adding MCP server dependencies: fastmcp, uvicorn with metadata"
     echo "   Adding resources: pyhub_office_automation/resources and README.md"
     pyinstaller \
       --$BUILD_TYPE \
       --name oa \
       --console \
-      --collect-data fastmcp \
-      --collect-data uvicorn \
-      --copy-metadata fastmcp \
-      --copy-metadata uvicorn \
       --add-data "pyhub_office_automation/resources:pyhub_office_automation/resources" \
       --add-data "README.md:." \
       --exclude-module matplotlib \
