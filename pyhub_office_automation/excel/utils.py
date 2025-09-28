@@ -483,6 +483,30 @@ COM_ERROR_MESSAGES = {
             "Excel 및 Windows 업데이트 확인",
         ],
     },
+    # COM 서버 연결 끊김 에러 (GitHub Issue #70)
+    0x800401FD: {
+        "message": "COM 객체 서버 연결이 일시적으로 끊어졌습니다. 대부분의 경우 차트는 정상적으로 생성되었습니다.",
+        "meaning": "CO_E_OBJNOTCONNECTED - Object is not connected to server",
+        "causes": [
+            "피벗차트 생성 완료 후 COM 객체 정리 과정에서 발생",
+            "Excel 백그라운드 차트 렌더링 중 일시적 연결 중단",
+            "메모리 압박으로 인한 COM 인터페이스 조기 해제",
+            "Excel COM 서버의 비동기 작업 완료 타이밍 이슈",
+        ],
+        "suggestions": [
+            "Excel 워크시트에서 차트가 실제로 생성되었는지 확인하세요",
+            "차트가 존재한다면 작업이 성공적으로 완료된 것입니다",
+            "이 에러는 chart-pivot-create 명령에서 주로 발생합니다",
+            "회피 방법: 'oa excel chart-add' 명령어 사용",
+            "지속적 발생 시 Excel 재시작 후 재시도",
+        ],
+        "recovery_info": {
+            "auto_recovery": True,
+            "success_indicator": "차트 객체 존재 여부",
+            "github_issue": "#70",
+            "fix_version": "10.2540.4+",
+        },
+    },
 }
 
 

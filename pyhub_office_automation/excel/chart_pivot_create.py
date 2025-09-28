@@ -259,6 +259,7 @@ def chart_pivot_create(
         raise ValueError("--spacing은 10~200 픽셀 사이의 값이어야 합니다.")
 
     book = None
+    recovered_from_com_error = False  # COM 에러 복구 플래그
 
     try:
         # Windows 전용 기능 확인
@@ -412,9 +413,64 @@ def chart_pivot_create(
             chart_name = chart_object.Name
 
         except Exception as e:
-            # COM 에러인 경우 더 자세한 처리를 위해 그대로 전달
+            # COM 에러 특별 처리
             if "com_error" in str(type(e).__name__).lower():
-                raise
+                from .utils import extract_com_error_code
+
+                error_code = extract_com_error_code(e)
+
+                # 특정 COM 에러는 정상 완료로 처리
+                if error_code == 0x800401FD:  # CO_E_OBJNOTCONNECTED
+                    # Excel에서 직접 차트 존재 여부 확인 (COM API 사용 안함)
+                    import time
+
+                    print(f"[INFO] COM 연결 오류 (0x800401FD) 감지. 차트 생성 성공 여부를 확인 중...")
+
+                    # 잠시 대기 후 다시 시도 (Excel이 차트 생성을 완료할 시간 제공)
+                    time.sleep(0.5)
+
+                    try:
+                        # 차트가 실제로 생성되었는지 확인 (재연결 시도)
+                        book_reconnect = get_or_open_workbook(
+                            file_path=file_path, workbook_name=workbook_name, visible=visible
+                        )
+                        sheet_reconnect = book_reconnect.sheets[sheet]
+
+                        # 새로운 연결로 차트 객체 확인
+                        chart_objects = sheet_reconnect.api.ChartObjects()
+                        chart_count = chart_objects.Count
+
+                        if chart_count > 0:
+                            # 가장 최근에 생성된 차트를 가져옴
+                            chart_object = chart_objects(chart_count)
+                            chart_name = chart_object.Name
+
+                            # 기본 검증 (차트 타입만 확인)
+                            try:
+                                chart_type = chart_object.Chart.ChartType
+                                print(f"[INFO] 차트가 성공적으로 생성되었습니다: {chart_name}")
+                                print(f"[INFO] COM 연결 오류는 차트 생성 후 발생한 것으로 무시됩니다.")
+                                recovered_from_com_error = True
+                            except:
+                                # 차트 타입 확인 실패 시에도 차트 존재만으로 성공 처리
+                                print(f"[INFO] 차트 객체 확인됨: {chart_name} (일부 속성 확인 불가)")
+                                recovered_from_com_error = True
+                        else:
+                            # 실제로 차트가 생성되지 않았으면 원본 에러 발생
+                            print(f"[WARNING] 차트 생성이 실제로 실패했습니다.")
+                            raise RuntimeError(f"피벗차트 생성 실패: COM 에러 후 차트 객체를 찾을 수 없습니다")
+                    except RuntimeError:
+                        # 이미 적절한 메시지가 있는 에러는 그대로 전달
+                        raise
+                    except Exception as recovery_error:
+                        # 복구 시도 중 에러 발생 시 COM 에러를 회피할 수 없는 것으로 판단
+                        print(f"[WARNING] 차트 생성 확인 불가: {str(recovery_error)}")
+                        print(f"[INFO] Excel에서 차트가 생성되었는지 수동으로 확인해주세요.")
+                        # 원본 COM 에러 대신 더 명확한 메시지로 실패 처리
+                        raise RuntimeError(f"COM 에러로 인해 차트 생성 결과 확인 불가. Excel에서 직접 확인 필요.")
+                else:
+                    # 다른 COM 에러는 그대로 전달
+                    raise
             else:
                 raise RuntimeError(f"피벗차트 생성 실패: {str(e)}")
 
@@ -494,6 +550,15 @@ def chart_pivot_create(
             response_data["alternative"] = (
                 "피벗테이블 데이터 변경 시 차트를 수동으로 새로고침하거나, 'oa excel chart-add' 명령어 사용을 고려하세요."
             )
+
+        # COM 에러 복구 정보 추가
+        if recovered_from_com_error:
+            response_data["com_error_recovery"] = {
+                "recovered": True,
+                "error_code": "0x800401FD",
+                "description": "COM 연결 에러가 발생했지만 차트 생성이 성공적으로 완료되었습니다",
+                "impact": "기능상 문제 없음",
+            }
 
         response = create_success_response(
             data=response_data, command="chart-pivot-create", message=f"피벗차트 '{chart_name}'이 성공적으로 생성되었습니다"

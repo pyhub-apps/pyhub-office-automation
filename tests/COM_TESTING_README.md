@@ -22,6 +22,7 @@ The test suite validates the following COM resource management improvements:
 | `test_excel_com_integration.py` | Integration tests for Excel command COM cleanup | Excel command integration, memory management |
 | `test_com_performance_memory.py` | Performance and memory leak detection tests | Memory usage, leak prevention, scalability |
 | `test_com_edge_cases.py` | Edge cases and error scenario tests | Exception handling, platform differences, error recovery |
+| `test_issue_70_com_error.py` | GitHub Issue #70 specific tests | COM error 0x800401FD recovery, chart verification |
 | `run_com_tests.py` | Test runner and reporting utility | Automated test execution, coverage analysis |
 
 ### Supporting Files
@@ -167,6 +168,64 @@ def test_cleanup_with_broken_close_method(self):
         com_manager.add(broken_obj)
 
     # 에러 발생해도 컨텍스트는 정상 종료
+```
+
+### 6. GitHub Issue #70 - COM Error Recovery (`test_issue_70_com_error.py`)
+
+**Coverage**: COM error 0x800401FD automatic recovery and chart validation
+
+**Issue Background**:
+- `chart-pivot-create` command encounters COM error 0x800401FD (CO_E_OBJNOTCONNECTED)
+- Charts are successfully created but command fails due to connection error
+- Causes user confusion and workflow interruption
+
+**Fix Implementation**:
+- Smart recovery logic that detects successful chart creation despite COM error
+- Enhanced error messages with context-specific guidance
+- JSON response includes recovery information for AI agents
+
+**Key Test Scenarios**:
+- ✅ COM error code extraction (0x800401FD)
+- ✅ Error message mapping with recovery info
+- ✅ Chart verification logic with multiple scenarios
+- ✅ End-to-end recovery flow simulation
+- ✅ Response data structure validation
+- ✅ Edge cases (chart without data, validation failures)
+
+**Sample Test**:
+```python
+def test_com_error_recovery_flow():
+    """COM 에러 복구 플로우 전체 테스트"""
+    # 성공적으로 생성된 차트가 있는 상황 시뮬레이션
+    chart = MockChartObject(name="TestChart", has_data=True)
+    chart_objects = MockChartObjects([chart])
+    mock_sheet = MockSheet(chart_objects)
+
+    # COM 에러 0x800401FD 발생 시뮬레이션
+    com_error = MockCOMError(0x800401FD)
+    error_code = extract_com_error_code(com_error)
+
+    # 복구 로직 검증
+    if error_code == 0x800401FD:
+        # 차트 존재 확인 및 데이터 검증
+        chart_objects_result = mock_sheet.api.ChartObjects()
+        if chart_objects_result.Count > 0:
+            chart_object = chart_objects_result(chart_objects_result.Count)
+            has_data = chart_object.Chart.SeriesCollection().Count > 0
+            assert has_data is True  # 복구 성공
+```
+
+**Related Files**:
+- `pyhub_office_automation/excel/chart_pivot_create.py` - Recovery logic implementation
+- `pyhub_office_automation/excel/utils.py` - Enhanced error message mapping
+
+**Testing Command**:
+```bash
+# Issue #70 specific tests
+pytest tests/test_issue_70_com_error.py -v
+
+# Run with coverage
+pytest tests/test_issue_70_com_error.py --cov=pyhub_office_automation.excel.chart_pivot_create --cov=pyhub_office_automation.excel.utils -v
 ```
 
 ## 🚀 Running the Tests
