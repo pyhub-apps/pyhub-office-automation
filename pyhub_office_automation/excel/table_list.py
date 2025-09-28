@@ -428,8 +428,6 @@ def table_list(
             gc.collect()
 
             # Windows에서 COM 라이브러리 정리
-            import platform
-
             if platform.system() == "Windows":
                 try:
                     import pythoncom

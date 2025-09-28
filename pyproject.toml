@@ -34,6 +34,7 @@ dependencies = [
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "fastmcp>=0.1.0",
+    "keyring>=24.0.0",
 ]
 
 [project.optional-dependencies]
@@ -60,6 +61,9 @@ Issues = "https://github.com/pyhub-apps/pyhub-office-automation/issues"
 
 [tool.setuptools.dynamic]
 version = {attr = "pyhub_office_automation.__version__"}
+
+[tool.setuptools]
+packages = ["pyhub_office_automation"]
 
 [tool.black]
 line-length = 127
