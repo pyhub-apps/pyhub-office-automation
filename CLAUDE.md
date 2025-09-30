@@ -668,14 +668,14 @@ oa excel chart-pivot-create \
 ```bash
 # 차트 설정 변경
 oa excel chart-configure \
-  --chart-name "Chart1" \
+  --name "Chart1" \
   --title "새 제목" \
   --show-legend \
   --legend-position "Right"
 
 # 차트 위치 조정
 oa excel chart-position \
-  --chart-name "Chart1" \
+  --name "Chart1" \
   --left 100 \
   --top 50 \
   --width 400 \

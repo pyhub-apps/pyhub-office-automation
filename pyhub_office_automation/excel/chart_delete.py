@@ -95,8 +95,10 @@ def chart_delete(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트를 삭제할 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
-    chart_name: Optional[str] = typer.Option(None, "--chart-name", help="삭제할 차트의 이름"),
-    chart_index: Optional[int] = typer.Option(None, "--chart-index", help="삭제할 차트의 인덱스 (0부터 시작)"),
+    name: Optional[str] = typer.Option(None, "--name", help="삭제할 차트의 이름"),
+    chart_name: Optional[str] = typer.Option(None, "--chart-name", help="[별칭] 삭제할 차트의 이름 (--name 사용 권장)"),
+    index: Optional[int] = typer.Option(None, "--index", help="삭제할 차트의 인덱스 (0부터 시작)"),
+    chart_index: Optional[int] = typer.Option(None, "--chart-index", help="[별칭] 삭제할 차트의 인덱스 (--index 사용 권장)"),
     all_charts: bool = typer.Option(False, "--all-charts", help="시트의 모든 차트 삭제 (주의: 되돌릴 수 없음)"),
     confirm: bool = typer.Option(False, "--confirm", help="삭제 확인 (--all-charts 사용 시 필수)"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택 (json/text)"),
@@ -184,13 +186,18 @@ def chart_delete(
     ⚠️ 중요한 차트는 사전에 백업 및 내보내기 권장
     ⚠️ --all-charts 옵션은 전체 대시보드에 영향을 줄 수 있음
     """
-    # 입력 값 검증
-    if output_format not in ["json", "text"]:
-        raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+    # 입력 값 검증 (output_format은 문자열로 변환)
+    fmt = str(output_format) if output_format else "json"
+    if fmt not in ["json", "text"]:
+        raise ValueError(f"잘못된 출력 형식: {fmt}. 사용 가능한 형식: json, text")
 
     book = None
 
     try:
+        # 옵션 우선순위 처리 (새 옵션 우선)
+        target_name = name or chart_name
+        target_index = index if index is not None else chart_index
+
         # 워크북 연결
         book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
@@ -236,7 +243,7 @@ def chart_delete(
 
         else:
             # 개별 차트 삭제
-            chart = find_chart_by_name_or_index(target_sheet, chart_name, chart_index)
+            chart = find_chart_by_name_or_index(target_sheet, target_name, target_index)
 
             # 삭제 전 차트 정보 수집
             chart_info = get_chart_info_before_deletion(chart)
@@ -267,7 +274,7 @@ def chart_delete(
 
         response = create_success_response(data=deletion_summary, command="chart-delete", message=message)
 
-        if output_format == "json":
+        if fmt == "json":
             print(json.dumps(response, ensure_ascii=False, indent=2))
         else:
             # 텍스트 형식 출력
@@ -300,7 +307,8 @@ def chart_delete(
 
     except Exception as e:
         error_response = create_error_response(e, "chart-delete")
-        if output_format == "json":
+        fmt = str(output_format) if output_format else "json"
+        if fmt == "json":
             print(json.dumps(error_response, ensure_ascii=False, indent=2))
         else:
             print(f"오류: {str(e)}")
@@ -331,4 +339,4 @@ def chart_delete(
 
 
 if __name__ == "__main__":
-    chart_delete()
+    typer.run(chart_delete)

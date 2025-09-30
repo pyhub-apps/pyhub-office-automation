@@ -89,8 +89,10 @@ def chart_position(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트가 있는 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
-    chart_name: Optional[str] = typer.Option(None, "--chart-name", help="조정할 차트의 이름"),
-    chart_index: Optional[int] = typer.Option(None, "--chart-index", help="조정할 차트의 인덱스 (0부터 시작)"),
+    name: Optional[str] = typer.Option(None, "--name", help="조정할 차트의 이름"),
+    chart_name: Optional[str] = typer.Option(None, "--chart-name", help="[별칭] 조정할 차트의 이름 (--name 사용 권장)"),
+    index: Optional[int] = typer.Option(None, "--index", help="조정할 차트의 인덱스 (0부터 시작)"),
+    chart_index: Optional[int] = typer.Option(None, "--chart-index", help="[별칭] 조정할 차트의 인덱스 (--index 사용 권장)"),
     left: Optional[float] = typer.Option(None, "--left", help="차트의 왼쪽 위치 (픽셀)"),
     top: Optional[float] = typer.Option(None, "--top", help="차트의 위쪽 위치 (픽셀)"),
     width: Optional[float] = typer.Option(None, "--width", help="차트의 너비 (픽셀)"),
@@ -207,12 +209,17 @@ def chart_position(
     if relative_direction and relative_direction not in ["right", "left", "below", "above", "center"]:
         raise ValueError(f"잘못된 상대 위치 방향: {relative_direction}. 사용 가능한 방향: right, left, below, above, center")
 
-    if output_format not in ["json", "text"]:
-        raise ValueError(f"잘못된 출력 형식: {output_format}. 사용 가능한 형식: json, text")
+    fmt = str(output_format) if output_format else "json"
+    if fmt not in ["json", "text"]:
+        raise ValueError(f"잘못된 출력 형식: {fmt}. 사용 가능한 형식: json, text")
 
     book = None
 
     try:
+        # 옵션 우선순위 처리 (새 옵션 우선)
+        target_name = name or chart_name
+        target_index = index if index is not None else chart_index
+
         # 워크북 연결
         book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
@@ -220,7 +227,7 @@ def chart_position(
         target_sheet = get_sheet(book, sheet)
 
         # 차트 찾기
-        chart = find_chart_by_name_or_index(target_sheet, chart_name, chart_index)
+        chart = find_chart_by_name_or_index(target_sheet, target_name, target_index)
 
         # 현재 차트 위치 및 크기 저장
         original_position = {"left": chart.left, "top": chart.top, "width": chart.width, "height": chart.height}
@@ -328,7 +335,7 @@ def chart_position(
 
         response = create_success_response(data=response_data, command="chart-position", message=message)
 
-        if output_format == "json":
+        if fmt == "json":
             print(json.dumps(response, ensure_ascii=False, indent=2))
         else:
             # 텍스트 형식 출력
@@ -366,7 +373,8 @@ def chart_position(
 
     except Exception as e:
         error_response = create_error_response(e, "chart-position")
-        if output_format == "json":
+        fmt = str(output_format) if output_format else "json"
+        if fmt == "json":
             print(json.dumps(error_response, ensure_ascii=False, indent=2))
         else:
             print(f"오류: {str(e)}")
@@ -408,4 +416,4 @@ def chart_position(
 
 
 if __name__ == "__main__":
-    chart_position()
+    typer.run(chart_position)

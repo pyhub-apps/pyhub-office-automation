@@ -19,8 +19,9 @@ from .utils import ExecutionTimer, create_error_response, create_success_respons
 def sheet_activate(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="열 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="열린 워크북 이름으로 접근"),
-    name: Optional[str] = typer.Option(None, "--name", help="활성화할 시트의 이름"),
-    index: Optional[int] = typer.Option(None, "--index", help="활성화할 시트의 인덱스 (1부터 시작)"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="활성화할 시트의 이름"),
+    name: Optional[str] = typer.Option(None, "--name", help="[별칭] 활성화할 시트의 이름 (--sheet 사용 권장)"),
+    index: Optional[int] = typer.Option(None, "--index", help="활성화할 시트의 인덱스 (0부터 시작)"),
     visible: bool = typer.Option(True, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부"),
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
@@ -35,18 +36,21 @@ def sheet_activate(
     - --workbook-name: 열린 워크북 이름으로 접근
 
     예제:
-        oa excel sheet-activate --name "Sheet2"
-        oa excel sheet-activate --file-path "data.xlsx" --index 2
-        oa excel sheet-activate --workbook-name "Sales.xlsx" --name "Summary"
+        oa excel sheet-activate --sheet "Sheet2"
+        oa excel sheet-activate --file-path "data.xlsx" --index 1
+        oa excel sheet-activate --workbook-name "Sales.xlsx" --sheet "Summary"
     """
     book = None
     try:
-        # 옵션 검증
-        if name and index is not None:
-            raise ValueError("--name과 --index 옵션 중 하나만 지정할 수 있습니다")
+        # 옵션 우선순위 처리 (새 옵션 우선)
+        sheet_name = sheet or name
 
-        if not name and index is None:
-            raise ValueError("--name 또는 --index 중 하나는 반드시 지정해야 합니다")
+        # 옵션 검증
+        if sheet_name and index is not None:
+            raise ValueError("--sheet(또는 --name)과 --index 옵션 중 하나만 지정할 수 있습니다")
+
+        if not sheet_name and index is None:
+            raise ValueError("--sheet(또는 --name) 또는 --index 중 하나는 반드시 지정해야 합니다")
 
         # 실행 시간 측정 시작
         with ExecutionTimer() as timer:
@@ -65,21 +69,24 @@ def sheet_activate(
             # 대상 시트 찾기 및 활성화
             target_sheet = None
 
-            if name:
+            if sheet_name:
                 # 이름으로 찾기
                 try:
-                    target_sheet = book.sheets[name]
+                    target_sheet = book.sheets[sheet_name]
                 except KeyError:
-                    available_names = [sheet.name for sheet in book.sheets]
-                    raise ValueError(f"시트 '{name}'을 찾을 수 없습니다. 사용 가능한 시트: {available_names}")
+                    available_names = [s.name for s in book.sheets]
+                    raise ValueError(f"시트 '{sheet_name}'을 찾을 수 없습니다. 사용 가능한 시트: {available_names}")
             else:
-                # 인덱스로 찾기
+                # 인덱스로 찾기 (0-based)
                 try:
-                    # xlwings는 1부터 시작하는 인덱스 사용
+                    # Python 표준 0-based 인덱스 사용
+                    if index < 0 or index >= len(book.sheets):
+                        sheet_count = len(book.sheets)
+                        raise IndexError(f"인덱스 {index}가 범위를 벗어났습니다. 사용 가능한 인덱스: 0-{sheet_count-1}")
                     target_sheet = book.sheets[index]
-                except IndexError:
+                except (IndexError, TypeError) as e:
                     sheet_count = len(book.sheets)
-                    raise ValueError(f"인덱스 {index}가 범위를 벗어났습니다. 사용 가능한 인덱스: 1-{sheet_count}")
+                    raise ValueError(f"인덱스 {index}가 범위를 벗어났습니다. 사용 가능한 인덱스: 0-{sheet_count-1}")
 
             # 시트 활성화
             target_sheet.activate()
@@ -126,7 +133,7 @@ def sheet_activate(
             }
 
             # 성공 메시지
-            if name:
+            if sheet_name:
                 message = f"시트 '{target_sheet.name}'을(를) 활성화했습니다"
             else:
                 message = f"인덱스 {index}번 시트 '{target_sheet.name}'을(를) 활성화했습니다"

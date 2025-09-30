@@ -205,8 +205,10 @@ def chart_configure(
     file_path: Optional[str] = typer.Option(None, "--file-path", help="차트가 있는 Excel 파일의 절대 경로"),
     workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help='열린 워크북 이름으로 접근 (예: "Sales.xlsx")'),
     sheet: Optional[str] = typer.Option(None, "--sheet", help="차트가 있는 시트 이름 (지정하지 않으면 활성 시트)"),
-    chart_name: Optional[str] = typer.Option(None, "--chart-name", help="설정할 차트의 이름"),
-    chart_index: Optional[int] = typer.Option(None, "--chart-index", help="설정할 차트의 인덱스 (0부터 시작)"),
+    name: Optional[str] = typer.Option(None, "--name", help="설정할 차트의 이름"),
+    chart_name: Optional[str] = typer.Option(None, "--chart-name", help="[별칭] 설정할 차트의 이름 (--name 사용 권장)"),
+    index: Optional[int] = typer.Option(None, "--index", help="설정할 차트의 인덱스 (0부터 시작)"),
+    chart_index: Optional[int] = typer.Option(None, "--chart-index", help="[별칭] 설정할 차트의 인덱스 (--index 사용 권장)"),
     title: Optional[str] = typer.Option(None, "--title", help="차트 제목 설정"),
     style: Optional[int] = typer.Option(None, "--style", help="차트 스타일 번호 (1-48, Windows 전용)"),
     legend_position: Optional[LegendPosition] = typer.Option(
@@ -281,6 +283,10 @@ def chart_configure(
     book = None
 
     try:
+        # 옵션 우선순위 처리 (새 옵션 우선)
+        target_name = name or chart_name
+        target_index = index if index is not None else chart_index
+
         # 워크북 연결
         book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
@@ -288,7 +294,7 @@ def chart_configure(
         target_sheet = get_sheet(book, sheet)
 
         # 차트 찾기
-        chart = find_chart_by_name_or_index(target_sheet, chart_name, chart_index)
+        chart = find_chart_by_name_or_index(target_sheet, target_name, target_index)
 
         # 설정 결과 추적
         configuration_results = {
@@ -385,7 +391,8 @@ def chart_configure(
 
         response = create_success_response(data=configuration_results, command="chart-configure", message=message)
 
-        if output_format == "json":
+        fmt = str(output_format) if output_format else "json"
+        if fmt == "json":
             print(json.dumps(response, ensure_ascii=False, indent=2))
         else:
             # 텍스트 형식 출력
@@ -412,7 +419,8 @@ def chart_configure(
 
     except Exception as e:
         error_response = create_error_response(e, "chart-configure")
-        if output_format == "json":
+        fmt = str(output_format) if output_format else "json"
+        if fmt == "json":
             print(json.dumps(error_response, ensure_ascii=False, indent=2))
         else:
             print(f"오류: {str(e)}")
@@ -443,4 +451,4 @@ def chart_configure(
 
 
 if __name__ == "__main__":
-    chart_configure()
+    typer.run(chart_configure)
