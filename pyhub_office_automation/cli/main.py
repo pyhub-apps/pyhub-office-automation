@@ -90,6 +90,13 @@ from pyhub_office_automation.excel.workbook_open import workbook_open
 
 # HWP 명령어 import
 from pyhub_office_automation.hwp.hwp_export import hwp_export
+
+# PowerPoint 명령어 import
+from pyhub_office_automation.powerpoint.presentation_create import presentation_create
+from pyhub_office_automation.powerpoint.presentation_info import presentation_info
+from pyhub_office_automation.powerpoint.presentation_list import presentation_list
+from pyhub_office_automation.powerpoint.presentation_open import presentation_open
+from pyhub_office_automation.powerpoint.presentation_save import presentation_save
 from pyhub_office_automation.utils.resource_loader import load_llm_guide, load_welcome_message
 from pyhub_office_automation.version import get_version, get_version_info
 
@@ -652,12 +659,26 @@ def hwp_list(
             console.print(f"     {cmd['description']} (v{cmd['version']})")
 
 
+# PowerPoint 명령어 등록
+ppt_app.command("presentation-create")(presentation_create)
+ppt_app.command("presentation-open")(presentation_open)
+ppt_app.command("presentation-save")(presentation_save)
+ppt_app.command("presentation-list")(presentation_list)
+ppt_app.command("presentation-info")(presentation_info)
+
+
 @ppt_app.command("list")
 def ppt_list(
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
     """PowerPoint 자동화 명령어 목록 출력"""
-    commands = []
+    commands = [
+        {"name": "presentation-create", "description": "새 프레젠테이션 생성", "category": "presentation"},
+        {"name": "presentation-open", "description": "프레젠테이션 파일 열기", "category": "presentation"},
+        {"name": "presentation-save", "description": "프레젠테이션 저장", "category": "presentation"},
+        {"name": "presentation-list", "description": "열린 프레젠테이션 목록 (Windows COM 전용)", "category": "presentation"},
+        {"name": "presentation-info", "description": "프레젠테이션 상세 정보", "category": "presentation"},
+    ]
 
     ppt_data = {
         "category": "ppt",
@@ -666,8 +687,8 @@ def ppt_list(
         "commands": commands,
         "total_commands": len(commands),
         "package_version": get_version(),
-        "status": "infrastructure_ready",
-        "note": "Issue #74 완료 - 모듈 인프라 구축됨. 명령어는 Issue #75부터 순차 구현 예정",
+        "status": "presentation_commands_ready",
+        "note": "Issue #75 완료 - Presentation 관리 명령어 5개 구현됨",
     }
 
     if output_format == "json":
@@ -681,16 +702,17 @@ def ppt_list(
         console.print("=== PowerPoint 자동화 명령어 목록 ===", style="bold green")
         console.print(f"Platform: {ppt_data['platform_requirement']}")
         console.print(f"Status: {ppt_data['status']}")
-        console.print(f"Total: {ppt_data['total_commands']} commands (구현 예정)")
+        console.print(f"Total: {ppt_data['total_commands']} commands")
         console.print()
-        console.print("📦 [bold yellow]모듈 인프라 구축 완료 (Issue #74)[/bold yellow]")
-        console.print("   ✓ powerpoint/ 디렉토리 구조")
-        console.print("   ✓ 공통 유틸리티 (utils.py)")
-        console.print("   ✓ python-pptx 의존성")
+
+        console.print("[bold cyan]PRESENTATION Commands:[/bold cyan]")
+        for cmd in commands:
+            console.print(f"  • oa ppt {cmd['name']}")
+            console.print(f"    {cmd['description']}")
         console.print()
-        console.print("🚀 [bold cyan]다음 단계:[/bold cyan]")
-        console.print("   Issue #75: Presentation 관리 명령어 (5개)")
-        console.print("   Issue #76: Slide 관리 명령어 (6개)")
+
+        console.print("📚 [bold yellow]더 자세한 사용법:[/bold yellow]")
+        console.print("   [bold cyan]oa ppt <command> --help[/bold cyan] - 특정 명령어 도움말")
         console.print()
 
 
