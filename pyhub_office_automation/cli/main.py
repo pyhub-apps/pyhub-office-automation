@@ -257,6 +257,7 @@ def llm_guide(
 
 excel_app = typer.Typer(help="Excel 자동화 명령어들", no_args_is_help=True)
 hwp_app = typer.Typer(help="HWP 자동화 명령어들 (Windows 전용)", no_args_is_help=True)
+ppt_app = typer.Typer(help="PowerPoint 자동화 명령어들", no_args_is_help=True)
 email_app = typer.Typer(help="AI 기반 이메일 자동화 명령어들", no_args_is_help=True)
 
 # Rich 콘솔 - UTF-8 인코딩 안전성 확보
@@ -487,6 +488,7 @@ def email_list(
 # 서브 앱을 메인 앱에 등록
 app.add_typer(excel_app, name="excel")
 app.add_typer(hwp_app, name="hwp")
+app.add_typer(ppt_app, name="ppt")
 app.add_typer(email_app, name="email")
 app.add_typer(ai_setup_app, name="ai-setup")
 
@@ -650,6 +652,48 @@ def hwp_list(
             console.print(f"     {cmd['description']} (v{cmd['version']})")
 
 
+@ppt_app.command("list")
+def ppt_list(
+    output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
+):
+    """PowerPoint 자동화 명령어 목록 출력"""
+    commands = []
+
+    ppt_data = {
+        "category": "ppt",
+        "description": "PowerPoint 자동화 명령어들 (python-pptx 기반)",
+        "platform_requirement": "Windows (전체 기능) / macOS (85%+ 기능)",
+        "commands": commands,
+        "total_commands": len(commands),
+        "package_version": get_version(),
+        "status": "infrastructure_ready",
+        "note": "Issue #74 완료 - 모듈 인프라 구축됨. 명령어는 Issue #75부터 순차 구현 예정",
+    }
+
+    if output_format == "json":
+        try:
+            json_output = json.dumps(ppt_data, ensure_ascii=False, indent=2)
+            typer.echo(json_output)
+        except UnicodeEncodeError:
+            json_output = json.dumps(ppt_data, ensure_ascii=True, indent=2)
+            typer.echo(json_output)
+    else:
+        console.print("=== PowerPoint 자동화 명령어 목록 ===", style="bold green")
+        console.print(f"Platform: {ppt_data['platform_requirement']}")
+        console.print(f"Status: {ppt_data['status']}")
+        console.print(f"Total: {ppt_data['total_commands']} commands (구현 예정)")
+        console.print()
+        console.print("📦 [bold yellow]모듈 인프라 구축 완료 (Issue #74)[/bold yellow]")
+        console.print("   ✓ powerpoint/ 디렉토리 구조")
+        console.print("   ✓ 공통 유틸리티 (utils.py)")
+        console.print("   ✓ python-pptx 의존성")
+        console.print()
+        console.print("🚀 [bold cyan]다음 단계:[/bold cyan]")
+        console.print("   Issue #75: Presentation 관리 명령어 (5개)")
+        console.print("   Issue #76: Slide 관리 명령어 (6개)")
+        console.print()
+
+
 @hwp_app.command("export")
 def hwp_export_command(
     file_path: str = typer.Option(..., "--file-path", help="변환할 HWP 파일의 절대 경로"),
@@ -736,6 +780,14 @@ def check_dependencies():
         dependencies["pandas"] = {"available": True, "version": pandas.__version__}
     except ImportError:
         dependencies["pandas"] = {"available": False, "version": None}
+
+    # python-pptx 확인
+    try:
+        import pptx
+
+        dependencies["python-pptx"] = {"available": True, "version": pptx.__version__}
+    except ImportError:
+        dependencies["python-pptx"] = {"available": False, "version": None}
 
     return dependencies
 
