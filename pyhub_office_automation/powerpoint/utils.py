@@ -55,6 +55,29 @@ class PowerPointBackend(str, Enum):
     AUTO = "auto"
 
 
+class PlaceholderType(str, Enum):
+    """Placeholder 타입 (Issue #77)"""
+
+    TITLE = "title"
+    BODY = "body"
+    SUBTITLE = "subtitle"
+
+
+class ShapeType(str, Enum):
+    """도형 타입 (Issue #77)"""
+
+    RECTANGLE = "rectangle"
+    ROUNDED_RECTANGLE = "rounded-rectangle"
+    ELLIPSE = "ellipse"
+    ARROW_RIGHT = "arrow-right"
+    ARROW_LEFT = "arrow-left"
+    ARROW_UP = "arrow-up"
+    ARROW_DOWN = "arrow-down"
+    STAR = "star"
+    PENTAGON = "pentagon"
+    HEXAGON = "hexagon"
+
+
 def get_powerpoint_backend() -> str:
     """
     현재 플랫폼에서 사용 가능한 PowerPoint 백엔드를 반환합니다.
@@ -505,3 +528,152 @@ def get_slide_title(slide) -> str:
         pass
 
     return ""
+
+
+# Content 관리 유틸리티 함수들 (Issue #77)
+
+
+def get_placeholder_by_type(slide, placeholder_type: str):
+    """
+    Placeholder 타입으로 슬라이드의 placeholder를 찾습니다.
+
+    Args:
+        slide: Slide 객체
+        placeholder_type: placeholder 타입 (title, body, subtitle)
+
+    Returns:
+        Placeholder 객체
+
+    Raises:
+        ValueError: placeholder를 찾을 수 없는 경우
+    """
+    try:
+        if placeholder_type == PlaceholderType.TITLE.value:
+            if hasattr(slide.shapes, "title"):
+                return slide.shapes.title
+            raise ValueError("이 슬라이드에는 title placeholder가 없습니다")
+
+        elif placeholder_type == PlaceholderType.BODY.value:
+            # Body는 일반적으로 index 1
+            if 1 in slide.placeholders:
+                return slide.placeholders[1]
+            raise ValueError("이 슬라이드에는 body placeholder가 없습니다")
+
+        elif placeholder_type == PlaceholderType.SUBTITLE.value:
+            # Subtitle은 일반적으로 index 2
+            if 2 in slide.placeholders:
+                return slide.placeholders[2]
+            raise ValueError("이 슬라이드에는 subtitle placeholder가 없습니다")
+
+        else:
+            raise ValueError(f"지원하지 않는 placeholder 타입: {placeholder_type}")
+
+    except Exception as e:
+        raise ValueError(f"Placeholder 접근 실패: {str(e)}")
+
+
+def parse_color(color_str: str):
+    """
+    색상 문자열을 RGBColor 객체로 파싱합니다.
+
+    Args:
+        color_str: 색상 문자열 (red, blue, #FF0000 등)
+
+    Returns:
+        RGBColor 객체
+
+    Raises:
+        ValueError: 지원하지 않는 색상 형식인 경우
+
+    Example:
+        >>> color = parse_color("red")
+        >>> color = parse_color("#FF0000")
+    """
+    try:
+        from pptx.util import RGBColor
+    except ImportError:
+        raise ImportError("python-pptx 패키지가 필요합니다")
+
+    # 색상 이름 매핑
+    color_names = {
+        "red": RGBColor(255, 0, 0),
+        "green": RGBColor(0, 255, 0),
+        "blue": RGBColor(0, 0, 255),
+        "yellow": RGBColor(255, 255, 0),
+        "orange": RGBColor(255, 165, 0),
+        "purple": RGBColor(128, 0, 128),
+        "black": RGBColor(0, 0, 0),
+        "white": RGBColor(255, 255, 255),
+        "gray": RGBColor(128, 128, 128),
+    }
+
+    color_lower = color_str.lower().strip()
+
+    # 색상 이름으로 찾기
+    if color_lower in color_names:
+        return color_names[color_lower]
+
+    # Hex 색상 파싱 (#RGB 또는 #RRGGBB)
+    if color_str.startswith("#"):
+        hex_color = color_str.lstrip("#")
+
+        # #RGB 형식 (3자리)
+        if len(hex_color) == 3:
+            r = int(hex_color[0] * 2, 16)
+            g = int(hex_color[1] * 2, 16)
+            b = int(hex_color[2] * 2, 16)
+            return RGBColor(r, g, b)
+
+        # #RRGGBB 형식 (6자리)
+        elif len(hex_color) == 6:
+            r = int(hex_color[0:2], 16)
+            g = int(hex_color[2:4], 16)
+            b = int(hex_color[4:6], 16)
+            return RGBColor(r, g, b)
+
+    raise ValueError(
+        f"지원하지 않는 색상 형식: {color_str}\n" f"사용 가능한 형식: 색상 이름 (red, blue 등), Hex (#FF0000, #F00)"
+    )
+
+
+def calculate_aspect_ratio_size(
+    original_width: int, original_height: int, target_width: Optional[float] = None, target_height: Optional[float] = None
+) -> tuple:
+    """
+    Aspect ratio를 유지하면서 크기를 계산합니다.
+
+    Args:
+        original_width: 원본 너비 (픽셀)
+        original_height: 원본 높이 (픽셀)
+        target_width: 목표 너비 (Inches, 선택)
+        target_height: 목표 높이 (Inches, 선택)
+
+    Returns:
+        tuple: (width, height) in Inches
+
+    Example:
+        >>> # 원본 이미지 800x600, 너비 4인치로 조정
+        >>> width, height = calculate_aspect_ratio_size(800, 600, target_width=4.0)
+        >>> # 결과: (4.0, 3.0)
+    """
+    if original_width <= 0 or original_height <= 0:
+        raise ValueError(f"유효하지 않은 크기: {original_width}x{original_height}")
+
+    aspect_ratio = original_width / original_height
+
+    # 너비만 지정된 경우
+    if target_width and not target_height:
+        return (target_width, target_width / aspect_ratio)
+
+    # 높이만 지정된 경우
+    elif target_height and not target_width:
+        return (target_height * aspect_ratio, target_height)
+
+    # 둘 다 지정된 경우 (aspect ratio 무시)
+    elif target_width and target_height:
+        return (target_width, target_height)
+
+    # 둘 다 없는 경우 기본 크기 (6 inches width)
+    else:
+        default_width = 6.0
+        return (default_width, default_width / aspect_ratio)

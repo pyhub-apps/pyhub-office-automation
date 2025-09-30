@@ -90,6 +90,12 @@ from pyhub_office_automation.excel.workbook_open import workbook_open
 
 # HWP 명령어 import
 from pyhub_office_automation.hwp.hwp_export import hwp_export
+from pyhub_office_automation.powerpoint.content_add_image import content_add_image
+from pyhub_office_automation.powerpoint.content_add_shape import content_add_shape
+from pyhub_office_automation.powerpoint.content_add_table import content_add_table
+
+# PowerPoint Content 명령어 import (Issue #77)
+from pyhub_office_automation.powerpoint.content_add_text import content_add_text
 
 # PowerPoint 명령어 import
 from pyhub_office_automation.powerpoint.presentation_create import presentation_create
@@ -681,6 +687,12 @@ ppt_app.command("slide-duplicate")(slide_duplicate)
 ppt_app.command("slide-copy")(slide_copy)
 ppt_app.command("slide-reorder")(slide_reorder)
 
+# Content 추가 (Issue #77)
+ppt_app.command("content-add-text")(content_add_text)
+ppt_app.command("content-add-image")(content_add_image)
+ppt_app.command("content-add-shape")(content_add_shape)
+ppt_app.command("content-add-table")(content_add_table)
+
 
 @ppt_app.command("list")
 def ppt_list(
@@ -693,6 +705,16 @@ def ppt_list(
         {"name": "presentation-save", "description": "프레젠테이션 저장", "category": "presentation"},
         {"name": "presentation-list", "description": "열린 프레젠테이션 목록 (Windows COM 전용)", "category": "presentation"},
         {"name": "presentation-info", "description": "프레젠테이션 상세 정보", "category": "presentation"},
+        {"name": "slide-list", "description": "슬라이드 목록 조회", "category": "slide"},
+        {"name": "slide-add", "description": "새 슬라이드 추가", "category": "slide"},
+        {"name": "slide-delete", "description": "슬라이드 삭제", "category": "slide"},
+        {"name": "slide-duplicate", "description": "슬라이드 복제", "category": "slide"},
+        {"name": "slide-copy", "description": "슬라이드 복사", "category": "slide"},
+        {"name": "slide-reorder", "description": "슬라이드 순서 변경", "category": "slide"},
+        {"name": "content-add-text", "description": "슬라이드에 텍스트 추가", "category": "content"},
+        {"name": "content-add-image", "description": "슬라이드에 이미지 추가", "category": "content"},
+        {"name": "content-add-shape", "description": "슬라이드에 도형 추가", "category": "content"},
+        {"name": "content-add-table", "description": "슬라이드에 표 추가", "category": "content"},
     ]
 
     ppt_data = {
@@ -702,8 +724,8 @@ def ppt_list(
         "commands": commands,
         "total_commands": len(commands),
         "package_version": get_version(),
-        "status": "presentation_commands_ready",
-        "note": "Issue #75 완료 - Presentation 관리 명령어 5개 구현됨",
+        "status": "content_commands_ready",
+        "note": "Issue #77 완료 - Content 추가 명령어 4개 구현됨",
     }
 
     if output_format == "json":
@@ -720,11 +742,19 @@ def ppt_list(
         console.print(f"Total: {ppt_data['total_commands']} commands")
         console.print()
 
-        console.print("[bold cyan]PRESENTATION Commands:[/bold cyan]")
+        categories = {}
         for cmd in commands:
-            console.print(f"  • oa ppt {cmd['name']}")
-            console.print(f"    {cmd['description']}")
-        console.print()
+            category = cmd["category"]
+            if category not in categories:
+                categories[category] = []
+            categories[category].append(cmd)
+
+        for category, cmds in categories.items():
+            console.print(f"[bold cyan]{category.upper()} Commands:[/bold cyan]")
+            for cmd in cmds:
+                console.print(f"  • oa ppt {cmd['name']}")
+                console.print(f"    {cmd['description']}")
+            console.print()
 
         console.print("📚 [bold yellow]더 자세한 사용법:[/bold yellow]")
         console.print("   [bold cyan]oa ppt <command> --help[/bold cyan] - 특정 명령어 도움말")
