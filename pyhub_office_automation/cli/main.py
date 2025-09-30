@@ -90,12 +90,22 @@ from pyhub_office_automation.excel.workbook_open import workbook_open
 
 # HWP 명령어 import
 from pyhub_office_automation.hwp.hwp_export import hwp_export
+
+# PowerPoint Advanced Content 명령어 import (Issue #78)
+from pyhub_office_automation.powerpoint.content_add_chart import content_add_chart
 from pyhub_office_automation.powerpoint.content_add_image import content_add_image
 from pyhub_office_automation.powerpoint.content_add_shape import content_add_shape
+from pyhub_office_automation.powerpoint.content_add_smartart import content_add_smartart
 from pyhub_office_automation.powerpoint.content_add_table import content_add_table
 
 # PowerPoint Content 명령어 import (Issue #77)
 from pyhub_office_automation.powerpoint.content_add_text import content_add_text
+from pyhub_office_automation.powerpoint.content_add_video import content_add_video
+from pyhub_office_automation.powerpoint.content_update import content_update
+from pyhub_office_automation.powerpoint.layout_apply import layout_apply
+
+# PowerPoint Layout & Theme 명령어 import (Issue #79)
+from pyhub_office_automation.powerpoint.layout_list import layout_list
 
 # PowerPoint 명령어 import
 from pyhub_office_automation.powerpoint.presentation_create import presentation_create
@@ -109,6 +119,8 @@ from pyhub_office_automation.powerpoint.slide_delete import slide_delete
 from pyhub_office_automation.powerpoint.slide_duplicate import slide_duplicate
 from pyhub_office_automation.powerpoint.slide_list import slide_list
 from pyhub_office_automation.powerpoint.slide_reorder import slide_reorder
+from pyhub_office_automation.powerpoint.template_apply import template_apply
+from pyhub_office_automation.powerpoint.theme_apply import theme_apply
 from pyhub_office_automation.utils.resource_loader import load_llm_guide, load_welcome_message
 from pyhub_office_automation.version import get_version, get_version_info
 
@@ -693,6 +705,18 @@ ppt_app.command("content-add-image")(content_add_image)
 ppt_app.command("content-add-shape")(content_add_shape)
 ppt_app.command("content-add-table")(content_add_table)
 
+# Advanced Content 추가 및 업데이트 (Issue #78)
+ppt_app.command("content-add-chart")(content_add_chart)
+ppt_app.command("content-add-video")(content_add_video)
+ppt_app.command("content-add-smartart")(content_add_smartart)
+ppt_app.command("content-update")(content_update)
+
+# Layout & Theme 관리 (Issue #79)
+ppt_app.command("layout-list")(layout_list)
+ppt_app.command("layout-apply")(layout_apply)
+ppt_app.command("template-apply")(template_apply)
+ppt_app.command("theme-apply")(theme_apply)
+
 
 @ppt_app.command("list")
 def ppt_list(
@@ -715,6 +739,14 @@ def ppt_list(
         {"name": "content-add-image", "description": "슬라이드에 이미지 추가", "category": "content"},
         {"name": "content-add-shape", "description": "슬라이드에 도형 추가", "category": "content"},
         {"name": "content-add-table", "description": "슬라이드에 표 추가", "category": "content"},
+        {"name": "content-add-chart", "description": "슬라이드에 차트 추가", "category": "content"},
+        {"name": "content-add-video", "description": "슬라이드에 비디오 추가", "category": "content"},
+        {"name": "content-add-smartart", "description": "슬라이드에 SmartArt 추가", "category": "content"},
+        {"name": "content-update", "description": "슬라이드 콘텐츠 수정", "category": "content"},
+        {"name": "layout-list", "description": "사용 가능한 레이아웃 목록", "category": "layout"},
+        {"name": "layout-apply", "description": "슬라이드에 레이아웃 적용", "category": "layout"},
+        {"name": "template-apply", "description": "템플릿 적용", "category": "theme"},
+        {"name": "theme-apply", "description": "테마 적용", "category": "theme"},
     ]
 
     ppt_data = {
@@ -724,8 +756,8 @@ def ppt_list(
         "commands": commands,
         "total_commands": len(commands),
         "package_version": get_version(),
-        "status": "content_commands_ready",
-        "note": "Issue #77 완료 - Content 추가 명령어 4개 구현됨",
+        "status": "layout_theme_ready",
+        "note": "Issue #79 완료 - Layout & Theme 관리 명령어 4개 구현됨",
     }
 
     if output_format == "json":

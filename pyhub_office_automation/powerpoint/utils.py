@@ -78,6 +78,18 @@ class ShapeType(str, Enum):
     HEXAGON = "hexagon"
 
 
+class ChartType(str, Enum):
+    """차트 타입 (Issue #78)"""
+
+    COLUMN = "column"
+    BAR = "bar"
+    LINE = "line"
+    PIE = "pie"
+    AREA = "area"
+    SCATTER = "scatter"
+    DOUGHNUT = "doughnut"
+
+
 def get_powerpoint_backend() -> str:
     """
     현재 플랫폼에서 사용 가능한 PowerPoint 백엔드를 반환합니다.
@@ -677,3 +689,201 @@ def calculate_aspect_ratio_size(
     else:
         default_width = 6.0
         return (default_width, default_width / aspect_ratio)
+
+
+# Chart 관련 유틸리티 함수들 (Issue #78)
+
+
+def parse_excel_range(excel_data: str) -> Dict[str, str]:
+    """
+    Excel 데이터 참조 문자열을 파싱합니다.
+
+    Args:
+        excel_data: Excel 참조 문자열 (예: "data.xlsx!A1:C10")
+
+    Returns:
+        Dict: {"file_path": "data.xlsx", "range": "A1:C10"}
+
+    Raises:
+        ValueError: 잘못된 형식인 경우
+
+    Example:
+        >>> result = parse_excel_range("sales.xlsx!Sheet1!B2:D20")
+        >>> print(result)
+        {"file_path": "sales.xlsx", "sheet": "Sheet1", "range": "B2:D20"}
+    """
+    if "!" not in excel_data:
+        raise ValueError(
+            f"Excel 데이터 참조 형식이 잘못되었습니다: {excel_data}\n예: 'file.xlsx!A1:C10' 또는 'file.xlsx!Sheet1!A1:C10'"
+        )
+
+    parts = excel_data.split("!")
+
+    if len(parts) == 2:
+        # file.xlsx!A1:C10 형식
+        return {"file_path": parts[0].strip(), "sheet": None, "range": parts[1].strip()}
+    elif len(parts) == 3:
+        # file.xlsx!Sheet1!A1:C10 형식
+        return {"file_path": parts[0].strip(), "sheet": parts[1].strip(), "range": parts[2].strip()}
+    else:
+        raise ValueError(
+            f"Excel 데이터 참조 형식이 잘못되었습니다: {excel_data}\n예: 'file.xlsx!A1:C10' 또는 'file.xlsx!Sheet1!A1:C10'"
+        )
+
+
+def load_data_from_csv(csv_path: str):
+    """
+    CSV 파일에서 데이터를 로드합니다.
+
+    Args:
+        csv_path: CSV 파일 경로
+
+    Returns:
+        pandas.DataFrame
+
+    Raises:
+        FileNotFoundError: 파일이 없는 경우
+        ValueError: CSV 파일 읽기 실패
+    """
+    try:
+        import pandas as pd
+    except ImportError:
+        raise ImportError("pandas 패키지가 필요합니다. 'pip install pandas'로 설치하세요.")
+
+    csv_path = normalize_path(csv_path)
+    csv_file = Path(csv_path).resolve()
+
+    if not csv_file.exists():
+        raise FileNotFoundError(f"CSV 파일을 찾을 수 없습니다: {csv_file}")
+
+    try:
+        df = pd.read_csv(str(csv_file))
+        return df
+    except Exception as e:
+        raise ValueError(f"CSV 파일 읽기 실패: {str(e)}")
+
+
+def load_data_from_excel(file_path: str, sheet_name: Optional[str] = None, range_addr: Optional[str] = None):
+    """
+    Excel 파일에서 데이터를 로드합니다 (xlwings 사용).
+
+    Args:
+        file_path: Excel 파일 경로
+        sheet_name: 시트 이름 (None이면 첫 번째 시트)
+        range_addr: 범위 주소 (예: "A1:C10", None이면 사용된 범위 전체)
+
+    Returns:
+        pandas.DataFrame
+
+    Raises:
+        FileNotFoundError: 파일이 없는 경우
+        ValueError: Excel 파일 읽기 실패
+    """
+    try:
+        import pandas as pd
+        import xlwings as xw
+    except ImportError as e:
+        raise ImportError(f"필요한 패키지가 없습니다: {str(e)}\n'pip install xlwings pandas'로 설치하세요.")
+
+    file_path = normalize_path(file_path)
+    excel_file = Path(file_path).resolve()
+
+    if not excel_file.exists():
+        raise FileNotFoundError(f"Excel 파일을 찾을 수 없습니다: {excel_file}")
+
+    try:
+        # xlwings로 Excel 파일 열기
+        with xw.App(visible=False) as app:
+            wb = app.books.open(str(excel_file))
+            try:
+                # 시트 선택
+                if sheet_name:
+                    sheet = wb.sheets[sheet_name]
+                else:
+                    sheet = wb.sheets[0]
+
+                # 데이터 읽기
+                if range_addr:
+                    data = sheet.range(range_addr).options(pd.DataFrame, header=True, index=False).value
+                else:
+                    # 사용된 범위 전체 읽기
+                    data = sheet.used_range.options(pd.DataFrame, header=True, index=False).value
+
+                return data
+            finally:
+                wb.close()
+
+    except Exception as e:
+        raise ValueError(f"Excel 파일 읽기 실패: {str(e)}")
+
+
+def create_chart_data(df, chart_type: str):
+    """
+    pandas DataFrame을 python-pptx ChartData로 변환합니다.
+
+    Args:
+        df: pandas DataFrame
+        chart_type: 차트 타입 (column, bar, line, pie 등)
+
+    Returns:
+        ChartData 객체
+
+    Raises:
+        ImportError: python-pptx가 설치되지 않은 경우
+        ValueError: 데이터 형식이 잘못된 경우
+    """
+    try:
+        from pptx.chart.data import CategoryChartData
+    except ImportError:
+        raise ImportError("python-pptx 패키지가 필요합니다. 'pip install python-pptx'로 설치하세요.")
+
+    if df.empty:
+        raise ValueError("DataFrame이 비어있습니다")
+
+    chart_data = CategoryChartData()
+
+    # 카테고리 설정 (첫 번째 열)
+    categories = df.iloc[:, 0].tolist()
+    chart_data.categories = categories
+
+    # 시리즈 추가 (나머지 열들)
+    for col_name in df.columns[1:]:
+        series_values = df[col_name].tolist()
+        chart_data.add_series(col_name, series_values)
+
+    return chart_data
+
+
+def get_shape_by_index_or_name(slide, identifier: Union[int, str]):
+    """
+    슬라이드에서 shape를 인덱스 또는 이름으로 찾습니다.
+
+    Args:
+        slide: Slide 객체
+        identifier: shape 인덱스(int) 또는 이름(str)
+
+    Returns:
+        Shape 객체
+
+    Raises:
+        ValueError: shape를 찾을 수 없는 경우
+        IndexError: 인덱스가 범위를 벗어난 경우
+    """
+    # 인덱스로 찾기
+    if isinstance(identifier, int):
+        if 0 <= identifier < len(slide.shapes):
+            return slide.shapes[identifier]
+        else:
+            raise IndexError(f"Shape 인덱스 범위 초과: {identifier} (사용 가능: 0-{len(slide.shapes)-1})")
+
+    # 이름으로 찾기
+    if isinstance(identifier, str):
+        for shape in slide.shapes:
+            if shape.name == identifier:
+                return shape
+
+        # 사용 가능한 shape 목록 제공
+        available_shapes = [f"{i}: {shape.name}" for i, shape in enumerate(slide.shapes)]
+        raise ValueError(f"Shape를 찾을 수 없습니다: '{identifier}'\n사용 가능한 Shape:\n" + "\n".join(available_shapes))
+
+    raise TypeError(f"Shape 식별자는 문자열 또는 정수여야 합니다: {type(identifier)}")
