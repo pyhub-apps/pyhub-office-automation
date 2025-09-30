@@ -97,6 +97,12 @@ from pyhub_office_automation.powerpoint.presentation_info import presentation_in
 from pyhub_office_automation.powerpoint.presentation_list import presentation_list
 from pyhub_office_automation.powerpoint.presentation_open import presentation_open
 from pyhub_office_automation.powerpoint.presentation_save import presentation_save
+from pyhub_office_automation.powerpoint.slide_add import slide_add
+from pyhub_office_automation.powerpoint.slide_copy import slide_copy
+from pyhub_office_automation.powerpoint.slide_delete import slide_delete
+from pyhub_office_automation.powerpoint.slide_duplicate import slide_duplicate
+from pyhub_office_automation.powerpoint.slide_list import slide_list
+from pyhub_office_automation.powerpoint.slide_reorder import slide_reorder
 from pyhub_office_automation.utils.resource_loader import load_llm_guide, load_welcome_message
 from pyhub_office_automation.version import get_version, get_version_info
 
@@ -660,11 +666,20 @@ def hwp_list(
 
 
 # PowerPoint 명령어 등록
+# Presentation 관리
 ppt_app.command("presentation-create")(presentation_create)
 ppt_app.command("presentation-open")(presentation_open)
 ppt_app.command("presentation-save")(presentation_save)
 ppt_app.command("presentation-list")(presentation_list)
 ppt_app.command("presentation-info")(presentation_info)
+
+# Slide 관리 (Issue #76)
+ppt_app.command("slide-list")(slide_list)
+ppt_app.command("slide-add")(slide_add)
+ppt_app.command("slide-delete")(slide_delete)
+ppt_app.command("slide-duplicate")(slide_duplicate)
+ppt_app.command("slide-copy")(slide_copy)
+ppt_app.command("slide-reorder")(slide_reorder)
 
 
 @ppt_app.command("list")

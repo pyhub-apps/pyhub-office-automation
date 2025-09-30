@@ -358,3 +358,150 @@ def validate_output_format(format_str: str) -> str:
         raise ValueError(f"지원하지 않는 출력 형식입니다: {format_str}. 사용 가능: {', '.join(valid_formats)}")
 
     return format_lower
+
+
+# Slide 관리 유틸리티 함수들 (Issue #76)
+
+
+def get_layout_by_name_or_index(prs, identifier: Union[str, int]):
+    """
+    레이아웃을 이름(str) 또는 인덱스(int)로 찾습니다.
+
+    Args:
+        prs: Presentation 객체
+        identifier: 레이아웃 이름(문자열) 또는 인덱스(정수)
+
+    Returns:
+        SlideLayout 객체
+
+    Raises:
+        ValueError: 레이아웃을 찾을 수 없는 경우
+        IndexError: 인덱스가 범위를 벗어난 경우
+    """
+    # 인덱스로 찾기
+    if isinstance(identifier, int):
+        try:
+            return prs.slide_layouts[identifier]
+        except IndexError:
+            raise IndexError(f"레이아웃 인덱스 범위 초과: {identifier} (사용 가능: 0-{len(prs.slide_layouts)-1})")
+
+    # 이름으로 찾기
+    if isinstance(identifier, str):
+        for layout in prs.slide_layouts:
+            if layout.name == identifier:
+                return layout
+
+        # 사용 가능한 레이아웃 목록 제공
+        available_layouts = [f"{i}: {layout.name}" for i, layout in enumerate(prs.slide_layouts)]
+        raise ValueError(
+            f"레이아웃을 찾을 수 없습니다: '{identifier}'\n" f"사용 가능한 레이아웃:\n" + "\n".join(available_layouts)
+        )
+
+    raise TypeError(f"레이아웃 식별자는 문자열 또는 정수여야 합니다: {type(identifier)}")
+
+
+def validate_slide_number(slide_num: int, total_slides: int, allow_append: bool = False) -> int:
+    """
+    슬라이드 번호를 검증하고 0-based 인덱스로 변환합니다.
+
+    Args:
+        slide_num: 검증할 슬라이드 번호 (1-based)
+        total_slides: 총 슬라이드 수
+        allow_append: True면 total_slides+1도 허용 (끝에 추가 시)
+
+    Returns:
+        int: 0-based 인덱스
+
+    Raises:
+        TypeError: 슬라이드 번호가 정수가 아닌 경우
+        ValueError: 슬라이드 번호가 범위를 벗어난 경우
+    """
+    if not isinstance(slide_num, int):
+        raise TypeError(f"슬라이드 번호는 정수여야 합니다: {slide_num} ({type(slide_num).__name__})")
+
+    max_value = total_slides + 1 if allow_append else total_slides
+
+    if total_slides == 0:
+        # 빈 프레젠테이션인 경우
+        if allow_append and slide_num == 1:
+            return 0
+        raise ValueError("프레젠테이션에 슬라이드가 없습니다")
+
+    if not (1 <= slide_num <= max_value):
+        raise ValueError(f"슬라이드 번호 범위: 1-{max_value}, 입력값: {slide_num}")
+
+    return slide_num - 1  # 0-based 인덱스 반환
+
+
+def get_slide_content_summary(slide) -> Dict[str, int]:
+    """
+    슬라이드의 콘텐츠 요약을 생성합니다 (도형 타입별 개수).
+
+    Args:
+        slide: Slide 객체
+
+    Returns:
+        Dict[str, int]: 도형 타입별 개수
+            - textbox: 텍스트 박스 수
+            - picture: 이미지 수
+            - chart: 차트 수
+            - table: 표 수
+            - other: 기타 도형 수
+
+    Example:
+        >>> summary = get_slide_content_summary(slide)
+        >>> print(summary)
+        {"textbox": 3, "picture": 1, "chart": 0, "table": 1, "other": 0}
+    """
+    try:
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+    except ImportError:
+        # python-pptx 없으면 빈 요약 반환
+        return {"textbox": 0, "picture": 0, "chart": 0, "table": 0, "other": 0}
+
+    summary = {"textbox": 0, "picture": 0, "chart": 0, "table": 0, "other": 0}
+
+    for shape in slide.shapes:
+        try:
+            if shape.shape_type == MSO_SHAPE_TYPE.TEXT_BOX:
+                summary["textbox"] += 1
+            elif shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                summary["picture"] += 1
+            elif shape.shape_type == MSO_SHAPE_TYPE.CHART:
+                summary["chart"] += 1
+            elif shape.shape_type == MSO_SHAPE_TYPE.TABLE:
+                summary["table"] += 1
+            else:
+                summary["other"] += 1
+        except Exception:
+            # 도형 타입 확인 실패 시 other로 카운트
+            summary["other"] += 1
+
+    return summary
+
+
+def get_slide_title(slide) -> str:
+    """
+    슬라이드의 제목을 추출합니다.
+
+    Args:
+        slide: Slide 객체
+
+    Returns:
+        str: 슬라이드 제목 (없으면 빈 문자열)
+
+    Example:
+        >>> title = get_slide_title(slide)
+        >>> print(title)
+        "Q4 Sales Report"
+    """
+    try:
+        if hasattr(slide, "shapes") and hasattr(slide.shapes, "title"):
+            title_shape = slide.shapes.title
+            if title_shape and hasattr(title_shape, "text"):
+                return title_shape.text.strip()
+    except Exception:
+        # 제목 추출 실패 시 빈 문자열 반환
+        pass
+
+    return ""
