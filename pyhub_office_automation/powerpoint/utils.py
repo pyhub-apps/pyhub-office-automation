@@ -90,29 +90,26 @@ class ChartType(str, Enum):
     DOUGHNUT = "doughnut"
 
 
-def get_powerpoint_backend() -> str:
+def get_powerpoint_backend(force_backend: Optional[str] = None) -> str:
     """
     현재 플랫폼에서 사용 가능한 PowerPoint 백엔드를 반환합니다.
 
+    COM-First 전략: Windows에서는 COM 우선, 기타는 python-pptx
+
+    Args:
+        force_backend: 강제로 사용할 백엔드 ("com", "python-pptx", None)
+
     Returns:
         str: 'python-pptx' (크로스플랫폼) 또는 'com' (Windows 전용)
+
+    Raises:
+        ImportError: 사용 가능한 백엔드가 없는 경우
+        ValueError: 지원하지 않는 백엔드가 지정된 경우
     """
-    if platform.system() == "Windows":
-        # Windows에서는 COM 사용 가능
-        try:
-            import win32com.client
+    # backend_selector 임포트 (순환 임포트 방지)
+    from .backend_selector import detect_backend
 
-            return PowerPointBackend.COM.value
-        except ImportError:
-            pass
-
-    # 모든 플랫폼에서 python-pptx 사용 가능
-    try:
-        import pptx
-
-        return PowerPointBackend.PYTHON_PPTX.value
-    except ImportError:
-        raise ImportError("python-pptx 패키지가 설치되지 않았습니다. 'pip install python-pptx'로 설치하세요.")
+    return detect_backend(force_backend)
 
 
 def check_feature_availability(feature: str) -> Dict[str, Any]:
@@ -887,3 +884,130 @@ def get_shape_by_index_or_name(slide, identifier: Union[int, str]):
         raise ValueError(f"Shape를 찾을 수 없습니다: '{identifier}'\n사용 가능한 Shape:\n" + "\n".join(available_shapes))
 
     raise TypeError(f"Shape 식별자는 문자열 또는 정수여야 합니다: {type(identifier)}")
+
+
+# COM 백엔드 관련 유틸리티 함수들 (Issue #84)
+
+
+def get_or_open_presentation(
+    file_path: Optional[str] = None,
+    presentation_name: Optional[str] = None,
+    backend: str = "auto",
+) -> tuple:
+    """
+    파일 경로 또는 프레젠테이션 이름으로 프레젠테이션을 가져오거나 엽니다.
+
+    COM-First 전략: backend="auto"일 때 자동으로 최적 백엔드 선택
+
+    Args:
+        file_path: 프레젠테이션 파일 경로
+        presentation_name: 열려있는 프레젠테이션 이름
+        backend: 사용할 백엔드 ('auto', 'python-pptx', 'com')
+
+    Note:
+        PowerPoint COM은 항상 visible=True로 실행됩니다 (API 제약사항)
+
+    Returns:
+        (backend_instance, presentation_object) 튜플
+        - COM: (PowerPointCOM, Presentation COM 객체)
+        - python-pptx: (None, Presentation 객체)
+
+    Raises:
+        ValueError: 파일 경로와 프레젠테이션 이름이 모두 없거나 둘 다 제공된 경우
+        FileNotFoundError: 파일이 존재하지 않는 경우
+        ImportError: 필요한 라이브러리가 설치되지 않은 경우
+
+    Example:
+        >>> # 자동 백엔드 선택 (COM 우선)
+        >>> backend_inst, prs = get_or_open_presentation(file_path="report.pptx")
+        >>> # ... 작업 수행 ...
+        >>> if backend_inst:  # COM 백엔드인 경우
+        ...     backend_inst.close()
+    """
+    # 입력 검증
+    if file_path and presentation_name:
+        raise ValueError("file_path와 presentation_name 중 하나만 지정해야 합니다")
+
+    # 백엔드 선택
+    if backend == "auto":
+        backend = get_powerpoint_backend()
+
+    backend_lower = backend.lower()
+
+    # python-pptx 백엔드
+    if backend_lower == PowerPointBackend.PYTHON_PPTX.value:
+        try:
+            from pptx import Presentation
+        except ImportError:
+            raise ImportError("python-pptx 패키지가 설치되지 않았습니다. " "'pip install python-pptx'로 설치하세요")
+
+        if file_path:
+            # 경로 정규화 및 검증
+            file_path_norm = normalize_path(file_path)
+            if not Path(file_path_norm).exists():
+                raise FileNotFoundError(f"프레젠테이션 파일을 찾을 수 없습니다: {file_path}")
+
+            prs = Presentation(file_path_norm)
+            return None, prs
+        else:
+            raise NotImplementedError(
+                "python-pptx는 프레젠테이션 이름으로 열기를 지원하지 않습니다. "
+                "file_path를 사용하거나 COM 백엔드(--backend com)를 사용하세요"
+            )
+
+    # COM 백엔드 (Windows 전용)
+    elif backend_lower == PowerPointBackend.COM.value:
+        from .com_backend import get_or_open_presentation_com
+
+        return get_or_open_presentation_com(file_path=file_path, presentation_name=presentation_name)
+
+    else:
+        raise ValueError(f"지원하지 않는 백엔드입니다: {backend}")
+
+
+def create_presentation_with_backend(save_path: Optional[str] = None, backend: str = "auto") -> tuple:
+    """
+    새 프레젠테이션을 생성합니다.
+
+    Args:
+        save_path: 저장 경로 (선택)
+        backend: 사용할 백엔드 ('auto', 'python-pptx', 'com')
+
+    Returns:
+        (backend_instance, presentation_object) 튜플
+
+    Example:
+        >>> backend_inst, prs = create_presentation_with_backend(save_path="new.pptx")
+    """
+    # 백엔드 선택
+    if backend == "auto":
+        backend = get_powerpoint_backend()
+
+    backend_lower = backend.lower()
+
+    # python-pptx 백엔드
+    if backend_lower == PowerPointBackend.PYTHON_PPTX.value:
+        try:
+            from pptx import Presentation
+        except ImportError:
+            raise ImportError("python-pptx 패키지가 필요합니다")
+
+        prs = Presentation()
+
+        if save_path:
+            save_path_norm = normalize_path(save_path)
+            prs.save(save_path_norm)
+
+        return None, prs
+
+    # COM 백엔드
+    elif backend_lower == PowerPointBackend.COM.value:
+        from .com_backend import PowerPointCOM
+
+        ppt = PowerPointCOM()
+        prs = ppt.create_presentation(save_path)
+
+        return ppt, prs
+
+    else:
+        raise ValueError(f"지원하지 않는 백엔드입니다: {backend}")
