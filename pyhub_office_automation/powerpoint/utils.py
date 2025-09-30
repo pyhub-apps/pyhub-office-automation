@@ -934,6 +934,9 @@ def get_or_open_presentation(
 
     backend_lower = backend.lower()
 
+    # 활성 프레젠테이션 자동 사용 (COM 백엔드만 지원)
+    use_active_presentation = not file_path and not presentation_name
+
     # python-pptx 백엔드
     if backend_lower == PowerPointBackend.PYTHON_PPTX.value:
         try:
@@ -949,6 +952,11 @@ def get_or_open_presentation(
 
             prs = Presentation(file_path_norm)
             return None, prs
+        elif use_active_presentation:
+            raise NotImplementedError(
+                "python-pptx는 활성 프레젠테이션 자동 사용을 지원하지 않습니다. "
+                "file_path를 사용하거나 COM 백엔드(--backend com)를 사용하세요"
+            )
         else:
             raise NotImplementedError(
                 "python-pptx는 프레젠테이션 이름으로 열기를 지원하지 않습니다. "
@@ -958,6 +966,10 @@ def get_or_open_presentation(
     # COM 백엔드 (Windows 전용)
     elif backend_lower == PowerPointBackend.COM.value:
         from .com_backend import get_or_open_presentation_com
+
+        # 활성 프레젠테이션 자동 사용
+        if use_active_presentation:
+            return get_or_open_presentation_com(file_path=None, presentation_name=None, create_if_not_found=False)
 
         return get_or_open_presentation_com(file_path=file_path, presentation_name=presentation_name)
 

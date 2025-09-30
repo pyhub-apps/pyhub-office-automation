@@ -354,8 +354,8 @@ def get_or_open_presentation_com(
     if file_path and presentation_name:
         raise ValueError("file_path와 presentation_name 중 하나만 지정해야 합니다")
 
-    if not file_path and not presentation_name and not create_if_not_found:
-        raise ValueError("file_path 또는 presentation_name 중 하나는 필수입니다")
+    # 활성 프레젠테이션 자동 사용: file_path와 presentation_name이 모두 None일 때
+    # create_if_not_found가 False여도 활성 프레젠테이션을 가져오려고 시도함
 
     # PowerPoint COM 초기화
     ppt = PowerPointCOM()
