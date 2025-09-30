@@ -91,8 +91,14 @@ from pyhub_office_automation.excel.workbook_open import workbook_open
 # HWP 명령어 import
 from pyhub_office_automation.hwp.hwp_export import hwp_export
 
+# PowerPoint Phase 3 (Windows Advanced) 명령어 import (Issue #84 Phase 3)
+from pyhub_office_automation.powerpoint.animation_add import animation_add
+
 # PowerPoint Advanced Content 명령어 import (Issue #78)
+from pyhub_office_automation.powerpoint.content_add_audio import content_add_audio
 from pyhub_office_automation.powerpoint.content_add_chart import content_add_chart
+from pyhub_office_automation.powerpoint.content_add_equation import content_add_equation
+from pyhub_office_automation.powerpoint.content_add_excel_chart import content_add_excel_chart
 from pyhub_office_automation.powerpoint.content_add_image import content_add_image
 from pyhub_office_automation.powerpoint.content_add_shape import content_add_shape
 from pyhub_office_automation.powerpoint.content_add_smartart import content_add_smartart
@@ -102,6 +108,11 @@ from pyhub_office_automation.powerpoint.content_add_table import content_add_tab
 from pyhub_office_automation.powerpoint.content_add_text import content_add_text
 from pyhub_office_automation.powerpoint.content_add_video import content_add_video
 from pyhub_office_automation.powerpoint.content_update import content_update
+
+# PowerPoint Export 명령어 import (Issue #80)
+from pyhub_office_automation.powerpoint.export_images import export_images
+from pyhub_office_automation.powerpoint.export_notes import export_notes
+from pyhub_office_automation.powerpoint.export_pdf import export_pdf
 from pyhub_office_automation.powerpoint.layout_apply import layout_apply
 
 # PowerPoint Layout & Theme 명령어 import (Issue #79)
@@ -113,12 +124,15 @@ from pyhub_office_automation.powerpoint.presentation_info import presentation_in
 from pyhub_office_automation.powerpoint.presentation_list import presentation_list
 from pyhub_office_automation.powerpoint.presentation_open import presentation_open
 from pyhub_office_automation.powerpoint.presentation_save import presentation_save
+from pyhub_office_automation.powerpoint.run_macro import run_macro
 from pyhub_office_automation.powerpoint.slide_add import slide_add
 from pyhub_office_automation.powerpoint.slide_copy import slide_copy
 from pyhub_office_automation.powerpoint.slide_delete import slide_delete
 from pyhub_office_automation.powerpoint.slide_duplicate import slide_duplicate
 from pyhub_office_automation.powerpoint.slide_list import slide_list
 from pyhub_office_automation.powerpoint.slide_reorder import slide_reorder
+from pyhub_office_automation.powerpoint.slideshow_control import slideshow_control
+from pyhub_office_automation.powerpoint.slideshow_start import slideshow_start
 from pyhub_office_automation.powerpoint.template_apply import template_apply
 from pyhub_office_automation.powerpoint.theme_apply import theme_apply
 from pyhub_office_automation.utils.resource_loader import load_llm_guide, load_welcome_message
@@ -710,12 +724,26 @@ ppt_app.command("content-add-chart")(content_add_chart)
 ppt_app.command("content-add-video")(content_add_video)
 ppt_app.command("content-add-smartart")(content_add_smartart)
 ppt_app.command("content-update")(content_update)
+ppt_app.command("content-add-excel-chart")(content_add_excel_chart)
+ppt_app.command("content-add-audio")(content_add_audio)
+ppt_app.command("content-add-equation")(content_add_equation)
 
 # Layout & Theme 관리 (Issue #79)
 ppt_app.command("layout-list")(layout_list)
 ppt_app.command("layout-apply")(layout_apply)
 ppt_app.command("template-apply")(template_apply)
 ppt_app.command("theme-apply")(theme_apply)
+
+# Export 기능 (Issue #80)
+ppt_app.command("export-pdf")(export_pdf)
+ppt_app.command("export-images")(export_images)
+ppt_app.command("export-notes")(export_notes)
+
+# Windows Advanced Features (Issue #84 Phase 3)
+ppt_app.command("slideshow-start")(slideshow_start)
+ppt_app.command("slideshow-control")(slideshow_control)
+ppt_app.command("run-macro")(run_macro)
+ppt_app.command("animation-add")(animation_add)
 
 
 @ppt_app.command("list")
@@ -747,6 +775,10 @@ def ppt_list(
         {"name": "layout-apply", "description": "슬라이드에 레이아웃 적용", "category": "layout"},
         {"name": "template-apply", "description": "템플릿 적용", "category": "theme"},
         {"name": "theme-apply", "description": "테마 적용", "category": "theme"},
+        {"name": "slideshow-start", "description": "슬라이드쇼 시작 (Windows COM 전용)", "category": "advanced"},
+        {"name": "slideshow-control", "description": "슬라이드쇼 제어 (Windows COM 전용)", "category": "advanced"},
+        {"name": "run-macro", "description": "VBA 매크로 실행 (Windows COM 전용)", "category": "advanced"},
+        {"name": "animation-add", "description": "애니메이션 효과 추가 (Windows COM 전용)", "category": "advanced"},
     ]
 
     ppt_data = {
