@@ -57,32 +57,44 @@ def content_add_text(
 
     **COM 백엔드 (Windows) - 완전한 기능!**:
     - ✅ 플레이스홀더 및 자유 위치 텍스트 추가
+    - ✅ 스마트 플레이스홀더 자동 감지
     - Shapes.AddTextbox(), TextFrame.TextRange 사용
     - 열려있는 프레젠테이션에서 직접 작업
 
     **python-pptx 백엔드**:
     - ⚠️ 파일 저장 필수 (--file-path 필수)
+    - ✅ 플레이스홀더 자동 감지 지원
     - 플레이스홀더 및 자유 위치 텍스트 추가 가능
 
-    **플레이스홀더 모드 (--placeholder 지정)**:
-      title, body, subtitle 중 하나를 지정하면 해당 플레이스홀더에 텍스트 추가
+    **사용 모드**:
+    1. **스마트 자동 감지 모드 (옵션 없음 - 추천!)**:
+       - 레이아웃의 플레이스홀더를 자동으로 찾아 사용
+       - 우선순위: Body > Title > Subtitle
+       - 플레이스홀더가 없으면 중앙에 텍스트박스 생성
+       - 템플릿 디자인을 최대한 활용!
 
-    **자유 위치 모드 (--left, --top 지정)**:
-      지정된 위치에 텍스트 박스를 생성하여 텍스트 추가
+    2. **플레이스홀더 모드 (--placeholder 지정)**:
+       - title, body, subtitle 중 하나를 명시적으로 지정
+
+    3. **자유 위치 모드 (--left, --top 지정)**:
+       - 지정된 위치에 텍스트박스 생성
 
     **텍스트 입력**:
       --text: 직접 텍스트 입력
       --text-file: 파일에서 텍스트 읽기 (.txt)
 
     예제:
-        # COM 백엔드 (활성 프레젠테이션, 플레이스홀더)
+        # 🌟 자동 감지 모드 (권장) - 템플릿 디자인 활용
+        oa ppt content-add-text --slide-number 1 --text "제목"
+
+        # 플레이스홀더 명시적 지정
         oa ppt content-add-text --slide-number 1 --placeholder title --text "제목"
 
-        # COM 백엔드 (특정 프레젠테이션, 자유 위치)
-        oa ppt content-add-text --slide-number 2 --left 1 --top 2 --text "본문" --font-size 18 --presentation-name "report.pptx"
+        # 자유 위치 지정
+        oa ppt content-add-text --slide-number 2 --left 1 --top 2 --text "본문" --font-size 18
 
-        # python-pptx 백엔드
-        oa ppt content-add-text --slide-number 3 --placeholder body --text-file "content.txt" --file-path "report.pptx" --backend python-pptx
+        # python-pptx 백엔드 (자동 감지)
+        oa ppt content-add-text --slide-number 3 --text-file "content.txt" --file-path "report.pptx" --backend python-pptx
     """
     backend_inst = None
 
@@ -115,10 +127,15 @@ def content_add_text(
             typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
             raise typer.Exit(1)
 
-        if not placeholder and (left is None or top is None):
+        # 스마트 자동 감지 모드: 옵션이 없으면 슬라이드 레이아웃의 플레이스홀더 자동 사용
+        auto_detect_mode = False
+        if not placeholder and left is None and top is None:
+            auto_detect_mode = True
+        elif not placeholder and (left is None or top is None):
+            # left와 top 중 하나만 지정된 경우 에러
             result = create_error_response(
                 command="content-add-text",
-                error="--placeholder를 지정하지 않은 경우 --left와 --top을 모두 지정해야 합니다",
+                error="--left와 --top은 함께 지정해야 합니다 (또는 --placeholder 사용, 또는 모두 생략하여 자동 감지)",
                 error_type="ValueError",
             )
             typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
@@ -180,6 +197,7 @@ def content_add_text(
 
         # 백엔드별 처리
         mode = "placeholder" if placeholder else "position"
+        auto_detected_placeholder = None
 
         if selected_backend == PowerPointBackend.COM.value:
             # COM 백엔드: 완전한 텍스트 추가 기능
@@ -197,6 +215,51 @@ def content_add_text(
                     raise typer.Exit(1)
 
                 slide = prs.Slides(slide_number)
+
+                # 자동 감지 모드: 슬라이드의 플레이스홀더 자동 선택
+                if auto_detect_mode:
+                    # 우선순위: Body(2) > Title(1,3) > Subtitle(10)
+                    for shape in slide.Shapes:
+                        if shape.Type == 14:  # msoPlaceholder
+                            ph_type = shape.PlaceholderFormat.Type
+                            if ph_type == 2:  # Body
+                                placeholder = PlaceholderType.BODY
+                                auto_detected_placeholder = "body"
+                                mode = "placeholder"
+                                break
+
+                    if not auto_detected_placeholder:
+                        for shape in slide.Shapes:
+                            if shape.Type == 14:  # msoPlaceholder
+                                ph_type = shape.PlaceholderFormat.Type
+                                if ph_type in [1, 3]:  # Title, CenterTitle
+                                    placeholder = PlaceholderType.TITLE
+                                    auto_detected_placeholder = "title"
+                                    mode = "placeholder"
+                                    break
+
+                    if not auto_detected_placeholder:
+                        for shape in slide.Shapes:
+                            if shape.Type == 14:  # msoPlaceholder
+                                ph_type = shape.PlaceholderFormat.Type
+                                if ph_type == 10:  # Subtitle
+                                    placeholder = PlaceholderType.SUBTITLE
+                                    auto_detected_placeholder = "subtitle"
+                                    mode = "placeholder"
+                                    break
+
+                    # 플레이스홀더가 없으면 중앙에 텍스트박스 생성
+                    if not auto_detected_placeholder:
+                        # 슬라이드 크기 가져오기 (표준: 10" x 7.5")
+                        slide_width = prs.PageSetup.SlideWidth / 72  # points to inches
+                        slide_height = prs.PageSetup.SlideHeight / 72
+
+                        # 중앙에 배치 (슬라이드의 40% 너비, 30% 높이)
+                        left = slide_width * 0.3
+                        top = slide_height * 0.35
+                        width = slide_width * 0.4
+                        height = slide_height * 0.3
+                        mode = "position"
 
                 if placeholder:
                     # 플레이스홀더 모드
@@ -287,6 +350,11 @@ def content_add_text(
                     "text_preview": text_content[:100] + "..." if len(text_content) > 100 else text_content,
                 }
 
+                # 자동 감지 정보 추가
+                if auto_detected_placeholder:
+                    result_data["auto_detected"] = True
+                    result_data["auto_detected_placeholder"] = auto_detected_placeholder
+
                 if placeholder:
                     result_data["placeholder"] = placeholder
                 else:
@@ -305,10 +373,12 @@ def content_add_text(
                 result_data["italic"] = italic
 
                 message = f"텍스트 추가 완료 (COM): 슬라이드 {slide_number}"
-                if placeholder:
+                if auto_detected_placeholder:
+                    message += f", 자동 감지된 플레이스홀더 {auto_detected_placeholder}"
+                elif placeholder:
                     message += f", 플레이스홀더 {placeholder}"
                 else:
-                    message += f", 위치 {left}in × {top}in"
+                    message += f", 위치 {left:.2f}in × {top:.2f}in"
 
             except Exception as e:
                 result = create_error_response(
@@ -333,6 +403,52 @@ def content_add_text(
             # 슬라이드 번호 검증
             slide_idx = validate_slide_number(slide_number, len(prs.slides))
             slide = prs.slides[slide_idx]
+
+            # 자동 감지 모드: 슬라이드의 플레이스홀더 자동 선택
+            if auto_detect_mode:
+                from pptx.enum.shapes import MSO_SHAPE_TYPE
+
+                # 우선순위: Body > Title > Subtitle
+                for shape in slide.shapes:
+                    if shape.shape_type == MSO_SHAPE_TYPE.PLACEHOLDER:
+                        if shape.placeholder_format.type == 2:  # BODY
+                            placeholder = PlaceholderType.BODY
+                            auto_detected_placeholder = "body"
+                            mode = "placeholder"
+                            break
+
+                if not auto_detected_placeholder:
+                    for shape in slide.shapes:
+                        if shape.shape_type == MSO_SHAPE_TYPE.PLACEHOLDER:
+                            if shape.placeholder_format.type in [1, 3]:  # TITLE, CENTER_TITLE
+                                placeholder = PlaceholderType.TITLE
+                                auto_detected_placeholder = "title"
+                                mode = "placeholder"
+                                break
+
+                if not auto_detected_placeholder:
+                    for shape in slide.shapes:
+                        if shape.shape_type == MSO_SHAPE_TYPE.PLACEHOLDER:
+                            if shape.placeholder_format.type == 10:  # SUBTITLE
+                                placeholder = PlaceholderType.SUBTITLE
+                                auto_detected_placeholder = "subtitle"
+                                mode = "placeholder"
+                                break
+
+                # 플레이스홀더가 없으면 중앙에 텍스트박스 생성
+                if not auto_detected_placeholder:
+                    from pptx.util import Inches
+
+                    # 슬라이드 크기 가져오기
+                    slide_width = prs.slide_width.inches
+                    slide_height = prs.slide_height.inches
+
+                    # 중앙에 배치 (슬라이드의 40% 너비, 30% 높이)
+                    left = slide_width * 0.3
+                    top = slide_height * 0.35
+                    width = slide_width * 0.4
+                    height = slide_height * 0.3
+                    mode = "position"
 
             # 텍스트 추가 처리
             if placeholder:
@@ -391,6 +507,11 @@ def content_add_text(
                 "text_preview": text_content[:100] + "..." if len(text_content) > 100 else text_content,
             }
 
+            # 자동 감지 정보 추가
+            if auto_detected_placeholder:
+                result_data["auto_detected"] = True
+                result_data["auto_detected_placeholder"] = auto_detected_placeholder
+
             if placeholder:
                 result_data["placeholder"] = placeholder
             else:
@@ -409,10 +530,12 @@ def content_add_text(
             result_data["italic"] = italic
 
             message = f"텍스트 추가 완료 (python-pptx): 슬라이드 {slide_number}"
-            if placeholder:
+            if auto_detected_placeholder:
+                message += f", 자동 감지된 플레이스홀더 {auto_detected_placeholder}"
+            elif placeholder:
                 message += f", 플레이스홀더 {placeholder}"
             else:
-                message += f", 위치 {left}in × {top}in"
+                message += f", 위치 {left:.2f}in × {top:.2f}in"
 
         # 성공 응답
         response = create_success_response(
