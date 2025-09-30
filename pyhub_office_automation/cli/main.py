@@ -376,6 +376,11 @@ excel_app.command("slicer-connect")(slicer_connect)
 excel_app.command("slicer-list")(slicer_list)
 excel_app.command("slicer-position")(slicer_position)
 
+# Shell Command (Issue #85)
+from pyhub_office_automation.shell.excel_shell import excel_shell
+
+excel_app.command("shell")(excel_shell)
+
 
 # Excel list command
 @excel_app.command("list")

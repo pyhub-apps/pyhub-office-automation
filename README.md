@@ -16,6 +16,7 @@ Excel과 HWP 문서를 명령줄에서 제어하는 Python 패키지입니다. J
 
 ## 🚀 빠른 시작
 
+### 일반 모드 (개별 명령어)
 ```bash
 # 설치
 pip install pyhub-office-automation
@@ -26,10 +27,10 @@ oa info
 # 현재 열린 Excel 파일 확인 (상세 정보 포함)
 oa excel workbook-list
 
-# 🆕 테이블 구조와 샘플 데이터 즉시 파악 (AI 에이전트 최적화)
+# 테이블 구조와 샘플 데이터 즉시 파악 (AI 에이전트 최적화)
 oa excel table-list
 
-# 🔥 발견한 테이블 데이터 읽기 (완전한 table-driven 워크플로우)
+# 발견한 테이블 데이터 읽기 (완전한 table-driven 워크플로우)
 oa excel table-read --table-name "GameData" --limit 100
 
 # 대용량 데이터 처리 (페이징과 샘플링)
@@ -42,6 +43,30 @@ oa excel table-read --table-name "GameData" --columns "게임명,글로벌 판�
 # 기존 방식: 일반 셀 범위 읽기 (Excel Table 외부 데이터용)
 oa excel range-read --range "A1:C10"
 ```
+
+### Interactive Shell Mode (NEW - Issue #85)
+연속 작업 시 파일/시트를 매번 지정할 필요가 없습니다!
+
+```bash
+# Shell 시작
+oa excel shell --file-path "report.xlsx"
+
+# Shell 내부에서 사용
+[Excel: report.xlsx > Sheet1] > show context      # 현재 상태 확인
+[Excel: report.xlsx > Sheet1] > sheets            # 시트 목록
+[Excel: report.xlsx > Sheet1] > use sheet Data    # 시트 전환
+[Excel: report.xlsx > Data] > range-read --range A1:C10  # 컨텍스트 자동 주입
+[Excel: report.xlsx > Data] > table-list          # 테이블 목록
+[Excel: report.xlsx > Data] > help                # 도움말
+[Excel: report.xlsx > Data] > exit                # 종료
+```
+
+**Shell Mode 장점:**
+- 워크북/시트 1회 지정 후 고정
+- 명령어 길이 50% 단축
+- Tab 키 자동완성 (명령어, 워크북명, 시트명)
+- 명령어 히스토리 (위/아래 화살표)
+- 컨텍스트 프롬프트로 현재 상태 확인
 
 ## 📧 Email 자동화 (NEW)
 

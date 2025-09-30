@@ -35,6 +35,8 @@ dependencies = [
     "python-pptx>=0.6.23",
     "pywin32>=306; sys_platform == 'win32'",
     "Pillow>=10.0.0",
+    "prompt-toolkit>=3.0.50",
+    "click-repl>=0.3.0",
 ]
 
 [project.optional-dependencies]

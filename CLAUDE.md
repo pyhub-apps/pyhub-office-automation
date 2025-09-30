@@ -18,6 +18,7 @@ The package follows a modular CLI design pattern:
 - **Main CLI Command**: `oa` (office automation)
 - **Category-based Subcommands**:
   - `oa excel <command>` for Excel automation
+  - `oa excel shell` for interactive Excel shell mode (Issue #85)
   - `oa hwp <command>` for HWP automation
   - `oa info`, `oa install-guide` for package management
 
@@ -26,6 +27,7 @@ The package follows a modular CLI design pattern:
 pyhub_office_automation/
 ├── excel/          # xlwings-based Excel automation scripts
 ├── hwp/            # pyhwpx-based HWP automation scripts
+├── shell/          # Interactive shell mode (Issue #85)
 └── cli/            # Main CLI entry points and help commands
 ```
 
@@ -46,8 +48,10 @@ pyhub_office_automation/
 ### Required Libraries
 - `xlwings`: Excel automation (Windows COM, macOS AppleScript)
 - `pyhwpx`: HWP document automation (Windows COM only)
-- `click`: CLI framework for all command interfaces
+- `typer`: CLI framework for all command interfaces
 - `pandas`: Data processing for Excel operations
+- `prompt-toolkit`: Interactive shell mode with autocomplete (Issue #85)
+- `click-repl`: REPL integration for Typer/Click commands (Issue #85)
 - `pathlib`, `tempfile`: File system utilities
 
 ### Platform-Specific Notes

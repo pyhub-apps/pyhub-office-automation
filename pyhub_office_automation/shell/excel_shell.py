@@ -1,0 +1,512 @@
+"""
+Interactive Excel shell for stateful Excel automation
+Issue #85: https://github.com/pyhub-apps/pyhub-office-automation/issues/85
+"""
+
+import json
+import shlex
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+import typer
+import xlwings as xw
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.styles import Style
+from rich.console import Console
+from rich.table import Table
+
+from pyhub_office_automation.excel.chart_add import chart_add
+from pyhub_office_automation.excel.chart_list import chart_list
+
+# Excel 명령어 함수 import
+from pyhub_office_automation.excel.range_read import range_read
+from pyhub_office_automation.excel.range_write import range_write
+from pyhub_office_automation.excel.table_list import table_list
+from pyhub_office_automation.excel.table_read import table_read
+from pyhub_office_automation.excel.utils import get_active_workbook, get_workbook, normalize_path
+from pyhub_office_automation.excel.workbook_info import workbook_info
+
+console = Console()
+
+
+@dataclass
+class ExcelShellContext:
+    """Excel shell session context"""
+
+    workbook_name: Optional[str] = None
+    sheet_name: Optional[str] = None
+    app: Optional[xw.App] = None
+    workbook: Optional[xw.Book] = None
+
+    def get_prompt_text(self) -> str:
+        """Generate prompt text based on current context"""
+        wb = self.workbook_name or "None"
+        sheet = self.sheet_name or "None"
+        return f"[Excel: {wb} > {sheet}] > "
+
+    def update_workbook(self, workbook_name: Optional[str] = None):
+        """Update workbook context"""
+        if workbook_name:
+            try:
+                self.workbook = get_workbook(workbook_name=workbook_name)
+                self.workbook_name = workbook_name
+                if self.workbook and len(self.workbook.sheets) > 0:
+                    self.sheet_name = self.workbook.sheets.active.name
+                console.print(f"✓ Switched to workbook: {workbook_name}", style="green")
+            except Exception as e:
+                console.print(f"✗ Failed to switch workbook: {e}", style="red")
+        else:
+            # Use active workbook
+            try:
+                self.workbook = get_active_workbook()
+                if self.workbook:
+                    self.workbook_name = self.workbook.name
+                    if len(self.workbook.sheets) > 0:
+                        self.sheet_name = self.workbook.sheets.active.name
+                    console.print(f"✓ Using active workbook: {self.workbook_name}", style="green")
+            except Exception as e:
+                console.print(f"✗ No active workbook found: {e}", style="red")
+
+    def update_sheet(self, sheet_name: str):
+        """Update sheet context"""
+        if not self.workbook:
+            console.print("✗ No workbook selected", style="red")
+            return
+
+        try:
+            sheet = self.workbook.sheets[sheet_name]
+            sheet.activate()
+            self.sheet_name = sheet_name
+            console.print(f"✓ Switched to sheet: {sheet_name}", style="green")
+        except Exception as e:
+            console.print(f"✗ Failed to switch sheet: {e}", style="red")
+
+
+class ExcelShellCompleter(Completer):
+    """Autocomplete for Excel shell commands"""
+
+    def __init__(self, context: ExcelShellContext):
+        self.context = context
+        self.shell_commands = [
+            "use",
+            "show",
+            "workbooks",
+            "sheets",
+            "help",
+            "exit",
+            "quit",
+            # Excel commands
+            "range-read",
+            "range-write",
+            "table-list",
+            "table-read",
+            "chart-add",
+            "chart-list",
+            "workbook-info",
+        ]
+
+    def get_completions(self, document, complete_event):
+        """Get completions for current input"""
+        text = document.text_before_cursor
+        words = text.split()
+
+        # First word completion (commands)
+        if len(words) <= 1:
+            for cmd in self.shell_commands:
+                if cmd.startswith(text.lower()):
+                    yield Completion(cmd, start_position=-len(text))
+
+        # "use" subcommand completion
+        elif len(words) == 2 and words[0] == "use":
+            subcommands = ["workbook", "sheet"]
+            for sub in subcommands:
+                if sub.startswith(words[1].lower()):
+                    yield Completion(sub, start_position=-len(words[1]))
+
+        # "use workbook" - list open workbooks
+        elif len(words) == 3 and words[0] == "use" and words[1] == "workbook":
+            try:
+                if sys.platform == "win32":
+                    app = xw.apps.active
+                    if app:
+                        for book in app.books:
+                            if book.name.lower().startswith(words[2].lower()):
+                                yield Completion(book.name, start_position=-len(words[2]))
+            except Exception:
+                pass
+
+        # "use sheet" - list sheets in current workbook
+        elif len(words) == 3 and words[0] == "use" and words[1] == "sheet":
+            if self.context.workbook:
+                try:
+                    for sheet in self.context.workbook.sheets:
+                        if sheet.name.lower().startswith(words[2].lower()):
+                            yield Completion(sheet.name, start_position=-len(words[2]))
+                except Exception:
+                    pass
+
+        # "show" subcommand completion
+        elif len(words) == 2 and words[0] == "show":
+            subcommands = ["context", "workbooks", "sheets"]
+            for sub in subcommands:
+                if sub.startswith(words[1].lower()):
+                    yield Completion(sub, start_position=-len(words[1]))
+
+
+def parse_shell_args(command_str: str):
+    """Parse shell command string into arguments list"""
+    try:
+        # Use shlex to properly handle quoted arguments
+        return shlex.split(command_str)
+    except ValueError as e:
+        console.print(f"[red]Argument parsing error: {e}[/red]")
+        return None
+
+
+def execute_excel_command(ctx: ExcelShellContext, cmd: str, args: list) -> bool:
+    """
+    Execute Excel commands with context injection
+
+    Args:
+        ctx: Current shell context
+        cmd: Command name (e.g., "range-read")
+        args: Command arguments list
+
+    Returns:
+        True if should continue shell, False if should exit
+    """
+    # Excel 명령어 매핑
+    excel_commands = {
+        "range-read": range_read,
+        "range-write": range_write,
+        "table-list": table_list,
+        "table-read": table_read,
+        "chart-add": chart_add,
+        "chart-list": chart_list,
+        "workbook-info": workbook_info,
+    }
+
+    if cmd not in excel_commands:
+        return False  # Not an Excel command
+
+    command_func = excel_commands[cmd]
+
+    try:
+        # Context injection: add workbook and sheet if not specified
+        injected_args = []
+        has_workbook_arg = False
+        has_sheet_arg = False
+
+        # Check if arguments already contain workbook/sheet options
+        i = 0
+        while i < len(args):
+            arg = args[i]
+            if arg in ["--workbook-name", "--file-path"]:
+                has_workbook_arg = True
+                injected_args.append(arg)
+                if i + 1 < len(args):
+                    injected_args.append(args[i + 1])
+                    i += 2
+                else:
+                    i += 1
+            elif arg == "--sheet":
+                has_sheet_arg = True
+                injected_args.append(arg)
+                if i + 1 < len(args):
+                    injected_args.append(args[i + 1])
+                    i += 2
+                else:
+                    i += 1
+            else:
+                injected_args.append(arg)
+                i += 1
+
+        # Inject context if not specified
+        if not has_workbook_arg and ctx.workbook_name:
+            injected_args.extend(["--workbook-name", ctx.workbook_name])
+
+        if not has_sheet_arg and ctx.sheet_name:
+            injected_args.extend(["--sheet", ctx.sheet_name])
+
+        # Create a Typer context and invoke the command
+        import typer as typer_module
+        from typer.testing import CliRunner
+
+        # Create a temporary app for command execution
+        temp_app = typer_module.Typer()
+        temp_app.command()(command_func)
+
+        runner = CliRunner(mix_stderr=False)
+        result = runner.invoke(temp_app, injected_args)
+
+        # Display output
+        if result.stdout:
+            console.print(result.stdout, end="")
+        if result.stderr:
+            console.print(f"[red]{result.stderr}[/red]", end="")
+
+        return True
+
+    except Exception as e:
+        console.print(f"[red]Error executing {cmd}: {e}[/red]")
+        import traceback
+
+        console.print(f"[dim]{traceback.format_exc()}[/dim]")
+        return True
+
+
+def execute_shell_command(ctx: ExcelShellContext, command: str) -> bool:
+    """
+    Execute shell-specific commands
+    Returns True if should continue, False if should exit
+    """
+    # Parse command arguments
+    parts = parse_shell_args(command.strip())
+    if not parts:
+        return True
+
+    cmd = parts[0].lower()
+
+    # Exit commands
+    if cmd in ["exit", "quit"]:
+        console.print("✓ Shell session ended", style="green")
+        return False
+
+    # Help command
+    elif cmd == "help":
+        show_help()
+        return True
+
+    # Show commands
+    elif cmd == "show":
+        if len(parts) < 2:
+            console.print("Usage: show [context|workbooks|sheets]", style="yellow")
+        elif parts[1] == "context":
+            show_context(ctx)
+        elif parts[1] == "workbooks":
+            show_workbooks()
+        elif parts[1] == "sheets":
+            show_sheets(ctx)
+        return True
+
+    # Use commands
+    elif cmd == "use":
+        if len(parts) < 3:
+            console.print("Usage: use [workbook|sheet] <name>", style="yellow")
+        elif parts[1] == "workbook":
+            ctx.update_workbook(parts[2])
+        elif parts[1] == "sheet":
+            ctx.update_sheet(parts[2])
+        return True
+
+    # Shortcut commands
+    elif cmd == "workbooks":
+        show_workbooks()
+        return True
+
+    elif cmd == "sheets":
+        show_sheets(ctx)
+        return True
+
+    # Excel commands - delegate to actual command implementation
+    elif cmd in [
+        "range-read",
+        "range-write",
+        "table-list",
+        "table-read",
+        "chart-add",
+        "chart-list",
+        "workbook-info",
+    ]:
+        return execute_excel_command(ctx, cmd, parts[1:])
+
+    else:
+        console.print(f"Unknown command: {cmd}", style="red")
+        console.print("Type 'help' for available commands", style="yellow")
+        return True
+
+
+def show_help():
+    """Show help information"""
+    # Shell-specific commands
+    table1 = Table(title="Shell Commands")
+    table1.add_column("Command", style="cyan")
+    table1.add_column("Description", style="white")
+
+    table1.add_row("use workbook <name>", "Switch to specified workbook")
+    table1.add_row("use sheet <name>", "Switch to specified sheet")
+    table1.add_row("show context", "Show current context (workbook, sheet)")
+    table1.add_row("show workbooks", "List all open workbooks")
+    table1.add_row("show sheets", "List sheets in current workbook")
+    table1.add_row("workbooks", "Shortcut for 'show workbooks'")
+    table1.add_row("sheets", "Shortcut for 'show sheets'")
+    table1.add_row("help", "Show this help message")
+    table1.add_row("exit / quit", "Exit shell mode")
+
+    console.print(table1)
+    console.print()
+
+    # Excel commands
+    table2 = Table(title="Excel Commands (Context Auto-Injected)")
+    table2.add_column("Command", style="cyan")
+    table2.add_column("Example", style="white")
+
+    table2.add_row("range-read --range A1:C10", "Read range from current sheet")
+    table2.add_row("range-write --range A1 --data '[[1,2,3]]'", "Write data to current sheet")
+    table2.add_row("table-list", "List all tables in current workbook")
+    table2.add_row("table-read --output-file data.csv", "Read table from current sheet")
+    table2.add_row("chart-list", "List all charts in current sheet")
+    table2.add_row("workbook-info", "Show current workbook information")
+
+    console.print(table2)
+    console.print("\n[yellow]Note: Context (workbook/sheet) is automatically injected![/yellow]")
+
+
+def show_context(ctx: ExcelShellContext):
+    """Show current context"""
+    table = Table(title="Current Context")
+    table.add_column("Property", style="cyan")
+    table.add_column("Value", style="white")
+
+    table.add_row("Workbook", ctx.workbook_name or "None")
+    table.add_row("Sheet", ctx.sheet_name or "None")
+    table.add_row("Active", "Yes" if ctx.workbook else "No")
+
+    console.print(table)
+
+
+def show_workbooks():
+    """Show all open workbooks"""
+    try:
+        if sys.platform != "win32":
+            console.print("[yellow]Workbook listing only available on Windows[/yellow]")
+            return
+
+        app = xw.apps.active
+        if not app:
+            console.print("[yellow]No active Excel application[/yellow]")
+            return
+
+        table = Table(title="Open Workbooks")
+        table.add_column("#", style="cyan")
+        table.add_column("Name", style="white")
+        table.add_column("Path", style="dim")
+
+        for i, book in enumerate(app.books, 1):
+            path = book.fullname if hasattr(book, "fullname") else "Unsaved"
+            table.add_row(str(i), book.name, path)
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[red]Error listing workbooks: {e}[/red]")
+
+
+def show_sheets(ctx: ExcelShellContext):
+    """Show sheets in current workbook"""
+    if not ctx.workbook:
+        console.print("[yellow]No workbook selected[/yellow]")
+        return
+
+    try:
+        table = Table(title=f"Sheets in {ctx.workbook_name}")
+        table.add_column("#", style="cyan")
+        table.add_column("Name", style="white")
+        table.add_column("Active", style="green")
+
+        for i, sheet in enumerate(ctx.workbook.sheets, 1):
+            is_active = "✓" if sheet.name == ctx.sheet_name else ""
+            table.add_row(str(i), sheet.name, is_active)
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[red]Error listing sheets: {e}[/red]")
+
+
+def excel_shell(
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="Excel file path to open"),
+    workbook_name: Optional[str] = typer.Option(None, "--workbook-name", help="Name of already open workbook"),
+):
+    """
+    Start interactive Excel shell mode
+
+    Stateful REPL interface for Excel automation with context management,
+    autocomplete, and command history.
+
+    Examples:
+        oa excel shell
+        oa excel shell --file-path "report.xlsx"
+        oa excel shell --workbook-name "Book1.xlsx"
+    """
+    console.print("\n[bold cyan]Excel Interactive Shell[/bold cyan]")
+    console.print("[dim]Type 'help' for available commands, 'exit' to quit[/dim]\n")
+
+    # Initialize context
+    ctx = ExcelShellContext()
+
+    # Open or connect to workbook
+    if file_path:
+        try:
+            file_path = normalize_path(file_path)
+            if not Path(file_path).exists():
+                console.print(f"[red]File not found: {file_path}[/red]")
+                raise typer.Exit(1)
+
+            workbook = xw.Book(file_path)
+            ctx.workbook = workbook
+            ctx.workbook_name = workbook.name
+            if len(workbook.sheets) > 0:
+                ctx.sheet_name = workbook.sheets.active.name
+            console.print(f"✓ Opened workbook: {ctx.workbook_name}", style="green")
+            if ctx.sheet_name:
+                console.print(f"✓ Active sheet: {ctx.sheet_name}", style="green")
+
+        except Exception as e:
+            console.print(f"[red]Failed to open workbook: {e}[/red]")
+            raise typer.Exit(1)
+
+    elif workbook_name:
+        ctx.update_workbook(workbook_name)
+
+    else:
+        # Use active workbook
+        ctx.update_workbook()
+
+    # Setup prompt session
+    history_file = Path.home() / ".oa_excel_shell_history"
+    session = PromptSession(
+        history=FileHistory(str(history_file)),
+        completer=ExcelShellCompleter(ctx),
+        complete_while_typing=True,
+    )
+
+    # REPL loop
+    while True:
+        try:
+            prompt_text = ctx.get_prompt_text()
+            user_input = session.prompt(prompt_text)
+
+            if not user_input.strip():
+                continue
+
+            # Execute command
+            should_continue = execute_shell_command(ctx, user_input)
+            if not should_continue:
+                break
+
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Use 'exit' or 'quit' to leave shell[/yellow]")
+            continue
+
+        except EOFError:
+            console.print("\n✓ Shell session ended", style="green")
+            break
+
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            continue
