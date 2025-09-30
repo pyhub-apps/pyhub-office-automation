@@ -40,4 +40,9 @@ pyhub_office_automation/__version__.py
 *.xls
 *.hwp
 *.hwpx
+*.pptx
+*.ppt
 ~$*
+
+# Test Django project
+myproject/
