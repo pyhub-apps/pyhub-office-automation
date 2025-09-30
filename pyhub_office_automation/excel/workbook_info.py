@@ -5,6 +5,7 @@ Excel 워크북 상세 정보 조회 명령어 (Typer 버전)
 
 import datetime
 import json
+import platform
 import sys
 from pathlib import Path
 from typing import Optional
@@ -390,8 +391,6 @@ def workbook_info(
             gc.collect()
 
             # Windows에서 COM 라이브러리 정리
-            import platform
-
             if platform.system() == "Windows":
                 try:
                     import pythoncom

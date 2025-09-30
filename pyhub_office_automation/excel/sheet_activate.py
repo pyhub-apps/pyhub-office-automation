@@ -4,6 +4,7 @@ AI 에이전트와의 연동을 위한 구조화된 출력 제공
 """
 
 import json
+import platform
 import sys
 from pathlib import Path
 from typing import Optional
@@ -197,8 +198,6 @@ def sheet_activate(
             gc.collect()
 
             # Windows에서 COM 라이브러리 정리
-            import platform
-
             if platform.system() == "Windows":
                 try:
                     import pythoncom
