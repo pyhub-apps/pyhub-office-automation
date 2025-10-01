@@ -1,0 +1,101 @@
+# Batch Script with Control Flow Example (Phase 3)
+# Demonstrates @if/@elif/@else and @foreach
+
+@set TEST_MODE = "development"
+@set DATA_DIR = "C:/Work/data"
+
+@echo "=== Control Flow Test Started ==="
+@echo "Test mode: ${TEST_MODE}"
+@echo ""
+
+# Test 1: Simple @if/@else
+@echo "Test 1: Simple if/else condition"
+@if ${TEST_MODE} == "production"
+  @echo "  Running in PRODUCTION mode"
+  @set LOG_LEVEL = "ERROR"
+@else
+  @echo "  Running in DEVELOPMENT mode"
+  @set LOG_LEVEL = "DEBUG"
+@endif
+@echo "  Log level set to: ${LOG_LEVEL}"
+@echo ""
+
+# Test 2: @if/@elif/@else
+@echo "Test 2: Multiple conditions (if/elif/else)"
+@set SCORE = "85"
+@if ${SCORE} >= 90
+  @echo "  Grade: A (Excellent!)"
+@elif ${SCORE} >= 80
+  @echo "  Grade: B (Good job!)"
+@elif ${SCORE} >= 70
+  @echo "  Grade: C (Not bad)"
+@else
+  @echo "  Grade: F (Need improvement)"
+@endif
+@echo ""
+
+# Test 3: File existence check
+@echo "Test 3: File existence check"
+@set CHECK_FILE = "examples/batch_variables_example.oas"
+@if exists("${CHECK_FILE}")
+  @echo "  File exists: ${CHECK_FILE}"
+@else
+  @echo "  File not found: ${CHECK_FILE}"
+@endif
+@echo ""
+
+# Test 4: @foreach with JSON array
+@echo "Test 4: Loop with JSON array"
+@set QUARTERS = ["Q1", "Q2", "Q3", "Q4"]
+@foreach quarter in ${QUARTERS}
+  @echo "  Processing ${quarter} (index: ${__LOOP_INDEX__})"
+  @set REPORT_FILE = "report_${quarter}.xlsx"
+  @echo "    Report file would be: ${REPORT_FILE}"
+@endforeach
+@echo ""
+
+# Test 5: @foreach with comma-separated values
+@echo "Test 5: Loop with comma-separated values"
+@foreach env in "dev,test,staging,production"
+  @echo "  Deploying to: ${env}"
+@endforeach
+@echo ""
+
+# Test 6: Nested control flow
+@echo "Test 6: Nested if and foreach"
+@set ENABLE_REPORTS = "true"
+@if ${ENABLE_REPORTS} == "true"
+  @echo "  Reports are enabled"
+  @foreach region in ["North", "South", "East", "West"]
+    @echo "    Generating report for ${region} region"
+    @if ${region} == "North"
+      @echo "      (Special processing for North region)"
+    @endif
+  @endforeach
+@else
+  @echo "  Reports are disabled"
+@endif
+@echo ""
+
+# Test 7: Logical operators
+@echo "Test 7: Logical AND/OR operators"
+@set AGE = "25"
+@set HAS_LICENSE = "true"
+@if ${AGE} >= 18 and ${HAS_LICENSE} == "true"
+  @echo "  You can drive!"
+@else
+  @echo "  You cannot drive"
+@endif
+@echo ""
+
+# Test 8: NOT operator
+@echo "Test 8: NOT operator"
+@set IS_WEEKEND = "false"
+@if not ${IS_WEEKEND} == "true"
+  @echo "  It's a weekday - time to work!"
+@else
+  @echo "  It's the weekend - time to relax!"
+@endif
+@echo ""
+
+@echo "=== Control Flow Test Completed ==="

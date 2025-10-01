@@ -434,12 +434,63 @@ ppt content-add-text --slide-number 1 --text "Monthly Report - ${REPORT_MONTH}" 
 @echo "Report generation completed!"
 ```
 
-**변수 치환 지원 디렉티브:**
+**변수 치환 지원 디렉티브 (Phase 2):**
 - `@set VAR = "value"` - 변수 설정
 - `@unset VAR` - 변수 삭제
 - `@echo "message"` - 메시지 출력 (디버깅용)
 - `@export VAR = "value"` - 환경 변수로 내보내기
 - `${VAR_NAME}` 또는 `$VAR_NAME` - 변수 치환
+
+**제어 흐름 지원 (Phase 3 - NEW!):**
+```bash
+# 조건문 (@if/@elif/@else/@endif)
+@set ENVIRONMENT = "production"
+@if ${ENVIRONMENT} == "production"
+  @echo "Running in production mode"
+  @set LOG_LEVEL = "ERROR"
+@elif ${ENVIRONMENT} == "staging"
+  @echo "Running in staging mode"
+  @set LOG_LEVEL = "WARN"
+@else
+  @echo "Running in development mode"
+  @set LOG_LEVEL = "DEBUG"
+@endif
+
+# 파일 존재 확인
+@if exists("data/input.xlsx")
+  excel workbook-open --file-path "data/input.xlsx"
+@else
+  @echo "Input file not found, creating new workbook"
+  excel workbook-create --save-path "data/input.xlsx"
+@endif
+
+# 반복문 (@foreach)
+@foreach region in ["North", "South", "East", "West"]
+  @echo "Processing ${region} region (index: ${__LOOP_INDEX__})"
+  excel range-write --range "A${__LOOP_INDEX__}" --data '["${region}"]'
+@endforeach
+
+# 논리 연산자
+@set AGE = "25"
+@set HAS_LICENSE = "true"
+@if ${AGE} >= 18 and ${HAS_LICENSE} == "true"
+  @echo "Eligible to drive"
+@endif
+
+# 부정 연산자
+@if not exists("output/report.xlsx")
+  @echo "Report doesn't exist, generating new one"
+@endif
+```
+
+**지원 조건식:**
+- `exists("path")` - 파일 존재 여부
+- `VAR == "value"` - 문자열 같음
+- `VAR != "value"` - 문자열 다름
+- `VAR > 10` - 숫자 비교 (>, <, >=, <=)
+- `cond1 and cond2` - 논리 AND
+- `cond1 or cond2` - 논리 OR
+- `not condition` - 논리 NOT
 
 **실행 예시:**
 ```bash
@@ -448,6 +499,9 @@ oa batch run monthly_report.oas
 
 # CLI에서 변수 오버라이드
 oa batch run monthly_report.oas --set REPORT_MONTH=2024-02 --set OUTPUT_PPT=custom_report.pptx
+
+# 제어 흐름 테스트
+oa batch run examples/batch_control_flow_example.oas --verbose
 ```
 
 **Batch Mode 장점:**

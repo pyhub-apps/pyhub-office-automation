@@ -3,7 +3,7 @@ Batch script executor for Office Automation
 
 Executes sequences of shell commands from script files (.oas format).
 
-Phase 2: Variable substitution and directive support
+Phase 3: Control flow support (@if, @foreach, @while)
 """
 
 import shlex
@@ -17,6 +17,14 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from typer.testing import CliRunner
 
+from .control_flow import (
+    ConditionEvaluator,
+    parse_elif_condition,
+    parse_foreach_loop,
+    parse_if_condition,
+    parse_list_expression,
+    parse_while_condition,
+)
 from .variables import (
     VariableManager,
     parse_echo_directive,
@@ -131,6 +139,101 @@ def parse_script(script_path: str) -> List[BatchLine]:
                 )
 
     return lines
+
+
+def find_matching_endif(lines: List[BatchLine], start_idx: int) -> int:
+    """
+    Find matching @endif for @if directive
+
+    Args:
+        lines: List of batch lines
+        start_idx: Index of @if line
+
+    Returns:
+        Index of matching @endif
+
+    Raises:
+        ValueError: If no matching @endif found
+    """
+    depth = 1
+    for i in range(start_idx + 1, len(lines)):
+        line = lines[i]
+        if line.is_directive:
+            content = line.content.strip()
+            if content.startswith("@if "):
+                depth += 1
+            elif content == "@endif":
+                depth -= 1
+                if depth == 0:
+                    return i
+
+    raise ValueError(f"No matching @endif found for @if at line {lines[start_idx].line_number}")
+
+
+def find_matching_endforeach(lines: List[BatchLine], start_idx: int) -> int:
+    """
+    Find matching @endforeach for @foreach directive
+
+    Args:
+        lines: List of batch lines
+        start_idx: Index of @foreach line
+
+    Returns:
+        Index of matching @endforeach
+
+    Raises:
+        ValueError: If no matching @endforeach found
+    """
+    depth = 1
+    for i in range(start_idx + 1, len(lines)):
+        line = lines[i]
+        if line.is_directive:
+            content = line.content.strip()
+            if content.startswith("@foreach "):
+                depth += 1
+            elif content == "@endforeach":
+                depth -= 1
+                if depth == 0:
+                    return i
+
+    raise ValueError(f"No matching @endforeach found for @foreach at line {lines[start_idx].line_number}")
+
+
+def find_elif_else_blocks(lines: List[BatchLine], if_idx: int, endif_idx: int) -> tuple[List[tuple[int, str]], Optional[int]]:
+    """
+    Find all @elif and @else blocks within @if...@endif
+
+    Args:
+        lines: List of batch lines
+        if_idx: Index of @if line
+        endif_idx: Index of @endif line
+
+    Returns:
+        Tuple of (elif_blocks, else_idx)
+        elif_blocks: List of (line_idx, condition)
+        else_idx: Index of @else line or None
+    """
+    elif_blocks = []
+    else_idx = None
+    depth = 0
+
+    for i in range(if_idx + 1, endif_idx):
+        line = lines[i]
+        if line.is_directive:
+            content = line.content.strip()
+
+            if content.startswith("@if "):
+                depth += 1
+            elif content == "@endif":
+                depth -= 1
+            elif depth == 0:  # Same level as our @if
+                if content.startswith("@elif "):
+                    condition = parse_elif_condition(content)
+                    elif_blocks.append((i, condition))
+                elif content == "@else":
+                    else_idx = i
+
+    return elif_blocks, else_idx
 
 
 def execute_directive(line: BatchLine, var_manager: VariableManager) -> LineResult:
@@ -265,6 +368,149 @@ def execute_shell_command(line: BatchLine, var_manager: VariableManager, mode: s
         )
 
 
+def execute_lines(
+    lines: List[BatchLine],
+    var_manager: VariableManager,
+    start_idx: int = 0,
+    end_idx: Optional[int] = None,
+    verbose: bool = False,
+    continue_on_error: bool = False,
+) -> tuple[List[LineResult], int]:
+    """
+    Execute a range of lines with control flow support
+
+    Args:
+        lines: List of all batch lines
+        var_manager: Variable manager
+        start_idx: Start index (inclusive)
+        end_idx: End index (exclusive), None means till end
+        verbose: Show detailed output
+        continue_on_error: Continue on errors
+
+    Returns:
+        Tuple of (results, next_index_to_process)
+    """
+    if end_idx is None:
+        end_idx = len(lines)
+
+    results = []
+    i = start_idx
+    evaluator = ConditionEvaluator(var_manager)
+
+    while i < end_idx:
+        line = lines[i]
+
+        # Skip comments and empty lines
+        if line.is_comment or line.is_empty:
+            i += 1
+            continue
+
+        # Handle control flow directives
+        if line.is_directive:
+            content = line.content.strip()
+
+            # @if statement
+            if content.startswith("@if "):
+                endif_idx = find_matching_endif(lines, i)
+                elif_blocks, else_idx = find_elif_else_blocks(lines, i, endif_idx)
+
+                # Evaluate @if condition
+                condition = parse_if_condition(content)
+                if evaluator.evaluate(condition):
+                    # Execute if block (until first elif/else or endif)
+                    block_end = elif_blocks[0][0] if elif_blocks else (else_idx if else_idx else endif_idx)
+                    block_results, _ = execute_lines(lines, var_manager, i + 1, block_end, verbose, continue_on_error)
+                    results.extend(block_results)
+                else:
+                    # Try elif blocks
+                    executed = False
+                    for elif_idx, elif_cond in elif_blocks:
+                        if evaluator.evaluate(elif_cond):
+                            # Find next elif or else or endif
+                            next_elif_idx = None
+                            for next_idx, _ in elif_blocks:
+                                if next_idx > elif_idx:
+                                    next_elif_idx = next_idx
+                                    break
+                            block_end = next_elif_idx if next_elif_idx else (else_idx if else_idx else endif_idx)
+                            block_results, _ = execute_lines(
+                                lines, var_manager, elif_idx + 1, block_end, verbose, continue_on_error
+                            )
+                            results.extend(block_results)
+                            executed = True
+                            break
+
+                    # Execute else block if no condition was true
+                    if not executed and else_idx is not None:
+                        block_results, _ = execute_lines(
+                            lines, var_manager, else_idx + 1, endif_idx, verbose, continue_on_error
+                        )
+                        results.extend(block_results)
+
+                # Skip to after @endif
+                i = endif_idx + 1
+                continue
+
+            # @foreach loop
+            elif content.startswith("@foreach "):
+                endforeach_idx = find_matching_endforeach(lines, i)
+                var_name, list_expr = parse_foreach_loop(content)
+                items = parse_list_expression(list_expr, var_manager)
+
+                # Execute loop body for each item
+                for loop_idx, item in enumerate(items):
+                    # Set loop variable
+                    var_manager.set(var_name, item)
+                    var_manager.set("__LOOP_INDEX__", str(loop_idx))
+
+                    # Execute loop body
+                    loop_results, _ = execute_lines(lines, var_manager, i + 1, endforeach_idx, verbose, continue_on_error)
+                    results.extend(loop_results)
+
+                # Clean up loop variables
+                var_manager.unset(var_name)
+                var_manager.unset("__LOOP_INDEX__")
+
+                # Skip to after @endforeach
+                i = endforeach_idx + 1
+                continue
+
+            # Skip @endif, @endforeach, @elif, @else (handled by parent)
+            elif content in ("@endif", "@endforeach", "@else") or content.startswith("@elif "):
+                i += 1
+                continue
+
+            # Other directives (variable management)
+            else:
+                result = execute_directive(line, var_manager)
+                results.append(result)
+
+                if not result.success and not continue_on_error:
+                    return results, i + 1
+
+        # Regular shell command
+        else:
+            result = execute_shell_command(line, var_manager)
+            results.append(result)
+
+            if verbose:
+                if result.success:
+                    console.print("[green]✓ Success[/green]")
+                    if result.output:
+                        console.print(result.output)
+                else:
+                    console.print(f"[red]✗ Failed: {result.error}[/red]")
+                    if result.output:
+                        console.print(result.output)
+
+            if not result.success and not continue_on_error:
+                return results, i + 1
+
+        i += 1
+
+    return results, i
+
+
 def batch_run(
     script_path: str,
     dry_run: bool = False,
@@ -274,7 +520,7 @@ def batch_run(
     variables: Optional[Dict[str, str]] = None,
 ):
     """
-    Execute batch script with variable support
+    Execute batch script with variable and control flow support
 
     Args:
         script_path: Path to .oas script file
@@ -327,7 +573,7 @@ def batch_run(
                 console.print(f"[dim]Line {line.line_number}:[/dim] {resolved_line}")
         return
 
-    # Execute script
+    # Execute script with control flow support
     results = []
     failed_count = 0
 
@@ -338,39 +584,11 @@ def batch_run(
     ) as progress:
         task = progress.add_task("[cyan]Executing commands...", total=len(executable_lines))
 
-        for line in lines:
-            # Skip non-executable lines
-            if line.is_comment or line.is_empty:
-                continue
+        # Execute all lines with control flow
+        results, _ = execute_lines(lines, var_manager, 0, None, verbose, continue_on_error)
+        failed_count = sum(1 for r in results if not r.success)
 
-            if verbose:
-                console.print(f"\n[dim]Line {line.line_number}:[/dim] {line.content}")
-
-            # Execute directive or command
-            if line.is_directive:
-                result = execute_directive(line, var_manager)
-            else:
-                result = execute_shell_command(line, var_manager)
-
-            results.append(result)
-
-            if verbose:
-                if result.success:
-                    console.print("[green]✓ Success[/green]")
-                    if result.output:
-                        console.print(result.output)
-                else:
-                    console.print(f"[red]✗ Failed: {result.error}[/red]")
-                    if result.output:
-                        console.print(result.output)
-
-            if not result.success:
-                failed_count += 1
-                if not continue_on_error:
-                    console.print(f"\n[red]Execution stopped at line {line.line_number} due to error[/red]")
-                    break
-
-            progress.update(task, advance=1)
+        progress.update(task, advance=len(executable_lines))
 
     end_time = datetime.now()
     total_duration_ms = int((end_time - start_time).total_seconds() * 1000)
