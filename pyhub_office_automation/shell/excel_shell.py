@@ -19,16 +19,71 @@ from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.table import Table
 
+# Chart Commands (7)
 from pyhub_office_automation.excel.chart_add import chart_add
+from pyhub_office_automation.excel.chart_configure import chart_configure
+from pyhub_office_automation.excel.chart_delete import chart_delete
+from pyhub_office_automation.excel.chart_export import chart_export
 from pyhub_office_automation.excel.chart_list import chart_list
+from pyhub_office_automation.excel.chart_pivot_create import chart_pivot_create
+from pyhub_office_automation.excel.chart_position import chart_position
 
-# Excel 명령어 함수 import
+# Data Commands (2)
+from pyhub_office_automation.excel.data_analyze import data_analyze
+from pyhub_office_automation.excel.data_transform import data_transform
+
+# Workbook Commands (5)
+from pyhub_office_automation.excel.metadata_generate import metadata_generate
+
+# Pivot Commands (5)
+from pyhub_office_automation.excel.pivot_configure import pivot_configure
+from pyhub_office_automation.excel.pivot_create import pivot_create
+from pyhub_office_automation.excel.pivot_delete import pivot_delete
+from pyhub_office_automation.excel.pivot_list import pivot_list
+from pyhub_office_automation.excel.pivot_refresh import pivot_refresh
+
+# Excel 명령어 함수 import - ALL COMMANDS
+# Range Commands (3)
+from pyhub_office_automation.excel.range_convert import range_convert
 from pyhub_office_automation.excel.range_read import range_read
 from pyhub_office_automation.excel.range_write import range_write
+
+# Shape Commands (6)
+from pyhub_office_automation.excel.shape_add import shape_add
+from pyhub_office_automation.excel.shape_delete import shape_delete
+from pyhub_office_automation.excel.shape_format import shape_format
+from pyhub_office_automation.excel.shape_group import shape_group
+from pyhub_office_automation.excel.shape_list import shape_list
+
+# Sheet Commands (4)
+from pyhub_office_automation.excel.sheet_activate import sheet_activate
+from pyhub_office_automation.excel.sheet_add import sheet_add
+from pyhub_office_automation.excel.sheet_delete import sheet_delete
+from pyhub_office_automation.excel.sheet_rename import sheet_rename
+
+# Slicer Commands (4)
+from pyhub_office_automation.excel.slicer_add import slicer_add
+from pyhub_office_automation.excel.slicer_connect import slicer_connect
+from pyhub_office_automation.excel.slicer_list import slicer_list
+from pyhub_office_automation.excel.slicer_position import slicer_position
+
+# Table Commands (8)
+from pyhub_office_automation.excel.table_analyze import table_analyze
+from pyhub_office_automation.excel.table_create import table_create
 from pyhub_office_automation.excel.table_list import table_list
 from pyhub_office_automation.excel.table_read import table_read
+from pyhub_office_automation.excel.table_sort import table_sort
+from pyhub_office_automation.excel.table_sort_clear import table_sort_clear
+from pyhub_office_automation.excel.table_sort_info import table_sort_info
+from pyhub_office_automation.excel.table_write import table_write
+from pyhub_office_automation.excel.textbox_add import textbox_add
+
+# Utility
 from pyhub_office_automation.excel.utils import get_active_workbook, get_workbook, normalize_path
+from pyhub_office_automation.excel.workbook_create import workbook_create
 from pyhub_office_automation.excel.workbook_info import workbook_info
+from pyhub_office_automation.excel.workbook_list import workbook_list
+from pyhub_office_automation.excel.workbook_open import workbook_open
 
 console = Console()
 
@@ -95,23 +150,74 @@ class ExcelShellCompleter(Completer):
 
     def __init__(self, context: ExcelShellContext):
         self.context = context
+        # Shell commands
         self.shell_commands = [
             "use",
             "show",
             "workbooks",
             "sheets",
+            "clear",
             "help",
             "exit",
             "quit",
-            # Excel commands
+        ]
+        # All Excel commands (44)
+        self.excel_commands = [
+            # Range Commands
             "range-read",
             "range-write",
+            "range-convert",
+            # Workbook Commands
+            "workbook-list",
+            "workbook-open",
+            "workbook-create",
+            "workbook-info",
+            "metadata-generate",
+            # Sheet Commands
+            "sheet-activate",
+            "sheet-add",
+            "sheet-delete",
+            "sheet-rename",
+            # Table Commands
+            "table-create",
             "table-list",
             "table-read",
+            "table-sort",
+            "table-sort-clear",
+            "table-sort-info",
+            "table-write",
+            "table-analyze",
+            # Data Commands
+            "data-analyze",
+            "data-transform",
+            # Chart Commands
             "chart-add",
+            "chart-configure",
+            "chart-delete",
+            "chart-export",
             "chart-list",
-            "workbook-info",
+            "chart-pivot-create",
+            "chart-position",
+            # Pivot Commands
+            "pivot-configure",
+            "pivot-create",
+            "pivot-delete",
+            "pivot-list",
+            "pivot-refresh",
+            # Shape Commands
+            "shape-add",
+            "shape-delete",
+            "shape-format",
+            "shape-group",
+            "shape-list",
+            "textbox-add",
+            # Slicer Commands
+            "slicer-add",
+            "slicer-connect",
+            "slicer-list",
+            "slicer-position",
         ]
+        self.all_commands = self.shell_commands + self.excel_commands
 
     def get_completions(self, document, complete_event):
         """Get completions for current input"""
@@ -120,7 +226,7 @@ class ExcelShellCompleter(Completer):
 
         # First word completion (commands)
         if len(words) <= 1:
-            for cmd in self.shell_commands:
+            for cmd in self.all_commands:
                 if cmd.startswith(text.lower()):
                     yield Completion(cmd, start_position=-len(text))
 
@@ -183,15 +289,61 @@ def execute_excel_command(ctx: ExcelShellContext, cmd: str, args: list) -> bool:
     Returns:
         True if should continue shell, False if should exit
     """
-    # Excel 명령어 매핑
+    # Excel 명령어 매핑 (ALL 44 commands)
     excel_commands = {
+        # Range Commands (3)
         "range-read": range_read,
         "range-write": range_write,
+        "range-convert": range_convert,
+        # Workbook Commands (5)
+        "workbook-list": workbook_list,
+        "workbook-open": workbook_open,
+        "workbook-create": workbook_create,
+        "workbook-info": workbook_info,
+        "metadata-generate": metadata_generate,
+        # Sheet Commands (4)
+        "sheet-activate": sheet_activate,
+        "sheet-add": sheet_add,
+        "sheet-delete": sheet_delete,
+        "sheet-rename": sheet_rename,
+        # Table Commands (8)
+        "table-create": table_create,
         "table-list": table_list,
         "table-read": table_read,
+        "table-sort": table_sort,
+        "table-sort-clear": table_sort_clear,
+        "table-sort-info": table_sort_info,
+        "table-write": table_write,
+        "table-analyze": table_analyze,
+        # Data Commands (2)
+        "data-analyze": data_analyze,
+        "data-transform": data_transform,
+        # Chart Commands (7)
         "chart-add": chart_add,
+        "chart-configure": chart_configure,
+        "chart-delete": chart_delete,
+        "chart-export": chart_export,
         "chart-list": chart_list,
-        "workbook-info": workbook_info,
+        "chart-pivot-create": chart_pivot_create,
+        "chart-position": chart_position,
+        # Pivot Commands (5)
+        "pivot-configure": pivot_configure,
+        "pivot-create": pivot_create,
+        "pivot-delete": pivot_delete,
+        "pivot-list": pivot_list,
+        "pivot-refresh": pivot_refresh,
+        # Shape Commands (6)
+        "shape-add": shape_add,
+        "shape-delete": shape_delete,
+        "shape-format": shape_format,
+        "shape-group": shape_group,
+        "shape-list": shape_list,
+        "textbox-add": textbox_add,
+        # Slicer Commands (4)
+        "slicer-add": slicer_add,
+        "slicer-connect": slicer_connect,
+        "slicer-list": slicer_list,
+        "slicer-position": slicer_position,
     }
 
     if cmd not in excel_commands:
@@ -321,15 +473,61 @@ def execute_shell_command(ctx: ExcelShellContext, command: str) -> bool:
         show_sheets(ctx)
         return True
 
-    # Excel commands - delegate to actual command implementation
+    # Excel commands - delegate to actual command implementation (44 commands)
     elif cmd in [
+        # Range
         "range-read",
         "range-write",
+        "range-convert",
+        # Workbook
+        "workbook-list",
+        "workbook-open",
+        "workbook-create",
+        "workbook-info",
+        "metadata-generate",
+        # Sheet
+        "sheet-activate",
+        "sheet-add",
+        "sheet-delete",
+        "sheet-rename",
+        # Table
+        "table-create",
         "table-list",
         "table-read",
+        "table-sort",
+        "table-sort-clear",
+        "table-sort-info",
+        "table-write",
+        "table-analyze",
+        # Data
+        "data-analyze",
+        "data-transform",
+        # Chart
         "chart-add",
+        "chart-configure",
+        "chart-delete",
+        "chart-export",
         "chart-list",
-        "workbook-info",
+        "chart-pivot-create",
+        "chart-position",
+        # Pivot
+        "pivot-configure",
+        "pivot-create",
+        "pivot-delete",
+        "pivot-list",
+        "pivot-refresh",
+        # Shape
+        "shape-add",
+        "shape-delete",
+        "shape-format",
+        "shape-group",
+        "shape-list",
+        "textbox-add",
+        # Slicer
+        "slicer-add",
+        "slicer-connect",
+        "slicer-list",
+        "slicer-position",
     ]:
         return execute_excel_command(ctx, cmd, parts[1:])
 
@@ -361,19 +559,23 @@ def show_help():
     console.print()
 
     # Excel commands
-    table2 = Table(title="Excel Commands (Context Auto-Injected)")
-    table2.add_column("Command", style="cyan")
-    table2.add_column("Example", style="white")
+    table2 = Table(title="Excel Commands (Context Auto-Injected) - 44 Commands Available")
+    table2.add_column("Category", style="magenta")
+    table2.add_column("Examples", style="white")
 
-    table2.add_row("range-read --range A1:C10", "Read range from current sheet")
-    table2.add_row("range-write --range A1 --data '[[1,2,3]]'", "Write data to current sheet")
-    table2.add_row("table-list", "List all tables in current workbook")
-    table2.add_row("table-read --output-file data.csv", "Read table from current sheet")
-    table2.add_row("chart-list", "List all charts in current sheet")
-    table2.add_row("workbook-info", "Show current workbook information")
+    table2.add_row("Range (3)", "range-read --range A1:C10, range-write, range-convert")
+    table2.add_row("Workbook (5)", "workbook-list, workbook-info, workbook-create, metadata-generate")
+    table2.add_row("Sheet (4)", "sheet-add --name NewSheet, sheet-delete, sheet-activate")
+    table2.add_row("Table (8)", "table-list, table-read, table-create, table-sort")
+    table2.add_row("Data (2)", "data-analyze, data-transform")
+    table2.add_row("Chart (7)", "chart-add, chart-list, chart-configure, chart-export")
+    table2.add_row("Pivot (5)", "pivot-create, pivot-list, pivot-refresh, pivot-configure")
+    table2.add_row("Shape (6)", "shape-add, shape-list, textbox-add, shape-group")
+    table2.add_row("Slicer (4)", "slicer-add, slicer-list, slicer-connect, slicer-position")
 
     console.print(table2)
     console.print("\n[yellow]Note: Context (workbook/sheet) is automatically injected![/yellow]")
+    console.print("[dim]Tip: Use Tab for command autocomplete, <command> --help for details[/dim]")
 
 
 def show_context(ctx: ExcelShellContext):
