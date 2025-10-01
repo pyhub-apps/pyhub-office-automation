@@ -351,6 +351,65 @@ Current Context:
 
 ---
 
+### Batch Execution Mode (NEW - Issue #88)
+**반복 작업을 스크립트로 자동화!**
+
+Shell 명령어들을 `.oas` (Office Automation Script) 파일로 저장하고 일괄 실행합니다.
+
+#### 기본 사용법
+```bash
+# 스크립트 실행
+oa batch run workflow.oas
+
+# Dry-run (실행하지 않고 확인만)
+oa batch run workflow.oas --dry-run
+
+# Verbose 모드 (상세 로그)
+oa batch run workflow.oas --verbose
+
+# 에러 발생 시에도 계속 진행
+oa batch run workflow.oas --continue-on-error
+
+# 로그 파일 저장
+oa batch run workflow.oas --log-file execution.log
+```
+
+#### 스크립트 예제 (.oas 파일)
+```bash
+# daily_report.oas - 일일 보고서 자동 생성
+# Comments start with #
+
+# Excel 데이터 처리
+excel workbook-open --file-path "sales_data.xlsx"
+excel sheet-activate --sheet "Daily"
+excel range-read --range "A1:F100" --output-file "daily_data.csv"
+
+# 차트 생성
+excel sheet-add --name "Charts"
+excel chart-add --data-range "Daily!A1:C20" --chart-type "Column" --title "Daily Sales"
+
+# PowerPoint 보고서 생성
+ppt presentation-create --save-path "daily_report.pptx"
+ppt slide-add --layout 1
+ppt content-add-text --slide-number 1 --text "Daily Report" --left 100 --top 50
+ppt content-add-excel-chart --slide-number 2 --excel-file "sales_data.xlsx" --sheet "Charts" --chart-name "Chart1"
+```
+
+**Batch Mode 장점:**
+- 📝 **재현성**: 작업 과정을 정확히 재현 가능
+- ⏰ **자동화**: 반복 작업을 스크립트로 저장
+- 📄 **문서화**: 스크립트 자체가 작업 문서
+- 🔄 **CI/CD 통합**: GitHub Actions 등과 쉽게 통합
+- 🎯 **에러 처리**: 로깅 및 Continue-on-error 지원
+
+**활용 시나리오:**
+- ✅ 매일/매주 반복되는 보고서 생성
+- ✅ 대량의 Excel 파일 일괄 처리
+- ✅ 데이터 → 차트 → PowerPoint 자동화 파이프라인
+- ✅ CI/CD 파이프라인에서 Office 문서 생성
+
+---
+
 ## 📧 Email 자동화 (NEW)
 
 AI 기반 이메일 생성 및 다중 계정 관리 시스템입니다. Windows Credential Manager를 통한 안전한 자격증명 관리를 지원합니다.

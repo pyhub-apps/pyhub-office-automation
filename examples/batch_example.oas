@@ -1,0 +1,14 @@
+# Example Batch Script (.oas)
+# This script demonstrates basic batch execution capabilities
+
+# Comment lines start with #
+# Commands are executed sequentially
+
+# Check Excel help
+excel --help
+
+# Check PowerPoint help
+ppt --help
+
+# Display version info
+info

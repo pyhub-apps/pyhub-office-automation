@@ -760,6 +760,30 @@ from pyhub_office_automation.shell.unified_shell import unified_shell
 
 app.command("shell")(unified_shell)
 
+# Batch Execution Commands (Issue #88)
+batch_app = typer.Typer(help="Batch script execution")
+app.add_typer(batch_app, name="batch")
+
+
+@batch_app.command("run")
+def batch_run_cmd(
+    script_path: str = typer.Argument(..., help="Path to .oas script file"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Parse but don't execute"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed output"),
+    continue_on_error: bool = typer.Option(False, "--continue-on-error", help="Continue execution even if commands fail"),
+    log_file: Optional[str] = typer.Option(None, "--log-file", help="Path to log file"),
+):
+    """Execute batch script from .oas file"""
+    from pyhub_office_automation.batch.executor import batch_run
+
+    batch_run(
+        script_path=script_path,
+        dry_run=dry_run,
+        verbose=verbose,
+        continue_on_error=continue_on_error,
+        log_file=log_file,
+    )
+
 
 @ppt_app.command("list")
 def ppt_list(
