@@ -126,6 +126,7 @@ class ChartType(str, Enum):
     SCATTER_SMOOTH = "scatter_smooth"
     BUBBLE = "bubble"
     COMBO = "combo"
+    MAP = "map"  # Issue #72: Excel Map Chart (xlRegionMap = 140)
 
 
 # PyInstaller 환경에서 win32com 초기화

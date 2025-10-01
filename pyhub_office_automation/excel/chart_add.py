@@ -57,6 +57,7 @@ CHART_TYPE_MAP = {
     "scatter_smooth": 72,  # xlXYScatterSmooth
     "bubble": 15,  # xlBubble
     "combo": -4111,  # xlCombination
+    "map": 140,  # xlRegionMap (Issue #72: Excel Map Chart, requires Microsoft 365)
 }
 
 
@@ -90,6 +91,7 @@ def get_chart_type_constant(chart_type: ChartType):
             72: "xlXYScatterSmooth",
             15: "xlBubble",
             -4111: "xlCombination",
+            140: "xlRegionMap",  # Issue #72: Map Chart
         }
 
         chart_type_code = CHART_TYPE_MAP[chart_type_value]
@@ -131,6 +133,9 @@ def chart_add(
     output_format: OutputFormat = typer.Option(OutputFormat.JSON, "--format", help="출력 형식 선택 (json/text)"),
     visible: bool = typer.Option(False, "--visible", help="Excel 애플리케이션을 화면에 표시할지 여부 (기본값: False)"),
     save: bool = typer.Option(True, "--save", help="생성 후 파일 저장 여부 (기본값: True)"),
+    validate_locations: bool = typer.Option(
+        False, "--validate-locations", help="Map 차트: 지역명 검증 및 자동 변환 (Issue #72)"
+    ),
 ):
     """
     지정된 데이터 범위에서 Excel 차트를 생성합니다.
@@ -372,6 +377,78 @@ def chart_add(
         except Exception as e:
             raise ValueError(f"차트 타입 처리 오류: {str(e)}")
 
+        # Map chart 특수 처리 (Issue #72)
+        location_validation_info = None
+        if chart_type == ChartType.MAP:
+            # Microsoft 365 check
+            if platform.system() == "Windows":
+                try:
+                    # Try to get Excel version to check for Map Chart support
+                    app = book.app
+                    excel_version = float(app.version) if hasattr(app, "version") else 0.0
+                    # Map Chart is available in Excel 2016+ (version 16.0+) with Microsoft 365
+                    if excel_version < 16.0:
+                        print("⚠️  Excel 2016 이상이 필요합니다 (현재 버전: {:.1f})".format(excel_version))
+                        print("💡 Microsoft 365 구독이 있는지 확인하세요")
+                except Exception:
+                    pass  # Version check failed, continue anyway
+
+            # Location name validation
+            if validate_locations:
+                from .location_converter import LocationConverter
+
+                converter = LocationConverter()
+
+                # Extract location names from data range (first column)
+                try:
+                    locations = []
+                    if isinstance(data_values, list) and len(data_values) > 1:
+                        # Skip header row, get first column
+                        for row in data_values[1:]:
+                            if isinstance(row, list) and len(row) > 0:
+                                locations.append(str(row[0]))
+
+                    if locations:
+                        all_valid, converted, problematic = converter.validate_data_range(locations)
+
+                        location_validation_info = {
+                            "validated": True,
+                            "total_locations": len(locations),
+                            "valid_count": len(locations) - len(problematic),
+                            "problematic_count": len(problematic),
+                            "all_valid": all_valid,
+                        }
+
+                        if not all_valid:
+                            location_validation_info["problematic_locations"] = [
+                                {
+                                    "original": p.original,
+                                    "status": p.status,
+                                    "suggestions": p.suggestions[:3],  # Top 3 suggestions
+                                }
+                                for p in problematic
+                            ]
+
+                            print("\n⚠️  지역명 검증 경고:")
+                            print(f"   총 {len(locations)}개 위치 중 {len(problematic)}개가 인식되지 않을 수 있습니다.\n")
+                            for p in problematic[:5]:  # Show first 5
+                                print(f"   • {p.original}")
+                                if p.suggestions:
+                                    print(f"     제안: {', '.join(p.suggestions[:2])}")
+                            if len(problematic) > 5:
+                                print(f"   ... 외 {len(problematic) - 5}개\n")
+
+                            print("💡 Excel Map Chart 지역명 가이드:")
+                            print("   • 전체 형식 사용: '서울특별시 강남구' (권장)")
+                            print("   • 자동 변환 지원: '강남구' → '서울특별시 강남구'")
+                            print("   • --validate-locations 옵션으로 상세 검증\n")
+                        else:
+                            print(f"✅ 모든 지역명 검증 완료 ({len(locations)}개)\n")
+
+                except Exception as e:
+                    location_validation_info = {"error": str(e)}
+                    print(f"⚠️  지역명 검증 실패: {e}\n")
+
         # 차트 생성
         try:
             # xlwings 방식: 먼저 차트 객체를 생성하고 나중에 데이터 설정
@@ -486,6 +563,10 @@ def chart_add(
         # 겹침 경고 추가
         if overlap_warning:
             response_data["overlap_warning"] = overlap_warning
+
+        # Map chart 지역명 검증 정보 추가 (Issue #72)
+        if location_validation_info:
+            response_data["location_validation"] = location_validation_info
 
         response = create_success_response(
             data=response_data, command="chart-add", message=f"차트 '{chart_name}'이 성공적으로 생성되었습니다"
