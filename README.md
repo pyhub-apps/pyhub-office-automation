@@ -139,6 +139,100 @@ oa excel shell
 - **Shell 전용** (8개): help, show, use, clear, exit, quit, sheets, workbook-info
 - **Excel 명령** (44개): 모든 Excel CLI 명령 (Range, Workbook, Sheet, Table, Chart, Pivot 등)
 
+---
+
+### PowerPoint Shell Mode (NEW - Issue #85 Phase 5)
+프레젠테이션 작업 시 파일/슬라이드를 매번 지정할 필요가 없습니다!
+
+#### 기본 사용법
+```bash
+# Shell 시작 (2가지 방법)
+oa ppt shell                                    # 새 세션 시작
+oa ppt shell --file-path "presentation.pptx"    # 파일 경로로 시작
+
+# Shell 내부 명령어
+[PPT: presentation.pptx > Slide 1] > show context          # 현재 상태 확인
+[PPT: presentation.pptx > Slide 1] > slides                # 슬라이드 목록
+[PPT: presentation.pptx > Slide 1] > use slide 3           # 슬라이드 전환
+[PPT: presentation.pptx > Slide 3] > content-add-text --text "Hello" --left 100 --top 100
+[PPT: presentation.pptx > Slide 3] > help                  # 카테고리별 명령어 목록
+[PPT: presentation.pptx > Slide 3] > exit                  # 종료
+```
+
+#### 실전 워크플로우 예제
+
+**시나리오 1: 프레젠테이션 제작**
+```bash
+oa ppt shell --file-path "sales_report.pptx"
+
+[PPT: sales_report.pptx > Slide 1] > slides                # 전체 슬라이드 확인
+[PPT: sales_report.pptx > Slide 1] > slide-add --layout 1  # 새 슬라이드 추가
+[PPT: sales_report.pptx > Slide 1] > use slide 2
+[PPT: sales_report.pptx > Slide 2] > content-add-text --text "Q1 Results" --left 100 --top 50 --width 600 --height 100
+[PPT: sales_report.pptx > Slide 2] > content-add-image --image-path "chart.png" --left 100 --top 200
+[PPT: sales_report.pptx > Slide 2] > exit
+```
+
+**시나리오 2: Excel 차트 삽입**
+```bash
+oa ppt shell
+
+[PPT: None > Slide None] > use presentation "report.pptx"
+[PPT: report.pptx > Slide 1] > use slide 3
+[PPT: report.pptx > Slide 3] > content-add-excel-chart --excel-file "data.xlsx" --sheet "Sheet1" --chart-name "Chart1" --left 50 --top 100
+[PPT: report.pptx > Slide 3] > content-add-text --text "Data Source: Q1 Sales" --left 50 --top 400
+[PPT: report.pptx > Slide 3] > exit
+```
+
+**시나리오 3: 다중 슬라이드 편집**
+```bash
+oa ppt shell --file-path "training.pptx"
+
+[PPT: training.pptx > Slide 1] > slides                    # 슬라이드 구조 확인
+[PPT: training.pptx > Slide 1] > use slide 1
+[PPT: training.pptx > Slide 1] > layout-apply --layout-index 0  # 제목 슬라이드
+[PPT: training.pptx > Slide 1] > use slide 2
+[PPT: training.pptx > Slide 2] > layout-apply --layout-index 1  # 제목 및 내용
+[PPT: training.pptx > Slide 2] > content-add-shape --shape-type "RECTANGLE" --left 100 --top 100
+[PPT: training.pptx > Slide 2] > use slide 3
+[PPT: training.pptx > Slide 3] > content-add-table --rows 5 --cols 3 --left 50 --top 100
+[PPT: training.pptx > Slide 3] > exit
+```
+
+**시나리오 4: 테마 및 레이아웃 적용**
+```bash
+oa ppt shell --file-path "presentation.pptx"
+
+[PPT: presentation.pptx > Slide 1] > theme-apply --theme-path "corporate.thmx"
+[PPT: presentation.pptx > Slide 1] > layout-list                # 사용 가능한 레이아웃 확인
+[PPT: presentation.pptx > Slide 1] > slides                     # 모든 슬라이드 확인
+[PPT: presentation.pptx > Slide 1] > use slide 2
+[PPT: presentation.pptx > Slide 2] > layout-apply --layout-index 3  # 비교 레이아웃
+[PPT: presentation.pptx > Slide 2] > exit
+```
+
+**Shell Mode 장점:**
+- ✅ **프레젠테이션/슬라이드 1회 지정**: 컨텍스트 자동 유지
+- ✅ **명령어 길이 50% 단축**: `--file-path`, `--slide-number` 인자 생략
+- ✅ **Tab 자동완성**: 41개 명령어 (Shell 8개 + PPT 33개) 지원
+- ✅ **명령어 히스토리**: 위/아래 화살표로 이전 명령 재사용
+- ✅ **컨텍스트 프롬프트**: `[프레젠테이션명 > Slide 번호] >` 형식
+- ✅ **슬라이드 간 이동**: `use slide` 명령으로 빠른 전환
+- ✅ **생산성 향상**: 연속 작업 시 최대 10배 빠른 입력 속도
+
+**지원 명령어:**
+- **Shell 전용** (8개): help, show, use, clear, exit, quit, slides, presentation-info
+- **PowerPoint 명령** (33개):
+  - Presentation (5): create, open, save, list, info
+  - Slide (6): list, add, delete, duplicate, copy, reorder
+  - Content (11): text, image, shape, table, chart, video, smartart, excel-chart, audio, equation, update
+  - Layout & Theme (4): layout-list, layout-apply, template-apply, theme-apply
+  - Export (3): pdf, images, notes
+  - Slideshow (2): start, control
+  - Other (2): run-macro, animation-add
+
+---
+
 ## 📧 Email 자동화 (NEW)
 
 AI 기반 이메일 생성 및 다중 계정 관리 시스템입니다. Windows Credential Manager를 통한 안전한 자격증명 관리를 지원합니다.
