@@ -56,9 +56,10 @@ class ExcelShellContext:
                 self.workbook_name = workbook_name
                 if self.workbook and len(self.workbook.sheets) > 0:
                     self.sheet_name = self.workbook.sheets.active.name
-                console.print(f"✓ Switched to workbook: {workbook_name}", style="green")
+                console.print(f"[green]Switched to workbook: {workbook_name}[/green]")
+                console.print(f"[dim]Active sheet: {self.sheet_name}[/dim]")
             except Exception as e:
-                console.print(f"✗ Failed to switch workbook: {e}", style="red")
+                console.print(f"[red]Failed to switch workbook: {e}[/red]")
         else:
             # Use active workbook
             try:
@@ -67,23 +68,26 @@ class ExcelShellContext:
                     self.workbook_name = self.workbook.name
                     if len(self.workbook.sheets) > 0:
                         self.sheet_name = self.workbook.sheets.active.name
-                    console.print(f"✓ Using active workbook: {self.workbook_name}", style="green")
+                    console.print(f"[green]Using active workbook: {self.workbook_name}[/green]")
+                    console.print(f"[dim]Active sheet: {self.sheet_name}[/dim]")
             except Exception as e:
-                console.print(f"✗ No active workbook found: {e}", style="red")
+                console.print(f"[red]No active workbook found: {e}[/red]")
 
     def update_sheet(self, sheet_name: str):
         """Update sheet context"""
         if not self.workbook:
-            console.print("✗ No workbook selected", style="red")
+            console.print("[red]No workbook selected[/red]")
+            console.print("[yellow]Use 'use workbook <name>' first[/yellow]")
             return
 
         try:
             sheet = self.workbook.sheets[sheet_name]
             sheet.activate()
             self.sheet_name = sheet_name
-            console.print(f"✓ Switched to sheet: {sheet_name}", style="green")
+            console.print(f"[green]Switched to sheet: {sheet_name}[/green]")
         except Exception as e:
-            console.print(f"✗ Failed to switch sheet: {e}", style="red")
+            console.print(f"[red]Failed to switch sheet: {e}[/red]")
+            console.print("[yellow]Tip: Use 'sheets' to see available sheets[/yellow]")
 
 
 class ExcelShellCompleter(Completer):
@@ -273,8 +277,13 @@ def execute_shell_command(ctx: ExcelShellContext, command: str) -> bool:
 
     # Exit commands
     if cmd in ["exit", "quit"]:
-        console.print("✓ Shell session ended", style="green")
+        console.print("Shell session ended", style="green")
         return False
+
+    # Clear command
+    elif cmd == "clear":
+        console.clear()
+        return True
 
     # Help command
     elif cmd == "help":
@@ -344,6 +353,7 @@ def show_help():
     table1.add_row("show sheets", "List sheets in current workbook")
     table1.add_row("workbooks", "Shortcut for 'show workbooks'")
     table1.add_row("sheets", "Shortcut for 'show sheets'")
+    table1.add_row("clear", "Clear screen")
     table1.add_row("help", "Show this help message")
     table1.add_row("exit / quit", "Exit shell mode")
 
@@ -444,7 +454,8 @@ def excel_shell(
         oa excel shell --workbook-name "Book1.xlsx"
     """
     console.print("\n[bold cyan]Excel Interactive Shell[/bold cyan]")
-    console.print("[dim]Type 'help' for available commands, 'exit' to quit[/dim]\n")
+    console.print("[dim]Type 'help' for available commands, 'exit' to quit[/dim]")
+    console.print("[dim]Tab for autocomplete, Up/Down for history[/dim]\n")
 
     # Initialize context
     ctx = ExcelShellContext()
@@ -462,9 +473,10 @@ def excel_shell(
             ctx.workbook_name = workbook.name
             if len(workbook.sheets) > 0:
                 ctx.sheet_name = workbook.sheets.active.name
-            console.print(f"✓ Opened workbook: {ctx.workbook_name}", style="green")
+            console.print(f"[green]Opened workbook: {ctx.workbook_name}[/green]")
             if ctx.sheet_name:
-                console.print(f"✓ Active sheet: {ctx.sheet_name}", style="green")
+                console.print(f"[dim]Active sheet: {ctx.sheet_name}[/dim]")
+            console.print(f"[dim]Total sheets: {len(workbook.sheets)}[/dim]")
 
         except Exception as e:
             console.print(f"[red]Failed to open workbook: {e}[/red]")
@@ -504,7 +516,7 @@ def excel_shell(
             continue
 
         except EOFError:
-            console.print("\n✓ Shell session ended", style="green")
+            console.print("\n[green]Shell session ended[/green]")
             break
 
         except Exception as e:
