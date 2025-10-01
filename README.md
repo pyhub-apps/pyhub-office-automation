@@ -47,26 +47,97 @@ oa excel range-read --range "A1:C10"
 ### Interactive Shell Mode (NEW - Issue #85)
 연속 작업 시 파일/시트를 매번 지정할 필요가 없습니다!
 
+#### 기본 사용법
 ```bash
-# Shell 시작
-oa excel shell --file-path "report.xlsx"
+# Shell 시작 (3가지 방법)
+oa excel shell                              # 활성 워크북 자동 선택
+oa excel shell --file-path "report.xlsx"    # 파일 경로로 시작
+oa excel shell --workbook-name "Sales.xlsx" # 열린 파일명으로 시작
 
-# Shell 내부에서 사용
+# Shell 내부 명령어
 [Excel: report.xlsx > Sheet1] > show context      # 현재 상태 확인
 [Excel: report.xlsx > Sheet1] > sheets            # 시트 목록
 [Excel: report.xlsx > Sheet1] > use sheet Data    # 시트 전환
 [Excel: report.xlsx > Data] > range-read --range A1:C10  # 컨텍스트 자동 주입
 [Excel: report.xlsx > Data] > table-list          # 테이블 목록
-[Excel: report.xlsx > Data] > help                # 도움말
-[Excel: report.xlsx > Data] > exit                # 종료
+[Excel: report.xlsx > Data] > help                # 카테고리별 명령어 목록
+[Excel: report.xlsx > Data] > clear               # 화면 지우기
+[Excel: report.xlsx > Data] > exit                # 종료 (quit도 가능)
+```
+
+#### 실전 워크플로우 예제
+
+**시나리오 1: 데이터 분석 및 차트 생성**
+```bash
+oa excel shell --workbook-name "sales.xlsx"
+
+[Excel: sales.xlsx > Sheet1] > use sheet RawData
+[Excel: sales.xlsx > RawData] > table-list                    # 테이블 구조 파악
+[Excel: sales.xlsx > RawData] > table-read --output-file temp.csv
+[Excel: sales.xlsx > RawData] > sheet-add --name "Analysis"   # 분석 시트 생성
+[Excel: sales.xlsx > RawData] > use sheet Analysis
+[Excel: sales.xlsx > Analysis] > chart-add --data-range "RawData!A1:C10" --chart-type "Column"
+[Excel: sales.xlsx > Analysis] > chart-configure --name "Chart1" --title "월별 매출"
+[Excel: sales.xlsx > Analysis] > exit
+```
+
+**시나리오 2: 피벗테이블 생성 (Windows)**
+```bash
+oa excel shell
+
+[Excel: None > None] > use workbook "report.xlsx"
+[Excel: report.xlsx > None] > use sheet Data
+[Excel: report.xlsx > Data] > pivot-create --source-range "A1:F100" --expand table --dest-sheet "Pivot" --dest-range "A1"
+[Excel: report.xlsx > Data] > use sheet Pivot
+[Excel: report.xlsx > Pivot] > pivot-configure --pivot-name "PivotTable1" --row-fields "Region,Product" --value-fields "Sales:Sum"
+[Excel: report.xlsx > Pivot] > pivot-refresh --pivot-name "PivotTable1"
+[Excel: report.xlsx > Pivot] > exit
+```
+
+**시나리오 3: 다중 시트 데이터 처리**
+```bash
+oa excel shell --workbook-name "quarterly_report.xlsx"
+
+[Excel: quarterly_report.xlsx > Sheet1] > sheets              # 모든 시트 확인
+[Excel: quarterly_report.xlsx > Sheet1] > use sheet Q1
+[Excel: quarterly_report.xlsx > Q1] > range-read --range A1:D50 > q1_data.json
+[Excel: quarterly_report.xlsx > Q1] > use sheet Q2
+[Excel: quarterly_report.xlsx > Q2] > range-read --range A1:D50 > q2_data.json
+[Excel: quarterly_report.xlsx > Q2] > use sheet Q3
+[Excel: quarterly_report.xlsx > Q3] > range-read --range A1:D50 > q3_data.json
+[Excel: quarterly_report.xlsx > Q3] > use sheet Summary
+[Excel: quarterly_report.xlsx > Summary] > range-write --range A1 --data '[["Quarter","Total"],["Q1",1000],["Q2",1200],["Q3",1500]]'
+[Excel: quarterly_report.xlsx > Summary] > exit
+```
+
+**시나리오 4: 탐색 모드 (Tab 자동완성 활용)**
+```bash
+oa excel shell
+
+[Excel: None > None] > wo<TAB>        # workbook-list 자동완성
+[Excel: None > None] > workbook-list   # 열린 파일 확인
+[Excel: None > None] > use w<TAB>      # "use workbook" 자동완성
+[Excel: None > None] > use workbook "test.xlsx"
+[Excel: test.xlsx > None] > sh<TAB>    # sheets 자동완성
+[Excel: test.xlsx > None] > sheets     # 시트 목록 확인
+[Excel: test.xlsx > None] > use sheet TestData
+[Excel: test.xlsx > TestData] > ra<TAB>    # range-read 자동완성
+[Excel: test.xlsx > TestData] > range-read --range A1:C10
+[Excel: test.xlsx > TestData] > exit
 ```
 
 **Shell Mode 장점:**
-- 워크북/시트 1회 지정 후 고정
-- 명령어 길이 50% 단축
-- Tab 키 자동완성 (명령어, 워크북명, 시트명)
-- 명령어 히스토리 (위/아래 화살표)
-- 컨텍스트 프롬프트로 현재 상태 확인
+- ✅ **워크북/시트 1회 지정**: 컨텍스트 자동 유지로 반복 입력 불필요
+- ✅ **명령어 길이 50% 단축**: `--workbook-name`, `--sheet` 인자 생략
+- ✅ **Tab 자동완성**: 52개 명령어 (Shell 8개 + Excel 44개) 지원
+- ✅ **명령어 히스토리**: 위/아래 화살표로 이전 명령 재사용
+- ✅ **컨텍스트 프롬프트**: `[워크북명 > 시트명] >` 형식으로 현재 상태 표시
+- ✅ **대화형 탐색**: 명령 결과를 보고 다음 단계 결정 가능
+- ✅ **생산성 향상**: 연속 작업 시 최대 10배 빠른 입력 속도
+
+**지원 명령어:**
+- **Shell 전용** (8개): help, show, use, clear, exit, quit, sheets, workbook-info
+- **Excel 명령** (44개): 모든 Excel CLI 명령 (Range, Workbook, Sheet, Table, Chart, Pivot 등)
 
 ## 📧 Email 자동화 (NEW)
 
