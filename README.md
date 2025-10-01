@@ -502,6 +502,36 @@ oa batch run monthly_report.oas --set REPORT_MONTH=2024-02 --set OUTPUT_PPT=cust
 
 # 제어 흐름 테스트
 oa batch run examples/batch_control_flow_example.oas --verbose
+
+# 에러 처리 테스트 (Phase 4 - NEW!)
+oa batch run examples/batch_error_handling_example.oas --verbose
+```
+
+**에러 처리 지원 (Phase 4 - NEW!):**
+```bash
+# Try/catch/finally 블록
+@try
+  @echo "Attempting risky operation..."
+  excel workbook-open --file-path "data.xlsx"
+  excel range-read --range "A1:Z100"
+@catch
+  @echo "Error occurred! Using default data..."
+  excel workbook-create --save-path "data.xlsx"
+@finally
+  @echo "Cleanup: Closing connections..."
+@endtry
+
+# 중첩된 에러 처리
+@foreach file in ["Q1.xlsx", "Q2.xlsx", "Q3.xlsx"]
+  @try
+    excel workbook-open --file-path "${file}"
+    excel table-read --output-file "${file}.csv"
+  @catch
+    @echo "Failed to process ${file}, skipping..."
+  @finally
+    @echo "Cleanup for ${file}"
+  @endtry
+@endforeach
 ```
 
 **Batch Mode 장점:**

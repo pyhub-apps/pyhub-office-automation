@@ -289,3 +289,26 @@ def parse_list_expression(list_expr: str, var_manager: VariableManager) -> List[
 
     # Space-separated (fallback)
     return resolved.split()
+
+
+def parse_onerror_directive(line: str) -> str:
+    """
+    Parse @onerror directive and extract error mode
+
+    Format: @onerror continue|abort
+
+    Args:
+        line: Line containing @onerror directive
+
+    Returns:
+        Error mode string ("continue" or "abort")
+
+    Raises:
+        ValueError: If line format is invalid
+    """
+    content = line.strip().removeprefix("@onerror").strip()
+
+    if content not in ("continue", "abort"):
+        raise ValueError(f"Invalid @onerror directive: {line}. Expected: @onerror continue|abort")
+
+    return content

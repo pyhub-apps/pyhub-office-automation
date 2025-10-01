@@ -23,6 +23,7 @@ from .control_flow import (
     parse_foreach_loop,
     parse_if_condition,
     parse_list_expression,
+    parse_onerror_directive,
     parse_while_condition,
 )
 from .variables import (
@@ -234,6 +235,71 @@ def find_elif_else_blocks(lines: List[BatchLine], if_idx: int, endif_idx: int) -
                     else_idx = i
 
     return elif_blocks, else_idx
+
+
+def find_matching_endtry(lines: List[BatchLine], start_idx: int) -> int:
+    """
+    Find matching @endtry for @try directive
+
+    Args:
+        lines: List of batch lines
+        start_idx: Index of @try line
+
+    Returns:
+        Index of matching @endtry
+
+    Raises:
+        ValueError: If no matching @endtry found
+    """
+    depth = 1
+    for i in range(start_idx + 1, len(lines)):
+        line = lines[i]
+        if line.is_directive:
+            content = line.content.strip()
+            if content == "@try":
+                depth += 1
+            elif content == "@endtry":
+                depth -= 1
+                if depth == 0:
+                    return i
+
+    raise ValueError(f"No matching @endtry found for @try at line {lines[start_idx].line_number}")
+
+
+def find_catch_finally_blocks(lines: List[BatchLine], try_idx: int, endtry_idx: int) -> tuple[Optional[int], Optional[int]]:
+    """
+    Find @catch and @finally blocks within @try...@endtry
+
+    Args:
+        lines: List of batch lines
+        try_idx: Index of @try line
+        endtry_idx: Index of @endtry line
+
+    Returns:
+        Tuple of (catch_idx, finally_idx)
+        catch_idx: Index of @catch line or None
+        finally_idx: Index of @finally line or None
+    """
+    catch_idx = None
+    finally_idx = None
+    depth = 0
+
+    for i in range(try_idx + 1, endtry_idx):
+        line = lines[i]
+        if line.is_directive:
+            content = line.content.strip()
+
+            if content == "@try":
+                depth += 1
+            elif content == "@endtry":
+                depth -= 1
+            elif depth == 0:  # Same level as our @try
+                if content == "@catch":
+                    catch_idx = i
+                elif content == "@finally":
+                    finally_idx = i
+
+    return catch_idx, finally_idx
 
 
 def execute_directive(line: BatchLine, var_manager: VariableManager) -> LineResult:
@@ -475,8 +541,46 @@ def execute_lines(
                 i = endforeach_idx + 1
                 continue
 
-            # Skip @endif, @endforeach, @elif, @else (handled by parent)
-            elif content in ("@endif", "@endforeach", "@else") or content.startswith("@elif "):
+            # @try/@catch/@finally block
+            elif content == "@try":
+                endtry_idx = find_matching_endtry(lines, i)
+                catch_idx, finally_idx = find_catch_finally_blocks(lines, i, endtry_idx)
+
+                error_occurred = False
+                try_results = []
+
+                # Execute try block
+                try_end = catch_idx if catch_idx else (finally_idx if finally_idx else endtry_idx)
+                try:
+                    try_results, _ = execute_lines(lines, var_manager, i + 1, try_end, verbose, True)  # Force continue in try
+                    # Check if any command failed
+                    error_occurred = any(not r.success for r in try_results)
+                    results.extend(try_results)
+                except Exception as e:
+                    error_occurred = True
+                    console.print(f"[red]Exception in try block: {e}[/red]")
+
+                # Execute catch block if error occurred
+                if error_occurred and catch_idx is not None:
+                    catch_end = finally_idx if finally_idx else endtry_idx
+                    catch_results, _ = execute_lines(lines, var_manager, catch_idx + 1, catch_end, verbose, continue_on_error)
+                    results.extend(catch_results)
+
+                # Always execute finally block
+                if finally_idx is not None:
+                    finally_results, _ = execute_lines(
+                        lines, var_manager, finally_idx + 1, endtry_idx, verbose, continue_on_error
+                    )
+                    results.extend(finally_results)
+
+                # Skip to after @endtry
+                i = endtry_idx + 1
+                continue
+
+            # Skip @endif, @endforeach, @elif, @else, @catch, @finally, @endtry (handled by parent)
+            elif content in ("@endif", "@endforeach", "@else", "@catch", "@finally", "@endtry") or content.startswith(
+                "@elif "
+            ):
                 i += 1
                 continue
 

@@ -1,0 +1,92 @@
+# Batch Script with Error Handling Example (Phase 4)
+# Demonstrates @try/@catch/@finally
+
+@echo "=== Error Handling Test Started ==="
+@echo ""
+
+# Test 1: Basic try/catch
+@echo "Test 1: Basic try/catch with simulated error"
+@set ERROR_VAR = "invalid"
+@try
+  @echo "  In try block..."
+  @if ${ERROR_VAR} == "invalid"
+    @echo "  Simulating error condition"
+    @set TEST_FAILED = "true"
+  @endif
+@catch
+  @echo "  Caught error! Running recovery..."
+  @set TEST_FAILED = "false"
+@endtry
+@echo "  Test 1 completed"
+@echo ""
+
+# Test 2: Try/finally (no catch)
+@echo "Test 2: Try/finally without error"
+@try
+  @echo "  Executing main logic..."
+  @set PROCESS_COUNT = "100"
+  @echo "  Processed ${PROCESS_COUNT} items"
+@finally
+  @echo "  Cleanup: Closing resources..."
+  @unset PROCESS_COUNT
+@endtry
+@echo "  Test 2 completed"
+@echo ""
+
+# Test 3: Try/catch/finally
+@echo "Test 3: Full try/catch/finally block"
+@try
+  @echo "  Opening file..."
+  @set FILE_HANDLE = "file_123"
+  @echo "  Reading data..."
+  @set DATA_READ = "true"
+@catch
+  @echo "  Error occurred during file operation"
+  @set DATA_READ = "false"
+@finally
+  @echo "  Cleanup: Closing file handle ${FILE_HANDLE}"
+  @unset FILE_HANDLE
+@endtry
+@echo "  Test 3 completed"
+@echo ""
+
+# Test 4: Nested try blocks
+@echo "Test 4: Nested try blocks"
+@try
+  @echo "  Outer try block"
+  @try
+    @echo "    Inner try block"
+    @set INNER_VAR = "inner_value"
+  @catch
+    @echo "    Inner catch (should not execute)"
+  @finally
+    @echo "    Inner cleanup"
+    @unset INNER_VAR
+  @endtry
+  @echo "  Back to outer try block"
+@catch
+  @echo "  Outer catch (should not execute)"
+@finally
+  @echo "  Outer cleanup"
+@endtry
+@echo "  Test 4 completed"
+@echo ""
+
+# Test 5: Try with foreach
+@echo "Test 5: Error handling in loops"
+@foreach item in ["file1", "file2", "file3"]
+  @try
+    @echo "  Processing ${item}..."
+    @if ${item} == "file2"
+      @echo "    Special handling for ${item}"
+    @endif
+  @catch
+    @echo "    Failed to process ${item}"
+  @finally
+    @echo "    Cleanup for ${item}"
+  @endtry
+@endforeach
+@echo "  Test 5 completed"
+@echo ""
+
+@echo "=== Error Handling Test Completed ==="
