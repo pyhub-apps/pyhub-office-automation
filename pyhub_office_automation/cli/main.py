@@ -755,6 +755,11 @@ from pyhub_office_automation.shell.ppt_shell import ppt_shell
 
 ppt_app.command("shell")(ppt_shell)
 
+# Unified Shell Command (Issue #87)
+from pyhub_office_automation.shell.unified_shell import unified_shell
+
+app.command("shell")(unified_shell)
+
 
 @ppt_app.command("list")
 def ppt_list(

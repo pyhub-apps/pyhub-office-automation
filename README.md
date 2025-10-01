@@ -233,6 +233,124 @@ oa ppt shell --file-path "presentation.pptx"
 
 ---
 
+### Unified Shell Mode (NEW - Issue #87)
+**Excel과 PowerPoint를 하나의 Shell에서 통합 관리!**
+
+#### 기본 사용법
+```bash
+# Unified Shell 시작
+oa shell
+
+# Excel 파일 열기
+[OA Shell] > use excel "sales.xlsx"
+✓ Excel workbook: sales.xlsx
+✓ Mode switched to Excel
+
+# Excel 작업
+[OA Shell: Excel sales.xlsx > Sheet Data] > table-list
+[테이블 목록 출력]
+
+[OA Shell: Excel sales.xlsx > Sheet Data] > range-read --range A1:B10
+[데이터 출력]
+
+# PowerPoint로 전환
+[OA Shell: Excel sales.xlsx > Sheet Data] > use ppt "report.pptx"
+✓ PowerPoint presentation: report.pptx
+✓ Mode switched to PowerPoint
+
+# PowerPoint 작업
+[OA Shell: PPT report.pptx > Slide 1] > use slide 3
+✓ Active slide: 3/10
+
+[OA Shell: PPT report.pptx > Slide 3] > content-add-text --text "Q1 Results" --left 100 --top 50
+
+# 다시 Excel로 돌아가기
+[OA Shell: PPT report.pptx > Slide 3] > switch excel
+✓ Switched to Excel mode: sales.xlsx
+
+[OA Shell: Excel sales.xlsx > Sheet Data] > exit
+Goodbye from Unified Shell!
+```
+
+#### 실전 워크플로우 예제
+
+**시나리오 1: Excel 데이터 분석 → PowerPoint 보고서 생성**
+```bash
+oa shell
+
+# Excel에서 데이터 분석
+[OA Shell] > use excel "quarterly_sales.xlsx"
+[OA Shell: Excel quarterly_sales.xlsx > Sheet Sheet1] > use sheet Data
+[OA Shell: Excel quarterly_sales.xlsx > Sheet Data] > table-read --output-file analysis.csv
+[OA Shell: Excel quarterly_sales.xlsx > Sheet Data] > chart-add --data-range "A1:C20" --chart-type "Column" --title "Quarterly Sales"
+
+# PowerPoint로 전환하여 보고서 작성
+[OA Shell: Excel quarterly_sales.xlsx > Sheet Data] > use ppt "quarterly_report.pptx"
+[OA Shell: PPT quarterly_report.pptx > Slide 1] > use slide 2
+[OA Shell: PPT quarterly_report.pptx > Slide 2] > content-add-excel-chart \
+  --excel-file "quarterly_sales.xlsx" --sheet "Data" --chart-name "Chart1" --left 50 --top 100
+
+# Excel로 돌아가 다른 분석
+[OA Shell: PPT quarterly_report.pptx > Slide 2] > switch excel
+[OA Shell: Excel quarterly_sales.xlsx > Sheet Data] > use sheet Summary
+[OA Shell: Excel quarterly_sales.xlsx > Sheet Summary] > range-write --range A1 --data '[["Total Sales", 5000000]]'
+
+# PowerPoint에서 마무리
+[OA Shell: Excel quarterly_sales.xlsx > Sheet Summary] > switch ppt
+[OA Shell: PPT quarterly_report.pptx > Slide 2] > use slide 3
+[OA Shell: PPT quarterly_report.pptx > Slide 3] > content-add-text --text "Total Sales: $5M"
+[OA Shell: PPT quarterly_report.pptx > Slide 3] > exit
+```
+
+**시나리오 2: 컨텍스트 확인 및 관리**
+```bash
+oa shell
+
+[OA Shell] > use excel "data.xlsx"
+[OA Shell: Excel data.xlsx > Sheet Sheet1] > use ppt "presentation.pptx"
+[OA Shell: PPT presentation.pptx > Slide 1] > show context
+
+Current Context:
+  Active Mode: PPT
+
+  Excel Context:
+    Workbook: data.xlsx
+    Path: C:/Work/data.xlsx
+    Active Sheet: Sheet1
+    (Use 'switch excel' to activate)
+
+  PowerPoint Context:
+    Presentation: presentation.pptx
+    Path: C:/Work/presentation.pptx
+    Active Slide: 1
+    (Currently active)
+
+[OA Shell: PPT presentation.pptx > Slide 1] > help
+[통합 명령어 목록 표시]
+```
+
+**Unified Shell 장점:**
+- 🔄 **모드 전환**: Excel ↔ PowerPoint 간 자유로운 전환
+- 📦 **컨텍스트 보존**: 각 애플리케이션 상태 독립적 유지
+- ⚡ **통합 워크플로우**: 데이터 분석 → 시각화 → 보고서 작성을 단일 세션에서
+- 🎯 **컨텍스트 인식**: 현재 모드에 맞는 명령어만 자동완성 제공
+- 💡 **직관적 UX**: `use` (파일 열기), `switch` (모드 전환) 명령으로 간단 제어
+- 🚀 **생산성 극대화**: 애플리케이션 전환 시 Shell 재시작 불필요
+
+**지원 명령어:**
+- **통합 Shell** (8개): help, show context, clear, exit, quit, use excel/ppt, switch excel/ppt
+- **Excel 모드**: 모든 Excel 명령어 (52개)
+- **PowerPoint 모드**: 모든 PowerPoint 명령어 (41개)
+
+**명령어 비교:**
+| 작업 | 일반 CLI | Unified Shell | 절감 |
+|------|---------|--------------|------|
+| Excel 분석 + PPT 보고서 | 15개 명령 | 8개 명령 | 47% ↓ |
+| 앱 전환 | Shell 재시작 필요 | `switch` 1회 | 10초 ↓ |
+| 컨텍스트 입력 | 매번 --file-path | 1회만 | 80% ↓ |
+
+---
+
 ## 📧 Email 자동화 (NEW)
 
 AI 기반 이메일 생성 및 다중 계정 관리 시스템입니다. Windows Credential Manager를 통한 안전한 자격증명 관리를 지원합니다.
