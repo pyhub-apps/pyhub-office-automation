@@ -361,6 +361,9 @@ Shell 명령어들을 `.oas` (Office Automation Script) 파일로 저장하고 �
 # 스크립트 실행
 oa batch run workflow.oas
 
+# 변수 치환 (Phase 2 - NEW!)
+oa batch run workflow.oas --set REPORT_DATE=2024-12-25 --set OUTPUT_DIR=/tmp/reports
+
 # Dry-run (실행하지 않고 확인만)
 oa batch run workflow.oas --dry-run
 
@@ -372,9 +375,17 @@ oa batch run workflow.oas --continue-on-error
 
 # 로그 파일 저장
 oa batch run workflow.oas --log-file execution.log
+
+# 스크립트 검증
+oa batch validate workflow.oas
+
+# 스크립트 정보 조회
+oa batch info workflow.oas
 ```
 
 #### 스크립트 예제 (.oas 파일)
+
+**기본 스크립트 (Phase 1)**
 ```bash
 # daily_report.oas - 일일 보고서 자동 생성
 # Comments start with #
@@ -393,6 +404,50 @@ ppt presentation-create --save-path "daily_report.pptx"
 ppt slide-add --layout 1
 ppt content-add-text --slide-number 1 --text "Daily Report" --left 100 --top 50
 ppt content-add-excel-chart --slide-number 2 --excel-file "sales_data.xlsx" --sheet "Charts" --chart-name "Chart1"
+```
+
+**변수 사용 스크립트 (Phase 2 - NEW!)**
+```bash
+# monthly_report.oas - 변수를 활용한 월간 보고서
+# Variables: ${VAR_NAME} or $VAR_NAME
+
+# 변수 정의
+@set REPORT_MONTH = "2024-01"
+@set DATA_FILE = "sales_${REPORT_MONTH}.xlsx"
+@set OUTPUT_PPT = "report_${REPORT_MONTH}.pptx"
+
+# 진행 상황 출력
+@echo "Starting report generation for ${REPORT_MONTH}"
+
+# Excel 데이터 처리 (변수 치환)
+excel workbook-open --file-path "${DATA_FILE}"
+excel sheet-activate --sheet "Data"
+excel table-read --output-file "analysis.csv"
+
+# PowerPoint 보고서 생성
+@echo "Creating PowerPoint: ${OUTPUT_PPT}"
+ppt presentation-create --save-path "${OUTPUT_PPT}"
+ppt slide-add --layout 1
+ppt content-add-text --slide-number 1 --text "Monthly Report - ${REPORT_MONTH}" --left 100 --top 50
+
+# 완료 메시지
+@echo "Report generation completed!"
+```
+
+**변수 치환 지원 디렉티브:**
+- `@set VAR = "value"` - 변수 설정
+- `@unset VAR` - 변수 삭제
+- `@echo "message"` - 메시지 출력 (디버깅용)
+- `@export VAR = "value"` - 환경 변수로 내보내기
+- `${VAR_NAME}` 또는 `$VAR_NAME` - 변수 치환
+
+**실행 예시:**
+```bash
+# 스크립트 내장 변수 사용
+oa batch run monthly_report.oas
+
+# CLI에서 변수 오버라이드
+oa batch run monthly_report.oas --set REPORT_MONTH=2024-02 --set OUTPUT_PPT=custom_report.pptx
 ```
 
 **Batch Mode 장점:**

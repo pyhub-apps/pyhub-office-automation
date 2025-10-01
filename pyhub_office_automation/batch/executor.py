@@ -3,19 +3,27 @@ Batch script executor for Office Automation
 
 Executes sequences of shell commands from script files (.oas format).
 
-Phase 1: Basic execution without variables or control flow
+Phase 2: Variable substitution and directive support
 """
 
 import shlex
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from typer.testing import CliRunner
+
+from .variables import (
+    VariableManager,
+    parse_echo_directive,
+    parse_export_directive,
+    parse_set_directive,
+    parse_unset_directive,
+)
 
 console = Console()
 runner = CliRunner()
@@ -89,7 +97,7 @@ def parse_script(script_path: str) -> List[BatchLine]:
                 lines.append(BatchLine(line_number=line_num, content=line, is_comment=True))
                 continue
 
-            # Directive (Phase 2 - not implemented yet)
+            # Directive (Phase 2 - variable directives supported)
             if line.strip().startswith("@"):
                 lines.append(
                     BatchLine(
@@ -98,7 +106,6 @@ def parse_script(script_path: str) -> List[BatchLine]:
                         is_directive=True,
                     )
                 )
-                console.print(f"[yellow]Warning: Directives not supported yet (line {line_num}): {line}[/yellow]")
                 continue
 
             # Shell command
@@ -126,12 +133,82 @@ def parse_script(script_path: str) -> List[BatchLine]:
     return lines
 
 
-def execute_shell_command(line: BatchLine, mode: str = "unified") -> LineResult:
+def execute_directive(line: BatchLine, var_manager: VariableManager) -> LineResult:
     """
-    Execute a single shell command
+    Execute a directive line (@set, @unset, @echo, @export)
+
+    Args:
+        line: Parsed batch line with directive
+        var_manager: Variable manager instance
+
+    Returns:
+        Execution result
+    """
+    start_time = datetime.now()
+    content = line.content.strip()
+
+    try:
+        # @set VAR = value
+        if content.startswith("@set "):
+            name, value = parse_set_directive(content)
+            # Resolve variables in value before setting
+            resolved_value = var_manager.resolve(value)
+            var_manager.set(name, resolved_value)
+            output = f"Variable set: {name} = {resolved_value}"
+
+        # @unset VAR
+        elif content.startswith("@unset "):
+            name = parse_unset_directive(content)
+            var_manager.unset(name)
+            output = f"Variable unset: {name}"
+
+        # @echo message
+        elif content.startswith("@echo "):
+            message = parse_echo_directive(content)
+            resolved_message = var_manager.resolve(message)
+            console.print(f"[cyan]{resolved_message}[/cyan]")
+            output = resolved_message
+
+        # @export VAR = value
+        elif content.startswith("@export "):
+            name, value = parse_export_directive(content)
+            resolved_value = var_manager.resolve(value)
+            var_manager.export(name, resolved_value)
+            output = f"Variable exported: {name} = {resolved_value}"
+
+        else:
+            # Unknown directive - warn but don't fail
+            output = f"Unknown directive (skipped): {content}"
+            console.print(f"[yellow]Warning: {output}[/yellow]")
+
+        duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+
+        return LineResult(
+            line_number=line.line_number,
+            command=line.content,
+            success=True,
+            output=output,
+            duration_ms=duration_ms,
+        )
+
+    except Exception as e:
+        duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+        return LineResult(
+            line_number=line.line_number,
+            command=line.content,
+            success=False,
+            error=str(e),
+            duration_ms=duration_ms,
+        )
+
+
+def execute_shell_command(line: BatchLine, var_manager: VariableManager, mode: str = "unified") -> LineResult:
+    """
+    Execute a single shell command with variable substitution
 
     Args:
         line: Parsed batch line
+        var_manager: Variable manager for variable resolution
         mode: "unified", "excel", or "ppt"
 
     Returns:
@@ -142,13 +219,17 @@ def execute_shell_command(line: BatchLine, mode: str = "unified") -> LineResult:
     start_time = datetime.now()
 
     try:
+        # Resolve variables in command and arguments
+        resolved_command = var_manager.resolve(line.command)
+        resolved_args = [var_manager.resolve(arg) for arg in line.args]
+
         # Build command arguments
         if mode == "unified":
             # Unified shell commands
-            cmd_args = [line.command] + line.args
+            cmd_args = [resolved_command] + resolved_args
         else:
             # Mode-specific commands (future: route to excel/ppt)
-            cmd_args = [line.command] + line.args
+            cmd_args = [resolved_command] + resolved_args
 
         # Execute command
         result = runner.invoke(main_app, cmd_args)
@@ -190,9 +271,10 @@ def batch_run(
     verbose: bool = False,
     continue_on_error: bool = False,
     log_file: Optional[str] = None,
+    variables: Optional[Dict[str, str]] = None,
 ):
     """
-    Execute batch script
+    Execute batch script with variable support
 
     Args:
         script_path: Path to .oas script file
@@ -200,10 +282,14 @@ def batch_run(
         verbose: Show detailed output
         continue_on_error: Continue execution even if commands fail
         log_file: Path to log file
+        variables: Initial variables (from --set CLI options)
     """
     console.print(f"\n[bold cyan]Batch Script Execution[/bold cyan]: {script_path}\n")
 
     start_time = datetime.now()
+
+    # Initialize variable manager with CLI variables
+    var_manager = VariableManager(initial_vars=variables or {})
 
     # Parse script
     try:
@@ -213,16 +299,32 @@ def batch_run(
         return
 
     total_lines = len(lines)
-    executable_lines = [l for l in lines if not (l.is_comment or l.is_empty or l.is_directive)]
+    directive_lines = [l for l in lines if l.is_directive]
+    executable_lines = [l for l in lines if not (l.is_comment or l.is_empty)]
 
     console.print(f"Total lines: {total_lines}")
     console.print(f"Executable lines: {len(executable_lines)}")
+    console.print(f"  - Directives: {len(directive_lines)}")
+    console.print(f"  - Commands: {len(executable_lines) - len(directive_lines)}")
     console.print(f"Comments/Empty: {total_lines - len(executable_lines)}\n")
+
+    if variables:
+        console.print("[bold]Initial Variables:[/bold]")
+        for name, value in variables.items():
+            console.print(f"  {name} = {value}")
+        console.print()
 
     if dry_run:
         console.print("[yellow]Dry-run mode - commands will not be executed[/yellow]\n")
         for line in executable_lines:
-            console.print(f"[dim]Line {line.line_number}:[/dim] {line.content}")
+            if line.is_directive:
+                console.print(f"[dim]Line {line.line_number} [Directive]:[/dim] {line.content}")
+            else:
+                # Resolve variables for preview
+                resolved_cmd = var_manager.resolve(line.command)
+                resolved_args = [var_manager.resolve(arg) for arg in line.args]
+                resolved_line = f"{resolved_cmd} {' '.join(resolved_args)}"
+                console.print(f"[dim]Line {line.line_number}:[/dim] {resolved_line}")
         return
 
     # Execute script
@@ -238,14 +340,18 @@ def batch_run(
 
         for line in lines:
             # Skip non-executable lines
-            if line.is_comment or line.is_empty or line.is_directive:
+            if line.is_comment or line.is_empty:
                 continue
 
             if verbose:
                 console.print(f"\n[dim]Line {line.line_number}:[/dim] {line.content}")
 
-            # Execute command
-            result = execute_shell_command(line)
+            # Execute directive or command
+            if line.is_directive:
+                result = execute_directive(line, var_manager)
+            else:
+                result = execute_shell_command(line, var_manager)
+
             results.append(result)
 
             if verbose:

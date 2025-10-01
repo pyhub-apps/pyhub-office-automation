@@ -1,0 +1,30 @@
+# Batch Script with Variables Example
+# This script demonstrates Phase 2 variable features
+
+# Set variables
+@set REPORT_DATE = "2024-01-15"
+@set OUTPUT_DIR = "C:/Work/reports"
+@set FILE_NAME = "sales_report_${REPORT_DATE}.xlsx"
+
+# Echo current variables
+@echo "Starting batch processing for date: ${REPORT_DATE}"
+@echo "Output directory: ${OUTPUT_DIR}"
+@echo "Target file: ${FILE_NAME}"
+
+# Variable substitution in commands (simulated)
+@echo "Command would be: excel workbook-open --file-path ${OUTPUT_DIR}/${FILE_NAME}"
+
+# Nested variable references
+@set FULL_PATH = "${OUTPUT_DIR}/${FILE_NAME}"
+@echo "Full path: ${FULL_PATH}"
+
+# Export to environment
+@export BATCH_RUN_DATE = "${REPORT_DATE}"
+@echo "Exported BATCH_RUN_DATE to environment"
+
+# Unset a variable
+@unset REPORT_DATE
+@echo "REPORT_DATE variable has been unset"
+
+# Echo completion
+@echo "Batch script completed successfully!"

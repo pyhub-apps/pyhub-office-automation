@@ -772,9 +772,22 @@ def batch_run_cmd(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed output"),
     continue_on_error: bool = typer.Option(False, "--continue-on-error", help="Continue execution even if commands fail"),
     log_file: Optional[str] = typer.Option(None, "--log-file", help="Path to log file"),
+    set_vars: Optional[list[str]] = typer.Option(
+        None, "--set", help="Set variable (format: VAR=value, can be used multiple times)"
+    ),
 ):
-    """Execute batch script from .oas file"""
+    """Execute batch script from .oas file with variable support"""
     from pyhub_office_automation.batch.executor import batch_run
+
+    # Parse --set options into dictionary
+    variables = {}
+    if set_vars:
+        for var_spec in set_vars:
+            if "=" not in var_spec:
+                typer.echo(f"Error: Invalid --set format: {var_spec}. Expected VAR=value", err=True)
+                raise typer.Exit(1)
+            name, value = var_spec.split("=", 1)
+            variables[name.strip()] = value.strip()
 
     batch_run(
         script_path=script_path,
@@ -782,7 +795,134 @@ def batch_run_cmd(
         verbose=verbose,
         continue_on_error=continue_on_error,
         log_file=log_file,
+        variables=variables,
     )
+
+
+@batch_app.command("validate")
+def batch_validate_cmd(
+    script_path: str = typer.Argument(..., help="Path to .oas script file"),
+    strict: bool = typer.Option(False, "--strict", help="Enable strict validation"),
+):
+    """Validate batch script syntax without executing"""
+    from rich.console import Console
+
+    from pyhub_office_automation.batch.executor import parse_script
+
+    console = Console()
+
+    try:
+        console.print(f"\n[bold cyan]Validating script:[/bold cyan] {script_path}\n")
+
+        # Parse script
+        lines = parse_script(script_path)
+
+        # Count line types
+        total_lines = len(lines)
+        comments = sum(1 for l in lines if l.is_comment)
+        empty = sum(1 for l in lines if l.is_empty)
+        directives = sum(1 for l in lines if l.is_directive)
+        commands = total_lines - comments - empty - directives
+
+        # Display statistics
+        console.print("[bold]Script Statistics:[/bold]")
+        console.print(f"  Total lines: {total_lines}")
+        console.print(f"  Commands: {commands}")
+        console.print(f"  Directives: {directives}")
+        console.print(f"  Comments: {comments}")
+        console.print(f"  Empty lines: {empty}")
+
+        # List directives
+        if directives > 0:
+            console.print("\n[bold]Directives found:[/bold]")
+            for line in lines:
+                if line.is_directive:
+                    console.print(f"  Line {line.line_number}: {line.content}")
+
+        console.print("\n[bold green]✓ Script validation passed![/bold green]\n")
+
+    except FileNotFoundError:
+        console.print(f"[bold red]Error:[/bold red] Script file not found: {script_path}\n", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[bold red]Validation failed:[/bold red] {e}\n", err=True)
+        raise typer.Exit(1)
+
+
+@batch_app.command("info")
+def batch_info_cmd(
+    script_path: str = typer.Argument(..., help="Path to .oas script file"),
+):
+    """Display information about batch script"""
+    from pathlib import Path
+
+    from rich.console import Console
+    from rich.table import Table
+
+    from pyhub_office_automation.batch.executor import parse_script
+
+    console = Console()
+
+    try:
+        script_file = Path(script_path)
+
+        if not script_file.exists():
+            console.print(f"[bold red]Error:[/bold red] Script file not found: {script_path}\n", err=True)
+            raise typer.Exit(1)
+
+        console.print(f"\n[bold cyan]Batch Script Information[/bold cyan]\n")
+
+        # File information
+        console.print("[bold]File Information:[/bold]")
+        console.print(f"  Path: {script_file.absolute()}")
+        console.print(f"  Size: {script_file.stat().st_size} bytes")
+        console.print(f"  Modified: {script_file.stat().st_mtime}")
+
+        # Parse script
+        lines = parse_script(script_path)
+
+        # Statistics
+        total_lines = len(lines)
+        comments = [l for l in lines if l.is_comment]
+        empty = [l for l in lines if l.is_empty]
+        directives = [l for l in lines if l.is_directive]
+        commands = [l for l in lines if not (l.is_comment or l.is_empty or l.is_directive)]
+
+        console.print(f"\n[bold]Content Statistics:[/bold]")
+        console.print(f"  Total lines: {total_lines}")
+        console.print(f"  Executable lines: {len(directives) + len(commands)}")
+        console.print(f"    - Directives: {len(directives)}")
+        console.print(f"    - Commands: {len(commands)}")
+        console.print(f"  Non-executable: {len(comments) + len(empty)}")
+        console.print(f"    - Comments: {len(comments)}")
+        console.print(f"    - Empty lines: {len(empty)}")
+
+        # Commands table
+        if commands:
+            console.print(f"\n[bold]Commands Preview:[/bold]")
+            table = Table(show_header=True, header_style="bold cyan")
+            table.add_column("Line", style="dim", width=6)
+            table.add_column("Command")
+
+            for line in commands[:10]:  # Show first 10 commands
+                table.add_row(str(line.line_number), line.content)
+
+            if len(commands) > 10:
+                table.add_row("...", f"... and {len(commands) - 10} more commands")
+
+            console.print(table)
+
+        # Directives detail
+        if directives:
+            console.print(f"\n[bold]Directives:[/bold]")
+            for line in directives:
+                console.print(f"  Line {line.line_number}: {line.content}")
+
+        console.print()
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}\n", err=True)
+        raise typer.Exit(1)
 
 
 @ppt_app.command("list")
