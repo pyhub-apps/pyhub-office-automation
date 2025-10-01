@@ -750,6 +750,11 @@ ppt_app.command("slideshow-control")(slideshow_control)
 ppt_app.command("run-macro")(run_macro)
 ppt_app.command("animation-add")(animation_add)
 
+# Shell Command (Issue #85 Phase 5)
+from pyhub_office_automation.shell.ppt_shell import ppt_shell
+
+ppt_app.command("shell")(ppt_shell)
+
 
 @ppt_app.command("list")
 def ppt_list(
