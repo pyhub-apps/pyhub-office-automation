@@ -1018,6 +1018,261 @@ oa excel chart-export \
    - **피벗테이블 구성**: 카테고리(행), 이익률 평균(값)
    - **차트 설정**: Pie 차트, 데이터 레이블 표시, 퍼센트 형식
 
+## 🗺️ Map Chart 활용 가이드 (Issue #72)
+
+### 지리 데이터 시각화 전략
+
+Claude Code의 체계적 접근을 활용한 Map Chart 워크플로우:
+
+#### 1단계: 데이터 준비 및 위치명 검증
+
+```bash
+# 위치명 형식 확인 (25개 구 가이드)
+oa excel map-location-guide --region seoul --show-all
+
+# 데이터 내 위치명 자동 변환 테스트
+oa excel map-location-guide --test "강남구,서초구,songpa" --format json
+
+# Python 시각화용 데이터 검증
+oa excel map-visualize --data-file district_sales.csv --validate-only
+```
+
+**Claude의 데이터 품질 검증 포인트:**
+- ✅ 위치명 일관성 확인 (한글/영문 혼용 여부)
+- ✅ 25개 구 전체 커버리지 검증
+- ✅ 결측값 및 이상치 탐지
+- ✅ Excel vs Python 시각화 적합성 판단
+
+#### 2단계: 시각화 방법 선택
+
+**의사결정 트리:**
+
+```python
+def select_visualization_method(requirements):
+    """Claude가 추천하는 시각화 방법 선택 로직"""
+
+    # Excel 환경 확인
+    if requirements.excel_available and requirements.microsoft_365:
+        if requirements.interactive_filters:
+            return "Excel Map Chart"  # Excel 대시보드용
+        elif requirements.simple_visual:
+            return "Excel Map Chart"  # 간단한 보고서용
+
+    # Python 환경 추천
+    if requirements.cross_platform or not requirements.excel_available:
+        if requirements.offline_html:
+            return "Python folium (choropleth)"  # 대화형 HTML
+        elif requirements.point_markers:
+            return "Python folium (marker)"  # 핀 마커 지도
+
+    # 기본 추천
+    return "Python folium"  # 가장 범용적
+```
+
+#### 3단계: Excel Map Chart 구현 (Phase 1)
+
+```bash
+# 데이터가 Excel Table 형식일 때
+oa excel shell --workbook-name "sales_data.xlsx"
+
+[Excel: sales_data.xlsx > Sheet1] > table-list  # 테이블 구조 확인
+[Excel: sales_data.xlsx > Sheet1] > use sheet "DistrictSales"
+
+# 위치명 자동 변환 확인
+[Excel: sales_data.xlsx > DistrictSales] > range-read --range "A1:A26"
+# → 강남구, 서초구 등 한글 확인
+
+# Map Chart 생성
+[Excel: sales_data.xlsx > DistrictSales] > chart-add \
+  --data-range "A1:B26" \
+  --chart-type "map" \
+  --title "서울시 구별 매출 분포" \
+  --auto-position
+
+[Excel: sales_data.xlsx > DistrictSales] > exit
+```
+
+**Excel Map Chart 장점:**
+- ✅ Excel 환경 내 완전 통합
+- ✅ PowerPivot 연동 가능
+- ✅ Bing Maps 실시간 업데이트
+
+**제약사항:**
+- ❌ Windows + Excel 2016+ 필수
+- ❌ 인터넷 연결 필요
+- ❌ 커스텀 지도 제한적
+
+#### 4단계: Python folium 구현 (Phase 3 - 권장)
+
+```bash
+# 데이터 추출 (Excel → CSV)
+oa excel table-read --table-name "DistrictSales" --output-file sales_by_district.csv
+
+# Choropleth 지도 생성
+oa excel map-visualize \
+  --data-file sales_by_district.csv \
+  --value-column "sales_amount" \
+  --title "서울시 구별 매출 분포" \
+  --color-scheme YlOrRd \
+  --output-file seoul_sales_map.html
+
+# 브라우저에서 확인 (자동 위치명 변환됨)
+# "강남구" → "Seoul Gangnam" (자동)
+```
+
+**Python 시각화 장점:**
+- ✅ Excel 불필요 - CI/CD 파이프라인 통합 가능
+- ✅ 크로스 플랫폼 - Linux 서버에서도 실행
+- ✅ 버전 관리 - HTML 파일로 결과물 저장
+- ✅ 자동화 친화적 - 배치 스크립트로 정기 업데이트
+
+#### 5단계: 고급 워크플로우 - 다중 데이터셋 비교
+
+```bash
+# 시나리오: Q1, Q2, Q3, Q4 분기별 지도 자동 생성
+
+# 방법 1: Shell Mode (추천)
+oa shell
+
+[OA Shell] > use excel "quarterly_data.xlsx"
+[OA Shell: Excel quarterly_data.xlsx > Sheet1] > use sheet Q1
+[OA Shell: Excel quarterly_data.xlsx > Sheet Q1] > table-read --output-file q1.csv
+
+# Python 지도 생성
+[OA Shell: Excel quarterly_data.xlsx > Sheet Q1] > !oa excel map-visualize \
+  --data-file q1.csv \
+  --title "Q1 2024 서울시 구별 매출" \
+  --output-file q1_map.html
+
+# Q2, Q3, Q4 반복
+[OA Shell: Excel quarterly_data.xlsx > Sheet Q1] > use sheet Q2
+[OA Shell: Excel quarterly_data.xlsx > Sheet Q2] > table-read --output-file q2.csv
+# ... (반복)
+
+[OA Shell: Excel quarterly_data.xlsx > Sheet Q4] > exit
+
+# 방법 2: Batch Mode (자동화)
+# quarterly_maps.oas 파일 작성:
+```
+
+```oas
+# quarterly_maps.oas - 분기별 지도 자동 생성
+
+@foreach quarter in ["Q1", "Q2", "Q3", "Q4"]
+  @echo "Processing ${quarter}..."
+
+  excel workbook-open --file-path "quarterly_data.xlsx"
+  excel sheet-activate --sheet "${quarter}"
+  excel table-read --output-file "${quarter}.csv"
+
+  # Python 지도 생성
+  @set OUTPUT_MAP = "maps/${quarter}_seoul_map.html"
+  excel map-visualize \
+    --data-file "${quarter}.csv" \
+    --value-column "sales" \
+    --title "서울시 구별 매출 - ${quarter} 2024" \
+    --output-file "${OUTPUT_MAP}"
+
+  @echo "✓ Created ${OUTPUT_MAP}"
+@endforeach
+
+@echo "All quarterly maps generated successfully!"
+```
+
+```bash
+# Batch 실행
+oa batch run quarterly_maps.oas --verbose
+```
+
+#### Claude의 Map Chart 품질 검증 체크리스트
+
+**데이터 무결성:**
+- [ ] 25개 구 전체 데이터 존재 확인
+- [ ] 위치명 일관성 (혼용 방지)
+- [ ] 결측값 0개 또는 명시적 처리
+- [ ] 값 범위 이상치 검증 (예: 음수 매출)
+
+**시각화 품질:**
+- [ ] 색상 스킴이 데이터 의미와 일치 (빨강=높음, 파랑=낮음)
+- [ ] 범례 및 툴팁 가독성
+- [ ] 지도 중심 및 줌 레벨 최적화
+- [ ] 모바일 반응형 (HTML 출력 시)
+
+**사용자 경험:**
+- [ ] 로딩 시간 1초 이내 (Python HTML)
+- [ ] 상호작용 즉시 반응 (클릭, 호버)
+- [ ] 접근성 (색각이상 고려)
+- [ ] 다국어 레이블 (한글/영문 병기)
+
+### Map Chart 에러 처리 패턴
+
+```python
+# Claude 권장 에러 처리 워크플로우
+
+def robust_map_visualization():
+    """안전한 지도 시각화 파이프라인"""
+
+    try:
+        # 1단계: 데이터 검증
+        result = subprocess.run(
+            ["oa", "excel", "map-visualize",
+             "--data-file", "sales.csv",
+             "--validate-only", "--format", "json"],
+            capture_output=True, text=True, check=True
+        )
+
+        validation = json.loads(result.stdout)
+
+        if validation["data"]["unmatched_count"] > 0:
+            print(f"⚠️  {validation['data']['unmatched_count']} locations need fixing")
+            # Claude가 자동으로 위치명 수정 제안
+            for item in validation["data"]["unmatched"]:
+                print(f"  - {item['input']}: {item['suggestions'][0]}")
+            return False
+
+        # 2단계: 지도 생성
+        result = subprocess.run(
+            ["oa", "excel", "map-visualize",
+             "--data-file", "sales.csv",
+             "--value-column", "amount",
+             "--output-file", "output.html"],
+            capture_output=True, text=True, check=True
+        )
+
+        print("✓ Map created successfully")
+        return True
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e.stderr}")
+        # Claude가 에러 원인 분석 및 해결책 제시
+        return False
+```
+
+### 실전 활용 시나리오
+
+**1. 부동산 시장 분석 대시보드**
+```bash
+# 평균 매매가, 전세가, 월세 3개 지도 동시 생성
+oa batch run real_estate_dashboard.oas
+
+# 결과:
+# - seoul_sales_price_map.html
+# - seoul_jeonse_price_map.html
+# - seoul_monthly_rent_map.html
+```
+
+**2. 인구 통계 시계열 분석**
+```bash
+# 2020-2024년 연도별 인구 변화 애니메이션
+# (Claude가 연도별 HTML 생성 후 슬라이드쇼 스크립트 제안)
+```
+
+**3. 공공데이터 시각화 자동화**
+```bash
+# 서울시 열린데이터광장 API → CSV → 지도 자동 업데이트
+# cron: 매일 오전 9시 자동 실행
+```
+
 ## Claude Code 특화 기능
 
 ### 상세 분석 및 체계적 접근

@@ -710,6 +710,149 @@ oa llm-guide codex
 - **Text**: 사람이 읽기 쉬운 일반 텍스트
 - **Markdown**: 문서화 및 공유용 마크다운
 
+## 🗺️ 지도 시각화 (Map Chart) - Issue #72
+
+서울시 구별 데이터를 지도로 시각화하는 두 가지 방법을 제공합니다.
+
+### Excel Map Chart (Phase 1)
+Excel 2016+의 Map Chart 기능을 활용한 지리 데이터 시각화:
+
+```bash
+# 서울 구별 판매량 지도 차트 생성 (Excel 필요)
+oa excel chart-add --data-range "A1:B26" --chart-type "map" --title "서울시 구별 판매량"
+```
+
+**필수 요구사항**:
+- Excel 2016 이상 (Microsoft 365 권장)
+- 인터넷 연결 (Bing Maps 통합)
+- Windows 플랫폼
+
+### 위치명 가이드 (Phase 2)
+서울시 25개 구의 올바른 위치명 형식을 확인하고 테스트:
+
+```bash
+# 위치명 가이드 보기
+oa excel map-location-guide --region seoul
+
+# 25개 구 전체 목록 확인
+oa excel map-location-guide --show-all
+
+# 위치명 자동 변환 테스트
+oa excel map-location-guide --test "강남구,gangnam,Gangnam-gu,서울 강남"
+```
+
+**지원 입력 형식** (자동 변환):
+- 한글 (구 포함): `강남구`, `서초구`
+- 한글 (구 없이): `강남`, `서초`
+- 영문: `gangnam`, `seocho`
+- 영문 (구 포함): `Gangnam-gu`, `Seocho-gu`
+- 서울 접두사: `서울 강남구`, `서울 강남`
+- 대소문자 무관: `GANGNAM-GU`, `Gangnam-Gu`
+
+**Excel 인식 형식** (자동 변환 결과):
+- `Seoul Gangnam`, `Seoul Seocho`, `Seoul Songpa`, ...
+
+### Python 지도 시각화 (Phase 3 - Excel 불필요!)
+folium 라이브러리로 대화형 HTML 지도 생성 - Excel 없이 순수 Python:
+
+```bash
+# CSV 데이터에서 Choropleth 지도 생성
+oa excel map-visualize --data-file sales.csv --value-column revenue --title "서울시 구별 매출"
+
+# 마커 지도 생성
+oa excel map-visualize --data-file population.json --map-type marker --title "인구 분포"
+
+# 데이터 검증만 수행
+oa excel map-visualize --data-file data.csv --validate-only
+
+# 색상 스킴 변경
+oa excel map-visualize --data-file data.csv --color-scheme YlGnBu
+
+# JSON 출력 (AI 에이전트용)
+oa excel map-visualize --data-file data.csv --format json
+```
+
+**입력 데이터 형식**:
+
+CSV:
+```csv
+location,value
+강남구,125.5
+서초구,98.7
+송파구,87.3
+```
+
+JSON (딕셔너리):
+```json
+{
+  "강남구": 125.5,
+  "서초구": 98.7,
+  "송파구": 87.3
+}
+```
+
+JSON (리스트):
+```json
+[
+  {"location": "강남구", "value": 125.5},
+  {"location": "서초구", "value": 98.7}
+]
+```
+
+**지도 유형**:
+- **choropleth**: 색상 코딩된 지역 지도 (값 범위를 색상으로 표현)
+- **marker**: 핀 마커 지도 (각 위치에 마커 표시)
+
+**색상 스킴** (choropleth 전용):
+- **YlOrRd** (기본): 노란색 → 주황색 → 빨간색
+- **YlGnBu**: 노란색 → 녹색 → 파란색
+- **RdYlGn**: 빨간색 → 노란색 → 녹색
+
+**출력**:
+- 대화형 HTML 파일 (브라우저에서 열기)
+- 줌/팬 가능한 Leaflet.js 기반 지도
+- 클릭 시 팝업, 호버 시 툴팁 표시
+
+**장점**:
+- ✅ Excel 불필요 - 순수 Python 솔루션
+- ✅ 크로스 플랫폼 - Windows/macOS/Linux
+- ✅ 대화형 - 줌, 팬, 클릭 상호작용
+- ✅ 자동 위치 변환 - Phase 2 컨버터 통합
+- ✅ 오프라인 가능 - 로컬 HTML 파일
+
+**실전 예제**:
+```bash
+# 부동산 가격 시각화
+oa excel map-visualize \
+  --data-file housing_prices.csv \
+  --value-column avg_price \
+  --title "서울시 구별 평균 주택 가격" \
+  --color-scheme YlOrRd \
+  --output-file seoul_housing_map.html
+
+# 인구 밀도 마커 지도
+oa excel map-visualize \
+  --data-file population_density.json \
+  --map-type marker \
+  --title "서울시 구별 인구 밀도"
+
+# 데이터 품질 사전 검증
+oa excel map-visualize \
+  --data-file sales_by_district.csv \
+  --validate-only \
+  --format json
+```
+
+**지원 지역** (현재):
+- 서울시 25개 구 (전체 좌표 데이터)
+
+**향후 확장 계획**:
+- 전국 시도/시군구 지원
+- 커스텀 GeoJSON 업로드
+- 히트맵, 클러스터 지도
+
+---
+
 ## 📊 핵심 Excel 명령어
 
 ### 상황 파악
