@@ -45,6 +45,7 @@ from pyhub_office_automation.excel.chart_position import chart_position
 from pyhub_office_automation.excel.data_analyze import data_analyze
 from pyhub_office_automation.excel.data_transform import data_transform
 from pyhub_office_automation.excel.map_location_guide import map_location_guide
+from pyhub_office_automation.excel.map_visualize import map_visualize
 from pyhub_office_automation.excel.metadata_generate import metadata_generate
 
 # Pivot 명령어 import
@@ -326,6 +327,7 @@ excel_app.command("data-transform")(data_transform)
 
 # Map Chart Commands (Issue #72)
 excel_app.command("map-location-guide")(map_location_guide)
+excel_app.command("map-visualize")(map_visualize)  # Issue #72 Phase 3
 
 # Workbook Commands
 excel_app.command("workbook-list")(workbook_list)
