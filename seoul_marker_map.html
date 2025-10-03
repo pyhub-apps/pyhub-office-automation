@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_cc1345935f9c40450b695ecec00c20ad {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+        <div style="position: fixed;
+                    top: 10px; left: 50px; width: 300px; height: 50px;
+                    background-color: white; border:2px solid grey; z-index:9999;
+                    font-size:20px; font-weight:bold; padding: 10px">
+            서울시 구별 마커
+        </div>
+        
+    
+            <div class="folium-map" id="map_cc1345935f9c40450b695ecec00c20ad" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_cc1345935f9c40450b695ecec00c20ad = L.map(
+                "map_cc1345935f9c40450b695ecec00c20ad",
+                {
+                    center: [37.5665, 126.978],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 11,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_5e022ed143ebc24aecbdb3d9a9d01150 = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_5e022ed143ebc24aecbdb3d9a9d01150.addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var marker_d1cbf7ac964dd0c96a67c396b3f9678b = L.marker(
+                [37.5172, 127.0473],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_19a8ac101261745c70d2d3be091f0299 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_b61d97c905b9c6687e9665e6990a3fa3 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_f04d4111437bbc662f05b4e4b9d46913 = $(`<div id="html_f04d4111437bbc662f05b4e4b9d46913" style="width: 100.0%; height: 100.0%;"><b>Seoul Gangnam</b><br>Value: 125.50</div>`)[0];
+                popup_b61d97c905b9c6687e9665e6990a3fa3.setContent(html_f04d4111437bbc662f05b4e4b9d46913);
+            
+        
+
+        marker_d1cbf7ac964dd0c96a67c396b3f9678b.bindPopup(popup_b61d97c905b9c6687e9665e6990a3fa3)
+        ;
+
+        
+    
+    
+            marker_d1cbf7ac964dd0c96a67c396b3f9678b.bindTooltip(
+                `<div>
+                     Seoul Gangnam: 125.50
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_d1cbf7ac964dd0c96a67c396b3f9678b.setIcon(icon_19a8ac101261745c70d2d3be091f0299);
+            
+    
+            var marker_18dd31afbab308d890db3ac8a6a35058 = L.marker(
+                [37.5301, 127.1238],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_2dd50c56e9e023b07710f2bb5098d52a = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_3b87a945d1ea54f6379c24111650b4f5 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_bddd1060bbf39cad668cc72e29bfae08 = $(`<div id="html_bddd1060bbf39cad668cc72e29bfae08" style="width: 100.0%; height: 100.0%;"><b>Seoul Gangdong</b><br>Value: 76.20</div>`)[0];
+                popup_3b87a945d1ea54f6379c24111650b4f5.setContent(html_bddd1060bbf39cad668cc72e29bfae08);
+            
+        
+
+        marker_18dd31afbab308d890db3ac8a6a35058.bindPopup(popup_3b87a945d1ea54f6379c24111650b4f5)
+        ;
+
+        
+    
+    
+            marker_18dd31afbab308d890db3ac8a6a35058.bindTooltip(
+                `<div>
+                     Seoul Gangdong: 76.20
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_18dd31afbab308d890db3ac8a6a35058.setIcon(icon_2dd50c56e9e023b07710f2bb5098d52a);
+            
+    
+            var marker_d6b602123131c4a40f384c94d46aa420 = L.marker(
+                [37.6398, 127.0257],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_63b3ef5b875ff8fe5360c1c2d3e4b9a4 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_69facdeed5ce717338826dabf75f0faa = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_ca216a107d933f082a794333c1aef8e7 = $(`<div id="html_ca216a107d933f082a794333c1aef8e7" style="width: 100.0%; height: 100.0%;"><b>Seoul Gangbuk</b><br>Value: 54.30</div>`)[0];
+                popup_69facdeed5ce717338826dabf75f0faa.setContent(html_ca216a107d933f082a794333c1aef8e7);
+            
+        
+
+        marker_d6b602123131c4a40f384c94d46aa420.bindPopup(popup_69facdeed5ce717338826dabf75f0faa)
+        ;
+
+        
+    
+    
+            marker_d6b602123131c4a40f384c94d46aa420.bindTooltip(
+                `<div>
+                     Seoul Gangbuk: 54.30
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_d6b602123131c4a40f384c94d46aa420.setIcon(icon_63b3ef5b875ff8fe5360c1c2d3e4b9a4);
+            
+    
+            var marker_f6f167892792c5540e723b452ef974dd = L.marker(
+                [37.5509, 126.8495],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_277a6c7c836bec08329dbf582ed36c21 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_5f287d4a1187c143db2b242b61e9ea65 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_cd93fb18aba75e3cc345e909cd0d91a9 = $(`<div id="html_cd93fb18aba75e3cc345e909cd0d91a9" style="width: 100.0%; height: 100.0%;"><b>Seoul Gangseo</b><br>Value: 95.10</div>`)[0];
+                popup_5f287d4a1187c143db2b242b61e9ea65.setContent(html_cd93fb18aba75e3cc345e909cd0d91a9);
+            
+        
+
+        marker_f6f167892792c5540e723b452ef974dd.bindPopup(popup_5f287d4a1187c143db2b242b61e9ea65)
+        ;
+
+        
+    
+    
+            marker_f6f167892792c5540e723b452ef974dd.bindTooltip(
+                `<div>
+                     Seoul Gangseo: 95.10
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_f6f167892792c5540e723b452ef974dd.setIcon(icon_277a6c7c836bec08329dbf582ed36c21);
+            
+    
+            var marker_08c8c48d1f61f36f827958cc53f64883 = L.marker(
+                [37.4784, 126.9516],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_2144d6fb748fd73e1058486f690f2121 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_cbfa6a2124bbff2efec271479d254a59 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_90690ec33b54ec80276d33357be8f194 = $(`<div id="html_90690ec33b54ec80276d33357be8f194" style="width: 100.0%; height: 100.0%;"><b>Seoul Gwanak</b><br>Value: 59.80</div>`)[0];
+                popup_cbfa6a2124bbff2efec271479d254a59.setContent(html_90690ec33b54ec80276d33357be8f194);
+            
+        
+
+        marker_08c8c48d1f61f36f827958cc53f64883.bindPopup(popup_cbfa6a2124bbff2efec271479d254a59)
+        ;
+
+        
+    
+    
+            marker_08c8c48d1f61f36f827958cc53f64883.bindTooltip(
+                `<div>
+                     Seoul Gwanak: 59.80
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_08c8c48d1f61f36f827958cc53f64883.setIcon(icon_2144d6fb748fd73e1058486f690f2121);
+            
+    
+            var marker_40f6dc18043da68a2e50d15a98437eb0 = L.marker(
+                [37.5384, 127.0822],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_b399d8d3edeebd6063397a38256130d2 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_bbaeb75fdd60d41a5a9d16449918f74f = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_6199bfdad648c4c9950b52ffa3a8a840 = $(`<div id="html_6199bfdad648c4c9950b52ffa3a8a840" style="width: 100.0%; height: 100.0%;"><b>Seoul Gwangjin</b><br>Value: 69.80</div>`)[0];
+                popup_bbaeb75fdd60d41a5a9d16449918f74f.setContent(html_6199bfdad648c4c9950b52ffa3a8a840);
+            
+        
+
+        marker_40f6dc18043da68a2e50d15a98437eb0.bindPopup(popup_bbaeb75fdd60d41a5a9d16449918f74f)
+        ;
+
+        
+    
+    
+            marker_40f6dc18043da68a2e50d15a98437eb0.bindTooltip(
+                `<div>
+                     Seoul Gwangjin: 69.80
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_40f6dc18043da68a2e50d15a98437eb0.setIcon(icon_b399d8d3edeebd6063397a38256130d2);
+            
+    
+            var marker_901038140614bd4001cf706a5576af27 = L.marker(
+                [37.4955, 126.8874],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_d5c7f238c065e7e91ba11925d1aa394a = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_d1a6fc9e945e1423f0923c99c461b666 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_90f8b7a683f08e71bce69f72f1e1235f = $(`<div id="html_90f8b7a683f08e71bce69f72f1e1235f" style="width: 100.0%; height: 100.0%;"><b>Seoul Guro</b><br>Value: 72.90</div>`)[0];
+                popup_d1a6fc9e945e1423f0923c99c461b666.setContent(html_90f8b7a683f08e71bce69f72f1e1235f);
+            
+        
+
+        marker_901038140614bd4001cf706a5576af27.bindPopup(popup_d1a6fc9e945e1423f0923c99c461b666)
+        ;
+
+        
+    
+    
+            marker_901038140614bd4001cf706a5576af27.bindTooltip(
+                `<div>
+                     Seoul Guro: 72.90
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_901038140614bd4001cf706a5576af27.setIcon(icon_d5c7f238c065e7e91ba11925d1aa394a);
+            
+    
+            var marker_5bfb3bd324fe04a4b6b0fd2debdc64f5 = L.marker(
+                [37.4519, 126.8955],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_c6a11aec67149f82c91238a01c779920 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_8dfb85a9f3c76009db13266383ef0832 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_dfbd4e13267ec3ba56cea829f46b67ab = $(`<div id="html_dfbd4e13267ec3ba56cea829f46b67ab" style="width: 100.0%; height: 100.0%;"><b>Seoul Geumcheon</b><br>Value: 49.80</div>`)[0];
+                popup_8dfb85a9f3c76009db13266383ef0832.setContent(html_dfbd4e13267ec3ba56cea829f46b67ab);
+            
+        
+
+        marker_5bfb3bd324fe04a4b6b0fd2debdc64f5.bindPopup(popup_8dfb85a9f3c76009db13266383ef0832)
+        ;
+
+        
+    
+    
+            marker_5bfb3bd324fe04a4b6b0fd2debdc64f5.bindTooltip(
+                `<div>
+                     Seoul Geumcheon: 49.80
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_5bfb3bd324fe04a4b6b0fd2debdc64f5.setIcon(icon_c6a11aec67149f82c91238a01c779920);
+            
+    
+            var marker_17b59a1969a1256f54a3cd9346222ffc = L.marker(
+                [37.6542, 127.0568],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_f5c9e4f4900d745fb3660a0ba28e1095 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_f26065182705c4b8efc8c1707b06d179 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_63e484e849b9b97aa0ce8cff1235e9eb = $(`<div id="html_63e484e849b9b97aa0ce8cff1235e9eb" style="width: 100.0%; height: 100.0%;"><b>Seoul Nowon</b><br>Value: 58.60</div>`)[0];
+                popup_f26065182705c4b8efc8c1707b06d179.setContent(html_63e484e849b9b97aa0ce8cff1235e9eb);
+            
+        
+
+        marker_17b59a1969a1256f54a3cd9346222ffc.bindPopup(popup_f26065182705c4b8efc8c1707b06d179)
+        ;
+
+        
+    
+    
+            marker_17b59a1969a1256f54a3cd9346222ffc.bindTooltip(
+                `<div>
+                     Seoul Nowon: 58.60
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_17b59a1969a1256f54a3cd9346222ffc.setIcon(icon_f5c9e4f4900d745fb3660a0ba28e1095);
+            
+    
+            var marker_e230f4fadf6e4a465b4d24e5a82bfe63 = L.marker(
+                [37.6688, 127.0471],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_767de91b1636cab8f57a72031fb5ce2a = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_ce2800304dc9266ea881b7dec3de24c9 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_22b5ef05a92d4a997a1a6f98dab6d50d = $(`<div id="html_22b5ef05a92d4a997a1a6f98dab6d50d" style="width: 100.0%; height: 100.0%;"><b>Seoul Dobong</b><br>Value: 52.10</div>`)[0];
+                popup_ce2800304dc9266ea881b7dec3de24c9.setContent(html_22b5ef05a92d4a997a1a6f98dab6d50d);
+            
+        
+
+        marker_e230f4fadf6e4a465b4d24e5a82bfe63.bindPopup(popup_ce2800304dc9266ea881b7dec3de24c9)
+        ;
+
+        
+    
+    
+            marker_e230f4fadf6e4a465b4d24e5a82bfe63.bindTooltip(
+                `<div>
+                     Seoul Dobong: 52.10
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_e230f4fadf6e4a465b4d24e5a82bfe63.setIcon(icon_767de91b1636cab8f57a72031fb5ce2a);
+            
+    
+            var marker_cf337e238215bfd81f7cd6de7048d351 = L.marker(
+                [37.5744, 127.0399],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_eed66d15f0e5183ea9182ad7b8612436 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_37fa7cf066415f0a1f84f25f7bd16476 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_8767621b36b452b55f424fd2799afc09 = $(`<div id="html_8767621b36b452b55f424fd2799afc09" style="width: 100.0%; height: 100.0%;"><b>Seoul Dongdaemun</b><br>Value: 63.20</div>`)[0];
+                popup_37fa7cf066415f0a1f84f25f7bd16476.setContent(html_8767621b36b452b55f424fd2799afc09);
+            
+        
+
+        marker_cf337e238215bfd81f7cd6de7048d351.bindPopup(popup_37fa7cf066415f0a1f84f25f7bd16476)
+        ;
+
+        
+    
+    
+            marker_cf337e238215bfd81f7cd6de7048d351.bindTooltip(
+                `<div>
+                     Seoul Dongdaemun: 63.20
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_cf337e238215bfd81f7cd6de7048d351.setIcon(icon_eed66d15f0e5183ea9182ad7b8612436);
+            
+    
+            var marker_68ce3ce563e329669b69745cbd83fba0 = L.marker(
+                [37.5124, 126.9393],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_d4e8a76f565be838ebde6b9206f88169 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_08a480532ac71a685c2427c420adea96 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_7548601a6dc5079d8957cda85adae6f1 = $(`<div id="html_7548601a6dc5079d8957cda85adae6f1" style="width: 100.0%; height: 100.0%;"><b>Seoul Dongjak</b><br>Value: 64.30</div>`)[0];
+                popup_08a480532ac71a685c2427c420adea96.setContent(html_7548601a6dc5079d8957cda85adae6f1);
+            
+        
+
+        marker_68ce3ce563e329669b69745cbd83fba0.bindPopup(popup_08a480532ac71a685c2427c420adea96)
+        ;
+
+        
+    
+    
+            marker_68ce3ce563e329669b69745cbd83fba0.bindTooltip(
+                `<div>
+                     Seoul Dongjak: 64.30
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_68ce3ce563e329669b69745cbd83fba0.setIcon(icon_d4e8a76f565be838ebde6b9206f88169);
+            
+    
+            var marker_0030257ca9b65744911b0fe6ae6f4386 = L.marker(
+                [37.5663, 126.9019],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_d305e2fa6e5a1edbbb5cc9589e74b2c5 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_5940f92d57e328eaff03421ff45d3672 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_5dd293b5eba35dbad154ddbfb0dc6822 = $(`<div id="html_5dd293b5eba35dbad154ddbfb0dc6822" style="width: 100.0%; height: 100.0%;"><b>Seoul Mapo</b><br>Value: 88.50</div>`)[0];
+                popup_5940f92d57e328eaff03421ff45d3672.setContent(html_5dd293b5eba35dbad154ddbfb0dc6822);
+            
+        
+
+        marker_0030257ca9b65744911b0fe6ae6f4386.bindPopup(popup_5940f92d57e328eaff03421ff45d3672)
+        ;
+
+        
+    
+    
+            marker_0030257ca9b65744911b0fe6ae6f4386.bindTooltip(
+                `<div>
+                     Seoul Mapo: 88.50
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_0030257ca9b65744911b0fe6ae6f4386.setIcon(icon_d305e2fa6e5a1edbbb5cc9589e74b2c5);
+            
+    
+            var marker_0bf8bb4b2a297ce1cf39f93fbe4a0a1a = L.marker(
+                [37.5791, 126.9368],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_ceb7eaba751019ef5de1e250d58e0b51 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_e81bf1c742c6544ed86c34af0f2215ac = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_8b7b247203f0b41f6467ee51b6b13910 = $(`<div id="html_8b7b247203f0b41f6467ee51b6b13910" style="width: 100.0%; height: 100.0%;"><b>Seoul Seodaemun</b><br>Value: 71.20</div>`)[0];
+                popup_e81bf1c742c6544ed86c34af0f2215ac.setContent(html_8b7b247203f0b41f6467ee51b6b13910);
+            
+        
+
+        marker_0bf8bb4b2a297ce1cf39f93fbe4a0a1a.bindPopup(popup_e81bf1c742c6544ed86c34af0f2215ac)
+        ;
+
+        
+    
+    
+            marker_0bf8bb4b2a297ce1cf39f93fbe4a0a1a.bindTooltip(
+                `<div>
+                     Seoul Seodaemun: 71.20
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_0bf8bb4b2a297ce1cf39f93fbe4a0a1a.setIcon(icon_ceb7eaba751019ef5de1e250d58e0b51);
+            
+    
+            var marker_3a23b3cf7dab915ae1832cf3da880755 = L.marker(
+                [37.4837, 127.0324],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_2dc1fc13d037b174c6db4e4443232bfd = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_8f5d1fe5f3926621a184fa6d7671cf43 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_c98203b8997a86d33deff544d8e27422 = $(`<div id="html_c98203b8997a86d33deff544d8e27422" style="width: 100.0%; height: 100.0%;"><b>Seoul Seocho</b><br>Value: 98.70</div>`)[0];
+                popup_8f5d1fe5f3926621a184fa6d7671cf43.setContent(html_c98203b8997a86d33deff544d8e27422);
+            
+        
+
+        marker_3a23b3cf7dab915ae1832cf3da880755.bindPopup(popup_8f5d1fe5f3926621a184fa6d7671cf43)
+        ;
+
+        
+    
+    
+            marker_3a23b3cf7dab915ae1832cf3da880755.bindTooltip(
+                `<div>
+                     Seoul Seocho: 98.70
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_3a23b3cf7dab915ae1832cf3da880755.setIcon(icon_2dc1fc13d037b174c6db4e4443232bfd);
+            
+    
+            var marker_42276175025d37fe410d902b0a588fca = L.marker(
+                [37.5634, 127.0371],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_0f9fb9f9ec040e3c880488caaa211e53 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_6ed7ed47839b6f252ee2eb402e9c51a5 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_2a8aab714577a21b8c8b30e2be93fba2 = $(`<div id="html_2a8aab714577a21b8c8b30e2be93fba2" style="width: 100.0%; height: 100.0%;"><b>Seoul Seongdong</b><br>Value: 74.50</div>`)[0];
+                popup_6ed7ed47839b6f252ee2eb402e9c51a5.setContent(html_2a8aab714577a21b8c8b30e2be93fba2);
+            
+        
+
+        marker_42276175025d37fe410d902b0a588fca.bindPopup(popup_6ed7ed47839b6f252ee2eb402e9c51a5)
+        ;
+
+        
+    
+    
+            marker_42276175025d37fe410d902b0a588fca.bindTooltip(
+                `<div>
+                     Seoul Seongdong: 74.50
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_42276175025d37fe410d902b0a588fca.setIcon(icon_0f9fb9f9ec040e3c880488caaa211e53);
+            
+    
+            var marker_3e55abb7451390803e30924f10c90a29 = L.marker(
+                [37.5894, 127.0167],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_775217ac109e508fad8e31f9a218ad4a = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_11e7dc62b7b5960a8560209820e61133 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_19eb61bf4989495829da8f8dc8e5590b = $(`<div id="html_19eb61bf4989495829da8f8dc8e5590b" style="width: 100.0%; height: 100.0%;"><b>Seoul Seongbuk</b><br>Value: 61.90</div>`)[0];
+                popup_11e7dc62b7b5960a8560209820e61133.setContent(html_19eb61bf4989495829da8f8dc8e5590b);
+            
+        
+
+        marker_3e55abb7451390803e30924f10c90a29.bindPopup(popup_11e7dc62b7b5960a8560209820e61133)
+        ;
+
+        
+    
+    
+            marker_3e55abb7451390803e30924f10c90a29.bindTooltip(
+                `<div>
+                     Seoul Seongbuk: 61.90
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_3e55abb7451390803e30924f10c90a29.setIcon(icon_775217ac109e508fad8e31f9a218ad4a);
+            
+    
+            var marker_34d74c1bc494dba5e07684e345b9aecf = L.marker(
+                [37.5145, 127.1059],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_5c3dc0739b62123c4bc85cb08995ec2c = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_83ce2676066520bc2b248fb07927f51c = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_5d26bb4614040e57d57e1f97e9771417 = $(`<div id="html_5d26bb4614040e57d57e1f97e9771417" style="width: 100.0%; height: 100.0%;"><b>Seoul Songpa</b><br>Value: 87.30</div>`)[0];
+                popup_83ce2676066520bc2b248fb07927f51c.setContent(html_5d26bb4614040e57d57e1f97e9771417);
+            
+        
+
+        marker_34d74c1bc494dba5e07684e345b9aecf.bindPopup(popup_83ce2676066520bc2b248fb07927f51c)
+        ;
+
+        
+    
+    
+            marker_34d74c1bc494dba5e07684e345b9aecf.bindTooltip(
+                `<div>
+                     Seoul Songpa: 87.30
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_34d74c1bc494dba5e07684e345b9aecf.setIcon(icon_5c3dc0739b62123c4bc85cb08995ec2c);
+            
+    
+            var marker_7b24b5c08318de36de0595d6653f5ba3 = L.marker(
+                [37.517, 126.8664],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_ff5b82eedeb6f0f9db3ff6c7cbeae8e0 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_c99d1ffd02e7fecd41f6656c90579e07 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_a65d961b81cca11748a1b139d8ef3597 = $(`<div id="html_a65d961b81cca11748a1b139d8ef3597" style="width: 100.0%; height: 100.0%;"><b>Seoul Yangcheon</b><br>Value: 68.40</div>`)[0];
+                popup_c99d1ffd02e7fecd41f6656c90579e07.setContent(html_a65d961b81cca11748a1b139d8ef3597);
+            
+        
+
+        marker_7b24b5c08318de36de0595d6653f5ba3.bindPopup(popup_c99d1ffd02e7fecd41f6656c90579e07)
+        ;
+
+        
+    
+    
+            marker_7b24b5c08318de36de0595d6653f5ba3.bindTooltip(
+                `<div>
+                     Seoul Yangcheon: 68.40
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_7b24b5c08318de36de0595d6653f5ba3.setIcon(icon_ff5b82eedeb6f0f9db3ff6c7cbeae8e0);
+            
+    
+            var marker_8b9bc6483f1fd765f717a2136c14bee2 = L.marker(
+                [37.5264, 126.8962],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_b22bdbbb28078379eac5330efacf71cc = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_7f6c3cae702c2571f79a72a1ee7f0946 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_b2acee54e67b19c2ff6cbde6124eab81 = $(`<div id="html_b2acee54e67b19c2ff6cbde6124eab81" style="width: 100.0%; height: 100.0%;"><b>Seoul Yeongdeungpo</b><br>Value: 81.60</div>`)[0];
+                popup_7f6c3cae702c2571f79a72a1ee7f0946.setContent(html_b2acee54e67b19c2ff6cbde6124eab81);
+            
+        
+
+        marker_8b9bc6483f1fd765f717a2136c14bee2.bindPopup(popup_7f6c3cae702c2571f79a72a1ee7f0946)
+        ;
+
+        
+    
+    
+            marker_8b9bc6483f1fd765f717a2136c14bee2.bindTooltip(
+                `<div>
+                     Seoul Yeongdeungpo: 81.60
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_8b9bc6483f1fd765f717a2136c14bee2.setIcon(icon_b22bdbbb28078379eac5330efacf71cc);
+            
+    
+            var marker_c0432405b221a48836fe39e1bf420c9e = L.marker(
+                [37.5326, 126.9904],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_92f854c622b3d657dfc9c2b08adb5168 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_6e72cebc7692944a968f27c1d493ae00 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_541744b29a2467fd77c6c8e3d05f05d2 = $(`<div id="html_541744b29a2467fd77c6c8e3d05f05d2" style="width: 100.0%; height: 100.0%;"><b>Seoul Yongsan</b><br>Value: 85.90</div>`)[0];
+                popup_6e72cebc7692944a968f27c1d493ae00.setContent(html_541744b29a2467fd77c6c8e3d05f05d2);
+            
+        
+
+        marker_c0432405b221a48836fe39e1bf420c9e.bindPopup(popup_6e72cebc7692944a968f27c1d493ae00)
+        ;
+
+        
+    
+    
+            marker_c0432405b221a48836fe39e1bf420c9e.bindTooltip(
+                `<div>
+                     Seoul Yongsan: 85.90
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_c0432405b221a48836fe39e1bf420c9e.setIcon(icon_92f854c622b3d657dfc9c2b08adb5168);
+            
+    
+            var marker_5000016527187a3e204ef8cd4fcbbddb = L.marker(
+                [37.6176, 126.9227],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_b7d75bc3973c216248d032b895b8c9c2 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_604daa1e1ecae2628489e6ea3884a600 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_9bb8307c7ed761fa6973492f347376a7 = $(`<div id="html_9bb8307c7ed761fa6973492f347376a7" style="width: 100.0%; height: 100.0%;"><b>Seoul Eunpyeong</b><br>Value: 66.70</div>`)[0];
+                popup_604daa1e1ecae2628489e6ea3884a600.setContent(html_9bb8307c7ed761fa6973492f347376a7);
+            
+        
+
+        marker_5000016527187a3e204ef8cd4fcbbddb.bindPopup(popup_604daa1e1ecae2628489e6ea3884a600)
+        ;
+
+        
+    
+    
+            marker_5000016527187a3e204ef8cd4fcbbddb.bindTooltip(
+                `<div>
+                     Seoul Eunpyeong: 66.70
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_5000016527187a3e204ef8cd4fcbbddb.setIcon(icon_b7d75bc3973c216248d032b895b8c9c2);
+            
+    
+            var marker_5f4a5b0823361d2b1ae22651d829148b = L.marker(
+                [37.573, 126.9794],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_a42a860af6ba41b089c25d288271f192 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_4705e0c876726eaea80841d36940e253 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_a52be6a4cfa954064e2f0124017a2fa8 = $(`<div id="html_a52be6a4cfa954064e2f0124017a2fa8" style="width: 100.0%; height: 100.0%;"><b>Seoul Jongno</b><br>Value: 103.40</div>`)[0];
+                popup_4705e0c876726eaea80841d36940e253.setContent(html_a52be6a4cfa954064e2f0124017a2fa8);
+            
+        
+
+        marker_5f4a5b0823361d2b1ae22651d829148b.bindPopup(popup_4705e0c876726eaea80841d36940e253)
+        ;
+
+        
+    
+    
+            marker_5f4a5b0823361d2b1ae22651d829148b.bindTooltip(
+                `<div>
+                     Seoul Jongno: 103.40
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_5f4a5b0823361d2b1ae22651d829148b.setIcon(icon_a42a860af6ba41b089c25d288271f192);
+            
+    
+            var marker_d8351e7b00c6ea61a01f995cec126271 = L.marker(
+                [37.5636, 126.9976],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_9f99d3f15e72360d0b670c93231f56d2 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_227e9956459fbbec77f992f5dba22a6a = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_c716debe36cec82109b2f0fd5a7262ec = $(`<div id="html_c716debe36cec82109b2f0fd5a7262ec" style="width: 100.0%; height: 100.0%;"><b>Seoul Jung</b><br>Value: 92.10</div>`)[0];
+                popup_227e9956459fbbec77f992f5dba22a6a.setContent(html_c716debe36cec82109b2f0fd5a7262ec);
+            
+        
+
+        marker_d8351e7b00c6ea61a01f995cec126271.bindPopup(popup_227e9956459fbbec77f992f5dba22a6a)
+        ;
+
+        
+    
+    
+            marker_d8351e7b00c6ea61a01f995cec126271.bindTooltip(
+                `<div>
+                     Seoul Jung: 92.10
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_d8351e7b00c6ea61a01f995cec126271.setIcon(icon_9f99d3f15e72360d0b670c93231f56d2);
+            
+    
+            var marker_52eed2555499ca13c8c23adea7e8465e = L.marker(
+                [37.6063, 127.0925],
+                {
+}
+            ).addTo(map_cc1345935f9c40450b695ecec00c20ad);
+        
+    
+            var icon_d4f3489bc3db073f2441a636f64a4795 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_4a0f27121edc51ae2f4737dbfd014fdd = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_d24b384c1c6df340e5f0eb11342dba61 = $(`<div id="html_d24b384c1c6df340e5f0eb11342dba61" style="width: 100.0%; height: 100.0%;"><b>Seoul Jungnang</b><br>Value: 57.40</div>`)[0];
+                popup_4a0f27121edc51ae2f4737dbfd014fdd.setContent(html_d24b384c1c6df340e5f0eb11342dba61);
+            
+        
+
+        marker_52eed2555499ca13c8c23adea7e8465e.bindPopup(popup_4a0f27121edc51ae2f4737dbfd014fdd)
+        ;
+
+        
+    
+    
+            marker_52eed2555499ca13c8c23adea7e8465e.bindTooltip(
+                `<div>
+                     Seoul Jungnang: 57.40
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_52eed2555499ca13c8c23adea7e8465e.setIcon(icon_d4f3489bc3db073f2441a636f64a4795);
+            
+</script>
+</html>

@@ -44,6 +44,7 @@ from pyhub_office_automation.excel.chart_position import chart_position
 # Data 명령어 import (Issue #39)
 from pyhub_office_automation.excel.data_analyze import data_analyze
 from pyhub_office_automation.excel.data_transform import data_transform
+from pyhub_office_automation.excel.data_validate import data_validate  # Issue #90
 from pyhub_office_automation.excel.map_location_guide import map_location_guide
 from pyhub_office_automation.excel.map_visualize import map_visualize
 from pyhub_office_automation.excel.metadata_generate import metadata_generate
@@ -324,6 +325,7 @@ excel_app.command("range-convert")(range_convert)
 # Data Commands (Issue #39)
 excel_app.command("data-analyze")(data_analyze)
 excel_app.command("data-transform")(data_transform)
+excel_app.command("data-validate")(data_validate)  # Issue #90
 
 # Map Chart Commands (Issue #72)
 excel_app.command("map-location-guide")(map_location_guide)
