@@ -576,6 +576,42 @@ oa email send --account work --to team@company.com --prompt "회의 일정 변�
 
 📚 상세 매뉴얼: [docs/email.md](docs/email.md)
 
+---
+
+## 📚 문서 구조
+
+프로젝트 문서는 역할별로 명확하게 분리되어 있습니다:
+
+### 핵심 가이드
+- **[CLAUDE.md](./CLAUDE.md)** (364줄) - AI Agent Quick Reference
+  - 프로젝트 개요 및 아키텍처
+  - 핵심 명령어 (22개)
+  - AI Agent 3단계 워크플로우
+  - Quick Tips & 자주하는 실수
+
+### 상세 가이드 (docs/)
+- **[Shell Mode 완벽 가이드](./docs/SHELL_USER_GUIDE.md)** (344줄)
+  - Excel Shell / PowerPoint Shell 사용법
+  - 실전 워크플로우 예제
+  - 권장 패턴 5가지
+
+- **[고급 기능 가이드](./docs/ADVANCED_FEATURES.md)** (408줄)
+  - Map Chart 5단계 워크플로우
+  - 차트 유형별 예시
+  - 피벗테이블 기반 차트
+
+- **[Claude Code 특화 패턴](./docs/CLAUDE_CODE_PATTERNS.md)** (329줄)
+  - 체계적 디버깅 접근
+  - 코드 리뷰 체크리스트
+  - table-list 즉시 분석 패턴
+
+### 기타 문서
+- **[Email 자동화](./docs/email.md)** - 이메일 발송 가이드
+- **[사용자 가이드](./docs/사용자-가이드.md)** - 한국어 사용 설명서
+- **[EXE 빌드 가이드](./docs/EXE-빌드-가이드.md)** - 실행 파일 생성
+
+---
+
 ## 🤖 AI 코드 어시스턴트 설정
 
 각 AI 에이전트에 최적화된 설정 파일을 자동으로 생성합니다:
