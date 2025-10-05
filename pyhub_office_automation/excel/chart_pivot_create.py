@@ -9,30 +9,28 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     create_error_response,
     create_success_response,
     find_available_position,
-    get_or_open_workbook,
-    get_sheet,
     normalize_path,
     validate_auto_position_requirements,
 )
 from .utils_timeout import try_pivot_layout_connection
 
 
-def find_pivot_table(sheet, pivot_name):
-    """시트에서 피벗테이블 찾기"""
+def find_pivot_table(ws_com, pivot_name):
+    """시트에서 피벗테이블 찾기 (COM 객체 사용)"""
     if platform.system() != "Windows":
         raise RuntimeError("피벗차트 생성은 Windows에서만 지원됩니다")
 
     try:
-        # xlwings를 통해 피벗테이블 찾기 시도
-        for pivot_table in sheet.api.PivotTables():
+        # COM API를 통해 피벗테이블 찾기
+        for pivot_table in ws_com.PivotTables():
             if pivot_table.Name == pivot_name:
                 return pivot_table
 
@@ -45,14 +43,14 @@ def find_pivot_table(sheet, pivot_name):
             raise RuntimeError(f"피벗테이블 검색 중 오류 발생: {str(e)}")
 
 
-def list_pivot_tables(sheet):
-    """시트의 모든 피벗테이블 목록 반환"""
+def list_pivot_tables(ws_com):
+    """시트의 모든 피벗테이블 목록 반환 (COM 객체 사용)"""
     if platform.system() != "Windows":
         return []
 
     try:
         pivot_names = []
-        for pivot_table in sheet.api.PivotTables():
+        for pivot_table in ws_com.PivotTables():
             pivot_names.append(pivot_table.Name)
         return pivot_names
     except:
@@ -266,18 +264,30 @@ def chart_pivot_create(
         if platform.system() != "Windows":
             raise RuntimeError("피벗차트 생성은 Windows에서만 지원됩니다. macOS에서는 수동으로 피벗차트를 생성해주세요.")
 
+        # Engine 획득
+        engine = get_engine()
+
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+        if file_path:
+            book = engine.open_workbook(file_path, visible=visible)
+        elif workbook_name:
+            book = engine.get_workbook_by_name(workbook_name)
+        else:
+            book = engine.get_active_workbook()
+
+        # 워크북 정보 가져오기
+        wb_info = engine.get_workbook_info(book)
 
         # 피벗테이블이 있는 시트 찾기
         pivot_table = None
-        pivot_sheet = None
+        pivot_sheet_name = None
 
-        # 모든 시트에서 피벗테이블 검색
-        for worksheet in book.sheets:
+        # 모든 시트에서 피벗테이블 검색 (COM 사용)
+        for sheet_name in wb_info["sheets"]:
             try:
-                pivot_table = find_pivot_table(worksheet, pivot_name)
-                pivot_sheet = worksheet
+                ws_com = book.Sheets(sheet_name)
+                pivot_table = find_pivot_table(ws_com, pivot_name)
+                pivot_sheet_name = sheet_name
                 break
             except ValueError:
                 continue  # 이 시트에는 해당 피벗테이블이 없음
@@ -287,10 +297,14 @@ def chart_pivot_create(
         if not pivot_table:
             # 사용 가능한 피벗테이블 목록 제공
             available_pivots = []
-            for worksheet in book.sheets:
-                pivot_names = list_pivot_tables(worksheet)
-                for name in pivot_names:
-                    available_pivots.append(f"{worksheet.name}!{name}")
+            for sheet_name in wb_info["sheets"]:
+                try:
+                    ws_com = book.Sheets(sheet_name)
+                    pivot_names = list_pivot_tables(ws_com)
+                    for name in pivot_names:
+                        available_pivots.append(f"{sheet_name}!{name}")
+                except:
+                    continue
 
             error_msg = f"피벗테이블 '{pivot_name}'을 찾을 수 없습니다."
             if available_pivots:
@@ -302,14 +316,15 @@ def chart_pivot_create(
 
         # 피벗차트 생성 대상 시트 결정
         if sheet:
-            try:
-                target_sheet = get_sheet(book, sheet)
-            except ValueError:
+            if sheet in wb_info["sheets"]:
+                target_sheet = book.Sheets(sheet)
+            else:
                 # 지정한 시트가 없으면 새로 생성
-                target_sheet = book.sheets.add(name=sheet)
+                target_sheet = book.Sheets.Add()
+                target_sheet.Name = sheet
         else:
             # 시트가 지정되지 않으면 피벗테이블과 같은 시트 사용
-            target_sheet = pivot_sheet
+            target_sheet = book.Sheets(pivot_sheet_name)
 
         # 자동 배치 로직 처리
         overlap_warning = None
@@ -528,11 +543,11 @@ def chart_pivot_create(
             "pivot_chart_name": chart_name,
             "pivot_table_name": pivot_name,
             "chart_type": chart_type,
-            "source_sheet": pivot_sheet.name,
-            "target_sheet": target_sheet.name,
+            "source_sheet": pivot_sheet_name,
+            "target_sheet": target_sheet.Name,
             "position": position,
             "dimensions": {"width": width, "height": height},
-            "workbook": book.name,
+            "workbook": wb_info["name"],
             "is_dynamic": is_dynamic_pivot,
             "platform": "Windows",
         }
@@ -575,8 +590,8 @@ def chart_pivot_create(
             print(f"피벗차트: {chart_name}")
             print(f"피벗테이블: {pivot_name}")
             print(f"차트 유형: {chart_type}")
-            print(f"소스 시트: {pivot_sheet.name}")
-            print(f"대상 시트: {target_sheet.name}")
+            print(f"소스 시트: {pivot_sheet_name}")
+            print(f"대상 시트: {target_sheet.Name}")
             print(f"위치: {position}")
             print(f"크기: {width} x {height}")
             if title:
