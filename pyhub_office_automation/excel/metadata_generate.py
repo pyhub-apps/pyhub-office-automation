@@ -9,12 +9,12 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .metadata_utils import auto_generate_table_metadata, ensure_metadata_sheet, get_metadata_record, write_metadata_record
-from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook, normalize_path
+from .utils import ExecutionTimer, create_error_response, create_success_response, normalize_path
 
 
 def metadata_generate(
@@ -78,26 +78,46 @@ def metadata_generate(
             if platform.system() != "Windows":
                 typer.echo("⚠️ Excel Table 메타데이터 생성은 Windows에서 완전히 지원됩니다.")
 
+            # Engine 획득
+            engine = get_engine()
+
             # 워크북 연결
-            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            if file_path:
+                book = engine.open_workbook(file_path, visible=visible)
+            elif workbook_name:
+                book = engine.get_workbook_by_name(workbook_name)
+            else:
+                book = engine.get_active_workbook()
+
+            # 워크북 정보 가져오기
+            wb_info = engine.get_workbook_info(book)
 
             # Metadata 시트 확보 (dry_run이 아닌 경우만)
             if not dry_run:
                 metadata_sheet = ensure_metadata_sheet(book)
 
-            # 처리할 시트 결정
+            # Engine을 통해 테이블 목록 조회
             if specific_sheet:
-                try:
-                    target_sheets = [book.sheets[specific_sheet]]
-                except:
+                if specific_sheet not in wb_info["sheets"]:
                     raise ValueError(f"시트 '{specific_sheet}'을 찾을 수 없습니다")
+                table_list = engine.list_tables(book, sheet=specific_sheet)
             else:
-                target_sheets = list(book.sheets)
+                table_list = engine.list_tables(book)
 
-            # 모든 Table 수집
+            # Table 정보 수집
             all_found_tables = []
+            for table_info in table_list:
+                table_dict = {
+                    "name": table_info.name,
+                    "sheet": table_info.sheet_name,
+                    "range": table_info.address.replace("$", ""),
+                    "row_count": table_info.row_count - 1,  # 헤더 제외
+                    "column_count": table_info.column_count,
+                }
+                all_found_tables.append(table_dict)
+
             processing_summary = {
-                "total_sheets_scanned": len(target_sheets),
+                "total_sheets_scanned": len(wb_info["sheets"]) if not specific_sheet else 1,
                 "total_tables_found": 0,
                 "tables_processed": 0,
                 "tables_skipped": 0,
@@ -107,40 +127,6 @@ def metadata_generate(
             }
 
             processing_details = []
-
-            for sheet in target_sheets:
-                sheet_tables = []
-
-                try:
-                    if platform.system() == "Windows":
-                        # Windows에서 COM API로 Table 조회
-                        for table in sheet.api.ListObjects():
-                            table_info = {
-                                "name": table.Name,
-                                "sheet": sheet.name,
-                                "range": table.Range.Address.replace("$", ""),
-                                "row_count": table.Range.Rows.Count - 1,  # 헤더 제외
-                                "column_count": table.Range.Columns.Count,
-                            }
-                            sheet_tables.append(table_info)
-                            all_found_tables.append(table_info)
-                    else:
-                        # macOS에서는 제한적인 지원
-                        for table in sheet.tables:
-                            table_info = {
-                                "name": table.name,
-                                "sheet": sheet.name,
-                                "range": table.range.address.replace("$", ""),
-                                "row_count": table.range.rows.count - 1,
-                                "column_count": table.range.columns.count,
-                            }
-                            sheet_tables.append(table_info)
-                            all_found_tables.append(table_info)
-
-                except Exception as e:
-                    # 시트 접근 실패 시 경고하고 계속 진행
-                    typer.echo(f"⚠️ 시트 '{sheet.name}' 접근 실패: {str(e)}", err=True)
-                    continue
 
             processing_summary["total_tables_found"] = len(all_found_tables)
 
@@ -267,10 +253,10 @@ def metadata_generate(
 
             # 워크북 정보
             workbook_info = {
-                "name": normalize_path(book.name),
-                "full_name": normalize_path(book.fullname),
-                "saved": getattr(book, "saved", True),
-                "total_sheets": len(book.sheets),
+                "name": normalize_path(wb_info["name"]),
+                "full_name": normalize_path(wb_info["full_name"]),
+                "saved": wb_info["saved"],
+                "total_sheets": wb_info["sheet_count"],
             }
 
             # 결과 데이터 구성
