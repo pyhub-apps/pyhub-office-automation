@@ -9,7 +9,8 @@ from typing import Optional
 import pandas as pd
 import typer
 
-from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook
+from .engines import get_engine
+from .utils import ExecutionTimer, create_error_response, create_success_response
 
 
 def table_read(
@@ -30,152 +31,118 @@ def table_read(
     book = None
     try:
         with ExecutionTimer() as timer:
-            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=False)
+            # Engine 획득
+            engine = get_engine()
 
-            target_sheet = book.sheets.active if not sheet else book.sheets[sheet]
+            # 워크북 연결
+            if file_path:
+                book = engine.open_workbook(file_path, visible=False)
+            elif workbook_name:
+                book = engine.get_workbook_by_name(workbook_name)
+            else:
+                book = engine.get_active_workbook()
+
+            # 대상 시트 결정 (COM API 직접 사용)
+            target_sheet = book.ActiveSheet if not sheet else book.Sheets(sheet)
 
             if range_str:
-                # 지정된 범위에서 읽기
-                range_obj = target_sheet.range(range_str)
-                values = range_obj.value
+                # 지정된 범위에서 읽기 (COM API 직접 사용)
+                range_obj = target_sheet.Range(range_str)
+                values = range_obj.Value
+                # COM API는 단일 셀을 스칼라로 반환하므로 리스트로 변환
+                if not isinstance(values, (list, tuple)):
+                    values = [[values]]
+                elif values and not isinstance(values[0], (list, tuple)):
+                    values = [values]
             elif table_name:
-                # 테이블 이름으로 읽기
-                target_table = None
-                target_table_sheet = None
+                # 테이블 이름으로 읽기 (Engine 메서드 사용)
+                col_list = [col.strip() for col in columns.split(",")] if columns else None
 
-                if sheet:
-                    # 특정 시트에서 테이블 찾기
-                    for table in target_sheet.tables:
-                        if table.name == table_name:
-                            target_table = table
-                            target_table_sheet = target_sheet
-                            break
+                # Engine의 read_table()은 offset과 limit을 지원하지만 sample_mode는 지원하지 않음
+                # sample_mode인 경우 전체 데이터를 가져온 후 직접 샘플링
+                if sample_mode and limit:
+                    table_result = engine.read_table(book, table_name, columns=col_list, offset=offset or 0)
                 else:
-                    # 모든 시트에서 테이블 찾기
-                    for sheet_obj in book.sheets:
-                        for table in sheet_obj.tables:
-                            if table.name == table_name:
-                                target_table = table
-                                target_table_sheet = sheet_obj
-                                break
-                        if target_table:
-                            break
+                    table_result = engine.read_table(book, table_name, columns=col_list, limit=limit, offset=offset or 0)
 
-                if not target_table:
-                    raise ValueError(f"테이블 '{table_name}'을(를) 찾을 수 없습니다")
+                headers = table_result["headers"]
+                data = table_result["data"]
 
-                # 테이블 데이터 읽기
-                table_range = target_table.range
-                all_values = table_range.value
+                # 샘플링 모드 처리
+                if sample_mode and limit and len(data) > limit:
+                    # 지능형 샘플링: 첫 20%, 중간 60%, 마지막 20%
+                    first_count = max(1, int(limit * 0.2))
+                    last_count = max(1, int(limit * 0.2))
+                    middle_count = limit - first_count - last_count
 
-                # 헤더와 데이터 분리
-                if isinstance(all_values, list) and len(all_values) > 0:
-                    if header and len(all_values) > 1:
-                        headers = all_values[0]
-                        data = all_values[1:]
-                    else:
-                        headers = None
-                        data = all_values
+                    sampled_data = []
+                    # 첫 부분
+                    sampled_data.extend(data[:first_count])
 
-                    # 컬럼 선택
-                    if columns and headers:
-                        selected_cols = [col.strip() for col in columns.split(",")]
-                        col_indices = []
-                        selected_headers = []
-                        for col in selected_cols:
-                            if col in headers:
-                                col_indices.append(headers.index(col))
-                                selected_headers.append(col)
-
-                        if col_indices:
-                            headers = selected_headers
-                            data = [[row[i] if i < len(row) else None for i in col_indices] for row in data]
-
-                    # 오프셋과 제한 적용
+                    # 중간 부분
                     total_rows = len(data)
-                    start_idx = offset if offset else 0
+                    if middle_count > 0 and total_rows > first_count + last_count:
+                        middle_start = first_count
+                        middle_end = total_rows - last_count
+                        middle_indices = range(middle_start, middle_end, max(1, (middle_end - middle_start) // middle_count))
+                        sampled_data.extend([data[i] for i in middle_indices[:middle_count]])
 
-                    if start_idx >= total_rows:
-                        data = []
-                    else:
-                        if limit:
-                            if sample_mode and total_rows > limit:
-                                # 지능형 샘플링: 첫 20%, 중간 60%, 마지막 20%
-                                first_count = max(1, int(limit * 0.2))
-                                last_count = max(1, int(limit * 0.2))
-                                middle_count = limit - first_count - last_count
+                    # 마지막 부분
+                    if last_count > 0 and total_rows > last_count:
+                        sampled_data.extend(data[-last_count:])
 
-                                sampled_data = []
-                                # 첫 부분
-                                sampled_data.extend(data[:first_count])
+                    data = sampled_data
 
-                                # 중간 부분
-                                if middle_count > 0 and total_rows > first_count + last_count:
-                                    middle_start = first_count
-                                    middle_end = total_rows - last_count
-                                    middle_indices = range(
-                                        middle_start, middle_end, max(1, (middle_end - middle_start) // middle_count)
-                                    )
-                                    sampled_data.extend([data[i] for i in middle_indices[:middle_count]])
-
-                                # 마지막 부분
-                                if last_count > 0 and total_rows > last_count:
-                                    sampled_data.extend(data[-last_count:])
-
-                                data = sampled_data
-                            else:
-                                # 일반 제한
-                                end_idx = start_idx + limit
-                                data = data[start_idx:end_idx]
-                        else:
-                            # 오프셋만 적용
-                            data = data[start_idx:]
-
-                    # 최종 values 구성
-                    if headers and header:
-                        values = [headers] + data
-                    else:
-                        values = data
+                # 최종 values 구성
+                if headers and header:
+                    values = [headers] + data
                 else:
-                    values = []
+                    values = data
 
-                # 현재 시트를 테이블이 있는 시트로 변경
-                if target_table_sheet != target_sheet:
-                    target_sheet = target_table_sheet
+                # 테이블이 있는 시트 이름 가져오기 (COM API 사용)
+                for ws in book.Sheets:
+                    try:
+                        ws.ListObjects(table_name)
+                        target_sheet = ws
+                        break
+                    except:
+                        continue
             else:
-                # table_name도 range_str도 없는 경우: 더 유용한 안내 제공
-                # 워크북의 모든 테이블 정보 수집
-                all_tables = []
-                for sheet_obj in book.sheets:
-                    for table in sheet_obj.tables:
-                        all_tables.append(f"'{table.name}' (시트: {sheet_obj.name})")
+                # table_name도 range_str도 없는 경우: Engine을 사용해 모든 테이블 정보 수집
+                all_table_infos = engine.list_tables(book)
+                all_tables = [f"'{t.name}' (시트: {t.sheet_name})" for t in all_table_infos]
 
                 if all_tables:
                     tables_str = ", ".join(all_tables)
                     # 현재 시트에 테이블이 있는지 확인
-                    sheet_tables = [table.name for table in target_sheet.tables]
+                    sheet_tables = [t.name for t in all_table_infos if t.sheet_name == target_sheet.Name]
                     if sheet_tables:
                         table_list_str = ", ".join(f"'{name}'" for name in sheet_tables)
                         raise ValueError(
                             f"테이블 이름을 지정해주세요. "
-                            f"현재 시트({target_sheet.name}) 테이블: {table_list_str} | "
+                            f"현재 시트({target_sheet.Name}) 테이블: {table_list_str} | "
                             f"모든 테이블: {tables_str}"
                         )
                     else:
                         raise ValueError(
-                            f"현재 시트({target_sheet.name})에 테이블이 없습니다. "
+                            f"현재 시트({target_sheet.Name})에 테이블이 없습니다. "
                             f"사용 가능한 테이블: {tables_str} | "
                             f"또는 --range 옵션을 사용하세요."
                         )
 
-                # 테이블이 없으면 used_range로 읽기 시도 (후순위)
-                used_range = target_sheet.used_range
+                # 테이블이 없으면 used_range로 읽기 시도 (후순위) - COM API 사용
+                used_range = target_sheet.UsedRange
                 if not used_range:
                     raise ValueError(
-                        f"시트({target_sheet.name})에 데이터가 없습니다. --table-name 또는 --range 옵션을 사용하세요."
+                        f"시트({target_sheet.Name})에 데이터가 없습니다. --table-name 또는 --range 옵션을 사용하세요."
                     )
 
-                values = used_range.value
+                values = used_range.Value
+                # COM API 값 정규화
+                if not isinstance(values, (list, tuple)):
+                    values = [[values]]
+                elif values and not isinstance(values[0], (list, tuple)):
+                    values = [values]
 
             # pandas DataFrame 생성
             if isinstance(values, list) and len(values) > 0:
@@ -222,7 +189,7 @@ def table_read(
                 data_content.update(
                     {
                         "table_name": table_name,
-                        "sheet": target_sheet.name,
+                        "sheet": target_sheet.Name,
                         "offset": offset if offset else 0,
                         "limit": limit,
                         "sample_mode": sample_mode,
@@ -258,6 +225,14 @@ def table_read(
         else:
             typer.echo(f"❌ {str(e)}", err=True)
         raise typer.Exit(1)
+
+    finally:
+        # 워크북 정리 - 파일 경로로 열었고 visible=False인 경우에만 앱 종료
+        if book and file_path:
+            try:
+                book.Application.Quit()
+            except:
+                pass
 
 
 if __name__ == "__main__":

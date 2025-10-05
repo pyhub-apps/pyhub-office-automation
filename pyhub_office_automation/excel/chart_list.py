@@ -9,92 +9,27 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import create_error_response, create_success_response, get_or_open_workbook, get_sheet, normalize_path
-
-
-def get_chart_type_name(chart_obj):
-    """차트 객체에서 차트 타입 이름을 추출"""
-    try:
-        if platform.system() == "Windows":
-            # Windows에서는 API를 통해 정확한 차트 타입 가져오기
-            chart_type_value = chart_obj.api.ChartType
-
-            # 주요 차트 타입 매핑
-            type_map = {
-                51: "column_clustered",
-                52: "column_stacked",
-                53: "column_stacked_100",
-                57: "bar_clustered",
-                58: "bar_stacked",
-                59: "bar_stacked_100",
-                4: "line",
-                65: "line_markers",
-                5: "pie",
-                -4120: "doughnut",
-                1: "area",
-                76: "area_stacked",
-                77: "area_stacked_100",
-                -4169: "scatter",
-                74: "scatter_lines",
-                72: "scatter_smooth",
-                15: "bubble",
-            }
-
-            return type_map.get(chart_type_value, f"unknown_{chart_type_value}")
-        else:
-            # macOS에서는 기본값 반환
-            return "chart"
-    except:
-        return "unknown"
-
-
-def get_chart_title(chart_obj):
-    """차트 제목 추출"""
-    try:
-        if hasattr(chart_obj, "api") and chart_obj.api.HasTitle:
-            return chart_obj.api.ChartTitle.Text
-        return None
-    except:
-        return None
+from .engines import get_engine
+from .utils import create_error_response, create_success_response
 
 
 def get_chart_legend_info(chart_obj):
-    """범례 정보 추출"""
+    """
+    Windows COM API를 사용하여 범례 정보를 추출합니다.
+    detailed 옵션에서만 사용됩니다.
+    """
     try:
-        if hasattr(chart_obj, "api"):
-            has_legend = chart_obj.api.HasLegend
-            if has_legend and platform.system() == "Windows":
-                position_map = {-4107: "bottom", -4131: "corner", -4152: "left", -4161: "right", -4160: "top"}
-                position = position_map.get(chart_obj.api.Legend.Position, "unknown")
-                return {"has_legend": True, "position": position}
-            return {"has_legend": has_legend, "position": None}
+        has_legend = chart_obj.HasLegend
+        if has_legend and platform.system() == "Windows":
+            position_map = {-4107: "bottom", -4131: "corner", -4152: "left", -4161: "right", -4160: "top"}
+            position = position_map.get(chart_obj.Legend.Position, "unknown")
+            return {"has_legend": True, "position": position}
+        return {"has_legend": has_legend, "position": None}
     except:
         return {"has_legend": False, "position": None}
-
-
-def get_chart_data_source(chart_obj):
-    """차트 데이터 소스 범위 추출"""
-    try:
-        if hasattr(chart_obj, "api") and platform.system() == "Windows":
-            # Windows에서는 Series 데이터 소스 조회
-            series_collection = chart_obj.api.FullSeriesCollection()
-            if series_collection.Count > 0:
-                first_series = series_collection(1)
-                formula = first_series.Formula
-                # 수식에서 범위 추출 (간단한 파싱)
-                if "=" in formula and "!" in formula:
-                    # =SERIES(,Sheet1!$A$1:$A$10,Sheet1!$B$1:$B$10,1) 형태에서 범위 추출
-                    parts = formula.split(",")
-                    if len(parts) >= 3:
-                        range_part = parts[2].strip()
-                        return range_part
-            return None
-    except:
-        return None
 
 
 def chart_list(
@@ -173,73 +108,70 @@ def chart_list(
         if brief:
             detailed = False
 
+        # Engine 획득
+        engine = get_engine()
+
         # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+        if file_path:
+            book = engine.open_workbook(file_path, visible=visible)
+        elif workbook_name:
+            book = engine.get_workbook_by_name(workbook_name)
+        else:
+            book = engine.get_active_workbook()
+
+        # 워크북 정보 조회
+        wb_info = engine.get_workbook_info(book)
+
+        # 차트 목록 조회 (Engine 메서드 사용)
+        chart_infos = engine.list_charts(book, sheet=sheet)
 
         charts_info = []
-        total_charts = 0
+        total_charts = len(chart_infos)
 
-        # 시트 목록 결정
-        if sheet:
-            try:
-                sheets_to_check = [get_sheet(book, sheet)]
-            except ValueError:
-                raise ValueError(f"시트 '{sheet}'를 찾을 수 없습니다")
-        else:
-            sheets_to_check = book.sheets
+        # ChartInfo를 딕셔너리로 변환
+        for i, chart_info in enumerate(chart_infos):
+            chart_dict = {
+                "index": i,
+                "name": chart_info.name,
+                "sheet": chart_info.sheet_name,
+                "position": {"left": chart_info.left, "top": chart_info.top},
+                "dimensions": {"width": chart_info.width, "height": chart_info.height},
+            }
 
-        # 각 시트의 차트 검색
-        for worksheet in sheets_to_check:
-            sheet_charts = []
+            # 상세 정보 추가
+            if detailed:
+                # 차트 타입 (Engine이 제공)
+                chart_dict["chart_type"] = chart_info.chart_type
 
-            try:
-                for i, chart in enumerate(worksheet.charts):
-                    chart_info = {
-                        "index": i,
-                        "name": chart.name,
-                        "sheet": worksheet.name,
-                        "position": {"left": chart.left, "top": chart.top},
-                        "dimensions": {"width": chart.width, "height": chart.height},
-                    }
+                # 차트 제목 (Engine이 제공)
+                if chart_info.has_title and chart_info.title:
+                    chart_dict["title"] = chart_info.title
 
-                    # 상세 정보 추가
-                    if detailed:
-                        # 차트 타입
-                        chart_info["chart_type"] = get_chart_type_name(chart)
+                # 데이터 소스 (Engine이 제공)
+                if chart_info.source_data:
+                    chart_dict["data_source"] = chart_info.source_data
 
-                        # 차트 제목
-                        title = get_chart_title(chart)
-                        if title:
-                            chart_info["title"] = title
+                # 범례 정보 (Windows COM API 직접 사용)
+                if platform.system() == "Windows":
+                    try:
+                        ws = book.Sheets(chart_info.sheet_name)
+                        chart_obj = ws.ChartObjects(chart_info.name).Chart
+                        legend_info = get_chart_legend_info(chart_obj)
+                        chart_dict["legend"] = legend_info
+                    except:
+                        chart_dict["legend"] = {"has_legend": False, "position": None}
 
-                        # 범례 정보
-                        legend_info = get_chart_legend_info(chart)
-                        chart_info["legend"] = legend_info
+                # 플랫폼별 추가 정보
+                chart_dict["platform_support"] = {
+                    "current_platform": platform.system(),
+                    "full_features_available": platform.system() == "Windows",
+                }
 
-                        # 데이터 소스 (Windows에서만 정확히 가져올 수 있음)
-                        data_source = get_chart_data_source(chart)
-                        if data_source:
-                            chart_info["data_source"] = data_source
-
-                        # 플랫폼별 추가 정보
-                        chart_info["platform_support"] = {
-                            "current_platform": platform.system(),
-                            "full_features_available": platform.system() == "Windows",
-                        }
-
-                    sheet_charts.append(chart_info)
-                    total_charts += 1
-
-            except Exception as e:
-                # 특정 시트에서 차트 조회 실패해도 계속 진행
-                sheet_charts.append({"error": f"시트 '{worksheet.name}'에서 차트 조회 실패: {str(e)}"})
-
-            if sheet_charts:
-                charts_info.extend(sheet_charts)
+            charts_info.append(chart_dict)
 
         # 응답 데이터 구성
         response_data = {
-            "workbook": book.name,
+            "workbook": wb_info["workbook"]["name"],
             "total_charts": total_charts,
             "charts": charts_info,
             "query_info": {
@@ -253,7 +185,8 @@ def chart_list(
         if sheet:
             response_data["sheet"] = sheet
         else:
-            response_data["sheets_checked"] = [ws.name for ws in sheets_to_check]
+            # Engine에서 시트 개수 가져오기
+            response_data["sheets_checked"] = wb_info["workbook"]["sheet_count"]
 
         response = create_success_response(
             data=response_data, command="chart-list", message=f"{total_charts}개의 차트를 찾았습니다"
@@ -304,23 +237,10 @@ def chart_list(
         return 1
 
     finally:
-        # Simple COM resource cleanup
-        try:
-            import gc
-
-            gc.collect()
-        except:
-            pass
-
-        # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not workbook_name:
+        # 워크북 정리 - 파일 경로로 열었고 visible=False인 경우에만 앱 종료
+        if book and not visible and file_path:
             try:
-                if visible:
-                    # 화면에 표시하는 경우 닫지 않음
-                    pass
-                else:
-                    # 백그라운드 실행인 경우 앱 정리
-                    book.app.quit()
+                book.Application.Quit()
             except:
                 pass
 

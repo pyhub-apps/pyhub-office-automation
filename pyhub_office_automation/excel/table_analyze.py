@@ -9,19 +9,12 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .metadata_utils import auto_generate_table_metadata, get_metadata_record, write_metadata_record
-from .utils import (
-    ExecutionTimer,
-    create_error_response,
-    create_success_response,
-    get_or_open_workbook,
-    get_sheet,
-    normalize_path,
-)
+from .utils import ExecutionTimer, create_error_response, create_success_response, normalize_path
 
 
 def table_analyze(
@@ -77,60 +70,60 @@ def table_analyze(
             if platform.system() != "Windows":
                 typer.echo("⚠️ Excel Table 분석은 Windows에서 완전히 지원됩니다. macOS에서는 제한된 기능만 사용 가능합니다.")
 
+            # Engine 획득
+            engine = get_engine()
+
             # 워크북 연결
-            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            if file_path:
+                book = engine.open_workbook(file_path, visible=visible)
+            elif workbook_name:
+                book = engine.get_workbook_by_name(workbook_name)
+            else:
+                book = engine.get_active_workbook()
+
+            # 워크북 정보 가져오기
+            wb_info = engine.get_workbook_info(book)
 
             # Table이 있는 시트 찾기
-            target_sheet = None
             target_sheet_name = None
 
             if sheet:
                 # 지정된 시트에서 Table 찾기
-                try:
-                    target_sheet = get_sheet(book, sheet)
-                    target_sheet_name = sheet
+                if sheet not in wb_info["sheets"]:
+                    raise ValueError(f"시트 '{sheet}'을 찾을 수 없습니다")
 
-                    # 해당 시트에 Table이 있는지 확인
-                    table_found = False
-                    if platform.system() == "Windows":
-                        for table in target_sheet.api.ListObjects():
+                # 해당 시트에 Table이 있는지 확인
+                table_found = False
+                if platform.system() == "Windows":
+                    try:
+                        ws = book.Sheets(sheet)
+                        for table in ws.ListObjects:
                             if table.Name == table_name:
                                 table_found = True
+                                target_sheet_name = sheet
                                 break
-                    else:
-                        for table in target_sheet.tables:
-                            if table.name == table_name:
-                                table_found = True
-                                break
+                    except Exception as e:
+                        raise ValueError(f"시트 '{sheet}' 접근 실패: {str(e)}")
+                else:
+                    # macOS: Engine의 list_tables를 사용
+                    table_list = engine.list_tables(book, sheet=sheet)
+                    for table_info in table_list:
+                        if table_info.name == table_name:
+                            table_found = True
+                            target_sheet_name = sheet
+                            break
 
-                    if not table_found:
-                        raise ValueError(f"시트 '{sheet}'에서 테이블 '{table_name}'을 찾을 수 없습니다")
-
-                except Exception as e:
-                    raise ValueError(f"시트 '{sheet}' 접근 실패: {str(e)}")
+                if not table_found:
+                    raise ValueError(f"시트 '{sheet}'에서 테이블 '{table_name}'을 찾을 수 없습니다")
             else:
-                # 모든 시트에서 Table 검색
-                for ws in book.sheets:
-                    try:
-                        if platform.system() == "Windows":
-                            for table in ws.api.ListObjects():
-                                if table.Name == table_name:
-                                    target_sheet = ws
-                                    target_sheet_name = ws.name
-                                    break
-                        else:
-                            for table in ws.tables:
-                                if table.name == table_name:
-                                    target_sheet = ws
-                                    target_sheet_name = ws.name
-                                    break
-                    except:
-                        continue
-
-                    if target_sheet:
+                # 모든 시트에서 Table 검색 (Engine 사용)
+                table_list = engine.list_tables(book)
+                for table_info in table_list:
+                    if table_info.name == table_name:
+                        target_sheet_name = table_info.sheet_name
                         break
 
-                if not target_sheet:
+                if not target_sheet_name:
                     raise ValueError(
                         f"워크북에서 테이블 '{table_name}'을 찾을 수 없습니다. --sheet 옵션으로 시트를 지정해보세요."
                     )
@@ -167,9 +160,9 @@ def table_analyze(
 
             # 워크북 정보
             workbook_info = {
-                "name": normalize_path(book.name),
-                "full_name": normalize_path(book.fullname),
-                "saved": getattr(book, "saved", True),
+                "name": normalize_path(wb_info["name"]),
+                "full_name": normalize_path(wb_info["full_name"]),
+                "saved": wb_info["saved"],
             }
 
             # 결과 데이터 구성

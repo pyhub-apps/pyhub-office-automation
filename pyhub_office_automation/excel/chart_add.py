@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ChartType,
     ExpandMode,
@@ -26,9 +26,7 @@ from .utils import (
     get_all_chart_ranges,
     get_all_pivot_ranges,
     get_chart_com_object,
-    get_or_open_workbook,
     get_range,
-    get_sheet,
     normalize_path,
     parse_range,
     validate_auto_position_requirements,
@@ -254,11 +252,19 @@ def chart_add(
         if not validate_range_string(data_range_part):
             raise ValueError(f"잘못된 데이터 범위 형식입니다: {data_range}")
 
-        # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+        # Engine 획득
+        engine = get_engine()
 
-        # 데이터 시트 가져오기
-        data_sheet = get_sheet(book, data_sheet_name)
+        # 워크북 연결
+        if file_path:
+            book = engine.open_workbook(file_path, visible=visible)
+        elif workbook_name:
+            book = engine.get_workbook_by_name(workbook_name)
+        else:
+            book = engine.get_active_workbook()
+
+        # 데이터 시트 가져오기 (COM API 직접 사용)
+        data_sheet = book.Sheets(data_sheet_name) if data_sheet_name else book.ActiveSheet
 
         # 데이터 범위 가져오기 및 검증 (expand 옵션 적용)
         data_chart_range = get_range(data_sheet, data_range_part, expand_mode=expand)
@@ -267,13 +273,14 @@ def chart_add(
         if not data_values or (isinstance(data_values, list) and len(data_values) == 0):
             raise ValueError("데이터 범위에 차트 생성을 위한 데이터가 없습니다")
 
-        # 차트 생성 대상 시트 결정
+        # 차트 생성 대상 시트 결정 (COM API 직접 사용)
         if sheet:
             try:
-                target_sheet = get_sheet(book, sheet)
-            except ValueError:
+                target_sheet = book.Sheets(sheet)
+            except:
                 # 지정한 시트가 없으면 새로 생성
-                target_sheet = book.sheets.add(name=sheet)
+                target_sheet = book.Sheets.Add()
+                target_sheet.Name = sheet
         else:
             # 시트가 지정되지 않으면 데이터가 있는 시트 사용
             target_sheet = data_sheet
@@ -612,25 +619,10 @@ def chart_add(
         return 1
 
     finally:
-        # COM 객체 명시적 해제
-        try:
-            # 가비지 컬렉션 강제 실행
-            import gc
-
-            gc.collect()
-
-        except:
-            pass
-
-        # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not workbook_name:
+        # 워크북 정리 - 파일 경로로 열었고 visible=False인 경우에만 앱 종료
+        if book and not visible and file_path:
             try:
-                if visible:
-                    # 화면에 표시하는 경우 닫지 않음
-                    pass
-                else:
-                    # 백그라운드 실행인 경우 앱 정리
-                    book.app.quit()
+                book.Application.Quit()
             except:
                 pass
 

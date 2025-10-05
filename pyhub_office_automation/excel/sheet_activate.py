@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook, get_workbook
+from .engines import get_engine
+from .utils import ExecutionTimer, create_error_response, create_success_response
 
 
 def sheet_activate(
@@ -55,75 +55,72 @@ def sheet_activate(
 
         # 실행 시간 측정 시작
         with ExecutionTimer() as timer:
-            # 워크북 연결
-            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            # Engine 획득
+            engine = get_engine()
 
-            # 기존 활성 시트 정보 수집
-            old_active_sheet = book.sheets.active
-            old_active_info = {"name": old_active_sheet.name, "index": old_active_sheet.index}
+            # 워크북 가져오기
+            if file_path:
+                book = engine.open_workbook(file_path, visible=visible)
+            elif workbook_name:
+                book = engine.get_workbook_by_name(workbook_name)
+            else:
+                book = engine.get_active_workbook()
 
-            # 시트 목록 수집
-            all_sheets = []
-            for sheet in book.sheets:
-                all_sheets.append({"name": sheet.name, "index": sheet.index, "is_active": sheet == old_active_sheet})
+            # 기본 워크북 정보 가져오기
+            wb_info = engine.get_workbook_info(book)
 
-            # 대상 시트 찾기 및 활성화
-            target_sheet = None
+            # 시트 목록에서 대상 시트 결정
+            all_sheets_names = wb_info["sheets"]
 
             if sheet_name:
                 # 이름으로 찾기
-                try:
-                    target_sheet = book.sheets[sheet_name]
-                except KeyError:
-                    available_names = [s.name for s in book.sheets]
-                    raise ValueError(f"시트 '{sheet_name}'을 찾을 수 없습니다. 사용 가능한 시트: {available_names}")
+                if sheet_name not in all_sheets_names:
+                    raise ValueError(f"시트 '{sheet_name}'을 찾을 수 없습니다. 사용 가능한 시트: {all_sheets_names}")
+                target_sheet_name = sheet_name
             else:
-                # 인덱스로 찾기 (0-based)
-                try:
-                    # Python 표준 0-based 인덱스 사용
-                    if index < 0 or index >= len(book.sheets):
-                        sheet_count = len(book.sheets)
-                        raise IndexError(f"인덱스 {index}가 범위를 벗어났습니다. 사용 가능한 인덱스: 0-{sheet_count-1}")
-                    target_sheet = book.sheets[index]
-                except (IndexError, TypeError) as e:
-                    sheet_count = len(book.sheets)
-                    raise ValueError(f"인덱스 {index}가 범위를 벗어났습니다. 사용 가능한 인덱스: 0-{sheet_count-1}")
+                # 인덱스로 찾기 (0-based → 1-based 변환 필요)
+                if index < 0 or index >= len(all_sheets_names):
+                    raise ValueError(f"인덱스 {index}가 범위를 벗어났습니다. 사용 가능한 인덱스: 0-{len(all_sheets_names)-1}")
+                target_sheet_name = all_sheets_names[index]
 
-            # 시트 활성화
-            target_sheet.activate()
-
-            # 활성화 후 정보 수집
-            new_active_sheet = book.sheets.active
-            new_active_info = {"name": new_active_sheet.name, "index": new_active_sheet.index}
-
-            # 시트 정보 업데이트
-            for sheet_info in all_sheets:
-                sheet_info["is_active"] = sheet_info["name"] == new_active_sheet.name
-
-            # 활성화된 시트의 추가 정보
-            activated_sheet_info = {
-                "name": target_sheet.name,
-                "index": target_sheet.index,
-                "is_visible": getattr(target_sheet, "visible", True),
+            # 활성화 전 정보 저장
+            old_active_sheet_name = wb_info["active_sheet"]
+            old_active_info = {
+                "name": old_active_sheet_name,
+                "index": all_sheets_names.index(old_active_sheet_name) if old_active_sheet_name in all_sheets_names else 0,
             }
 
-            # 사용된 범위 정보 추가 (가능한 경우)
-            try:
-                used_range = target_sheet.used_range
-                if used_range:
-                    activated_sheet_info["used_range"] = {
-                        "address": used_range.address,
-                        "last_cell": used_range.last_cell.address,
-                        "row_count": used_range.rows.count,
-                        "column_count": used_range.columns.count,
-                    }
-                else:
-                    activated_sheet_info["used_range"] = None
-            except:
-                activated_sheet_info["used_range"] = None
+            # Engine을 통해 시트 활성화
+            engine.activate_sheet(book, target_sheet_name)
+
+            # 활성화 후 워크북 정보 다시 가져오기
+            wb_info_after = engine.get_workbook_info(book)
+            new_active_sheet_name = wb_info_after["active_sheet"]
+
+            # 시트 목록 구성 (활성 상태 표시)
+            all_sheets = []
+            for idx, sheet_nm in enumerate(all_sheets_names):
+                all_sheets.append({"name": sheet_nm, "index": idx, "is_active": sheet_nm == new_active_sheet_name})
+
+            # 활성화된 시트 정보
+            activated_sheet_info = {
+                "name": target_sheet_name,
+                "index": all_sheets_names.index(target_sheet_name),
+                "is_visible": True,  # 기본값
+                "used_range": None,  # Engine이 제공하지 않으면 None
+            }
 
             # 워크북 정보
-            workbook_info = {"name": book.name, "full_name": book.fullname, "total_sheets": len(book.sheets)}
+            workbook_info = {
+                "name": wb_info["name"],
+                "full_name": wb_info["full_name"],
+                "total_sheets": wb_info["sheet_count"],
+            }
+
+            new_active_info = {
+                "name": new_active_sheet_name,
+                "index": all_sheets_names.index(new_active_sheet_name) if new_active_sheet_name in all_sheets_names else 0,
+            }
 
             # 데이터 구성
             data_content = {
@@ -135,9 +132,9 @@ def sheet_activate(
 
             # 성공 메시지
             if sheet_name:
-                message = f"시트 '{target_sheet.name}'을(를) 활성화했습니다"
+                message = f"시트 '{target_sheet_name}'을(를) 활성화했습니다"
             else:
-                message = f"인덱스 {index}번 시트 '{target_sheet.name}'을(를) 활성화했습니다"
+                message = f"인덱스 {index}번 시트 '{target_sheet_name}'을(를) 활성화했습니다"
 
             # 성공 응답 생성
             response = create_success_response(
@@ -190,31 +187,8 @@ def sheet_activate(
         raise typer.Exit(1)
 
     finally:
-        # COM 객체 명시적 해제
-        try:
-            # 가비지 컬렉션 강제 실행
-            import gc
-
-            gc.collect()
-
-            # Windows에서 COM 라이브러리 정리
-            if platform.system() == "Windows":
-                try:
-                    import pythoncom
-
-                    pythoncom.CoUninitialize()
-                except:
-                    pass
-
-        except:
-            pass
-
-        # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
-        if book and not visible and file_path:
-            try:
-                book.app.quit()
-            except:
-                pass
+        # Engine이 리소스 관리를 담당하므로 추가 정리 불필요
+        pass
 
 
 if __name__ == "__main__":

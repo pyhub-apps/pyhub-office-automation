@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ColorScheme,
     DataLabelPosition,
@@ -21,31 +21,59 @@ from .utils import (
     create_error_response,
     create_success_response,
     get_chart_com_object,
-    get_or_open_workbook,
     get_sheet,
-    normalize_path,
 )
 
 
 def find_chart_by_name_or_index(sheet, chart_name=None, chart_index=None):
     """차트 이름이나 인덱스로 차트 객체 찾기"""
-    if chart_name:
-        for chart in sheet.charts:
-            if chart.name == chart_name:
-                return chart
-        raise ValueError(f"차트 '{chart_name}'을 찾을 수 없습니다")
+    if platform.system() == "Windows":
+        # Windows: COM API 사용
+        chart_objects = sheet.ChartObjects()
 
-    elif chart_index is not None:
-        try:
-            if 0 <= chart_index < len(sheet.charts):
-                return sheet.charts[chart_index]
+        if chart_name:
+            for i in range(1, chart_objects.Count + 1):
+                chart_obj = chart_objects(i)
+                if chart_obj.Name == chart_name:
+                    return chart_obj
+            raise ValueError(f"차트 '{chart_name}'을 찾을 수 없습니다")
+
+        elif chart_index is not None:
+            if 0 <= chart_index < chart_objects.Count:
+                return chart_objects(chart_index + 1)  # COM is 1-indexed
             else:
-                raise IndexError(f"차트 인덱스 {chart_index}는 범위를 벗어났습니다 (0-{len(sheet.charts)-1})")
-        except IndexError as e:
-            raise ValueError(str(e))
-
+                raise IndexError(f"차트 인덱스 {chart_index}는 범위를 벗어났습니다 (0-{chart_objects.Count-1})")
+        else:
+            raise ValueError("차트 이름(--chart-name) 또는 인덱스(--chart-index) 중 하나를 지정해야 합니다")
     else:
-        raise ValueError("차트 이름(--chart-name) 또는 인덱스(--chart-index) 중 하나를 지정해야 합니다")
+        # macOS: xlwings 방식
+        if chart_name:
+            for chart in sheet.charts:
+                if chart.name == chart_name:
+                    return chart
+            raise ValueError(f"차트 '{chart_name}'을 찾을 수 없습니다")
+
+        elif chart_index is not None:
+            try:
+                if 0 <= chart_index < len(sheet.charts):
+                    return sheet.charts[chart_index]
+                else:
+                    raise IndexError(f"차트 인덱스 {chart_index}는 범위를 벗어났습니다 (0-{len(sheet.charts)-1})")
+            except IndexError as e:
+                raise ValueError(str(e))
+
+        else:
+            raise ValueError("차트 이름(--chart-name) 또는 인덱스(--chart-index) 중 하나를 지정해야 합니다")
+
+
+def _get_chart_object(chart):
+    """차트 객체에서 실제 Chart COM 객체 가져오기"""
+    # Windows: ChartObject.Chart
+    # macOS: xlwings chart → get_chart_com_object
+    if hasattr(chart, "Chart"):
+        return chart.Chart
+    else:
+        return get_chart_com_object(chart)
 
 
 def set_chart_style(chart, style_number):
@@ -55,8 +83,7 @@ def set_chart_style(chart, style_number):
 
     try:
         if 1 <= style_number <= 48:
-            # 실제 Chart COM 객체 가져오기
-            chart_com = get_chart_com_object(chart)
+            chart_com = _get_chart_object(chart)
             chart_com.ChartStyle = style_number
             return True
         else:
@@ -68,8 +95,7 @@ def set_chart_style(chart, style_number):
 def set_legend_position(chart, position):
     """범례 위치 설정"""
     try:
-        # 실제 Chart COM 객체 가져오기
-        chart_com = get_chart_com_object(chart)
+        chart_com = _get_chart_object(chart)
 
         # position을 문자열로 정규화 (enum 또는 string 모두 처리)
         if hasattr(position, "value"):
@@ -105,8 +131,7 @@ def set_axis_titles(chart, x_title=None, y_title=None):
     """축 제목 설정 (Windows에서 더 안정적)"""
     results = {"x_axis": False, "y_axis": False}
 
-    # 실제 Chart COM 객체 가져오기
-    chart_com = get_chart_com_object(chart)
+    chart_com = _get_chart_object(chart)
 
     try:
         if x_title:
@@ -131,8 +156,7 @@ def set_data_labels(chart, show_labels, label_position=None):
     """데이터 레이블 설정"""
     try:
         if platform.system() == "Windows":
-            # 실제 Chart COM 객체 가져오기
-            chart_com = get_chart_com_object(chart)
+            chart_com = _get_chart_object(chart)
 
             series_collection = chart_com.FullSeriesCollection()
             for i in range(1, series_collection.Count + 1):
@@ -175,8 +199,7 @@ def set_chart_colors(chart, color_scheme):
     """차트 색상 테마 설정 (Windows에서 더 많은 옵션)"""
     try:
         if platform.system() == "Windows":
-            # 실제 Chart COM 객체 가져오기
-            chart_com = get_chart_com_object(chart)
+            chart_com = _get_chart_object(chart)
 
             # color_scheme을 문자열로 정규화
             if hasattr(color_scheme, "value"):
@@ -280,26 +303,53 @@ def chart_configure(
     """
     # Enum 타입이므로 별도 검증 불필요
 
-    book = None
-
     try:
         # 옵션 우선순위 처리 (새 옵션 우선)
         target_name = name or chart_name
         target_index = index if index is not None else chart_index
 
-        # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+        # Engine 획득
+        engine = get_engine()
 
-        # 시트 가져오기
-        target_sheet = get_sheet(book, sheet)
+        # 워크북 연결
+        if file_path:
+            book = engine.open_workbook(file_path, visible=visible)
+        elif workbook_name:
+            book = engine.get_workbook_by_name(workbook_name)
+        else:
+            book = engine.get_active_workbook()
+
+        # 워크북 정보 조회
+        wb_info = engine.get_workbook_info(book)
+
+        # 시트 가져오기 (COM API 직접 사용)
+        if platform.system() == "Windows":
+            if sheet:
+                target_sheet = book.Sheets(sheet)
+            else:
+                target_sheet = book.ActiveSheet
+        else:
+            # macOS는 xlwings 방식 유지 (하이브리드)
+            import xlwings as xw
+
+            xw_book = xw.books[wb_info["name"]]
+            target_sheet = get_sheet(xw_book, sheet)
 
         # 차트 찾기
         chart = find_chart_by_name_or_index(target_sheet, target_name, target_index)
 
+        # 차트 이름 가져오기 (플랫폼별)
+        if platform.system() == "Windows":
+            chart_name_str = chart.Name
+            sheet_name_str = target_sheet.Name
+        else:
+            chart_name_str = chart.name
+            sheet_name_str = target_sheet.name
+
         # 설정 결과 추적
         configuration_results = {
-            "chart_name": chart.name,
-            "sheet": target_sheet.name,
+            "chart_name": chart_name_str,
+            "sheet": sheet_name_str,
             "applied_settings": {},
             "failed_settings": {},
             "platform": platform.system(),
@@ -308,8 +358,7 @@ def chart_configure(
         # 차트 제목 설정
         if title:
             try:
-                # 실제 Chart COM 객체 가져오기
-                chart_com = get_chart_com_object(chart)
+                chart_com = _get_chart_object(chart)
                 chart_com.HasTitle = True
                 chart_com.ChartTitle.Text = title
                 configuration_results["applied_settings"]["title"] = title
@@ -366,8 +415,7 @@ def chart_configure(
         if transparent_bg:
             try:
                 if platform.system() == "Windows":
-                    # 실제 Chart COM 객체 가져오기
-                    chart_com = get_chart_com_object(chart)
+                    chart_com = _get_chart_object(chart)
                     chart_com.PlotArea.Format.Fill.Transparency = 1.0
                     chart_com.ChartArea.Format.Fill.Transparency = 1.0
                     configuration_results["applied_settings"]["transparent_background"] = True
@@ -378,14 +426,17 @@ def chart_configure(
 
         # 파일 저장
         if save and file_path:
-            book.save()
+            if platform.system() == "Windows":
+                book.Save()
+            else:
+                book.save()
             configuration_results["file_saved"] = True
 
         # 응답 생성
         applied_count = len(configuration_results["applied_settings"])
         failed_count = len(configuration_results["failed_settings"])
 
-        message = f"차트 '{chart.name}' 설정 완료: {applied_count}개 적용"
+        message = f"차트 '{chart_name_str}' 설정 완료: {applied_count}개 적용"
         if failed_count > 0:
             message += f", {failed_count}개 실패"
 
@@ -397,8 +448,8 @@ def chart_configure(
         else:
             # 텍스트 형식 출력
             print(f"=== 차트 설정 결과 ===")
-            print(f"차트: {chart.name}")
-            print(f"시트: {target_sheet.name}")
+            print(f"차트: {chart_name_str}")
+            print(f"시트: {sheet_name_str}")
             print(f"플랫폼: {platform.system()}")
             print()
 
@@ -427,25 +478,13 @@ def chart_configure(
         return 1
 
     finally:
-        # Simple COM resource cleanup
+        # COM resource cleanup
         try:
             import gc
 
             gc.collect()
         except:
             pass
-
-        # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not workbook_name:
-            try:
-                if visible:
-                    # 화면에 표시하는 경우 닫지 않음
-                    pass
-                else:
-                    # 백그라운드 실행인 경우 앱 정리
-                    book.app.quit()
-            except:
-                pass
 
     return 0
 

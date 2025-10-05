@@ -1,6 +1,23 @@
 """
 Excel 자동화를 위한 공통 유틸리티 함수들
-xlwings 기반 Excel 조작 및 데이터 처리 지원
+
+⚠️ DEPRECATION NOTICE:
+이 모듈의 xlwings 기반 함수들은 레거시입니다.
+새로운 코드에서는 engines 모듈을 사용하세요:
+
+    from .engines import get_engine
+    engine = get_engine()
+
+    # 권장: Engine 메서드 사용
+    book = engine.get_active_workbook()
+    book = engine.get_workbook_by_name("Sales.xlsx")
+    book = engine.open_workbook("file.xlsx")
+
+    # 레거시: xlwings 직접 사용 (macOS 호환성 또는 특수 케이스)
+    from .utils import get_workbook, get_sheet, get_range
+
+22개 핵심 Excel 명령어는 이미 Engine 레이어로 마이그레이션 완료.
+pivot, slicer, shape 등 추가 기능은 xlwings 의존성을 유지합니다.
 """
 
 import csv
@@ -189,6 +206,11 @@ def normalize_path(path: str) -> str:
 def get_workbook(file_path: str, visible: bool = True) -> xw.Book:
     """
     Excel 워크북을 열거나 생성합니다.
+
+    ⚠️ DEPRECATED: 대신 Engine 레이어 사용 권장
+        from .engines import get_engine
+        engine = get_engine()
+        book = engine.open_workbook(file_path, visible=visible)
 
     Args:
         file_path: Excel 파일 경로
@@ -688,6 +710,11 @@ def get_active_workbook() -> xw.Book:
     """
     현재 활성 워크북을 반환합니다.
 
+    ⚠️ DEPRECATED: 대신 Engine 레이어 사용 권장
+        from .engines import get_engine
+        engine = get_engine()
+        book = engine.get_active_workbook()
+
     Returns:
         xlwings Book 객체
 
@@ -706,6 +733,11 @@ def get_active_workbook() -> xw.Book:
 def get_workbook_by_name(workbook_name: str) -> xw.Book:
     """
     이름으로 열린 워크북을 찾습니다.
+
+    ⚠️ DEPRECATED: 대신 Engine 레이어 사용 권장
+        from .engines import get_engine
+        engine = get_engine()
+        book = engine.get_workbook_by_name("Sales.xlsx")
 
     Args:
         workbook_name: 찾을 워크북 이름 (예: "Sales.xlsx")
@@ -768,6 +800,18 @@ def get_or_open_workbook(
 ) -> xw.Book:
     """
     여러 방법으로 워크북을 가져오는 통합 함수입니다.
+
+    ⚠️ DEPRECATED: 대신 Engine 레이어 사용 권장
+        from .engines import get_engine
+        engine = get_engine()
+
+        # 옵션에 따라:
+        if file_path:
+            book = engine.open_workbook(file_path, visible=visible)
+        elif workbook_name:
+            book = engine.get_workbook_by_name(workbook_name)
+        else:
+            book = engine.get_active_workbook()
 
     Args:
         file_path: 파일 경로 (기존 방식)
@@ -2402,12 +2446,12 @@ def get_slicer_by_name(workbook: xw.Book, slicer_name: str):
         return None
 
 
-def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Union[str, int, float]]]:
+def get_slicers_info(workbook) -> List[Dict[str, Union[str, int, float]]]:
     """
     워크북의 모든 슬라이서 정보를 수집합니다.
 
     Args:
-        workbook: xlwings Book 객체
+        workbook: COM Workbook 객체 (Windows) 또는 워크북 이름 (macOS)
 
     Returns:
         슬라이서 정보 리스트
@@ -2417,7 +2461,7 @@ def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Union[str, int, float]
     try:
         if platform.system() == "Windows":
             # SlicerCaches는 컬렉션이므로 Count를 확인 후 인덱스로 접근
-            slicer_caches = workbook.api.SlicerCaches
+            slicer_caches = workbook.SlicerCaches
             if hasattr(slicer_caches, "Count") and slicer_caches.Count > 0:
                 for i in range(1, slicer_caches.Count + 1):
                     try:
@@ -2490,12 +2534,12 @@ def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Union[str, int, float]
     return slicers_info
 
 
-def get_charts_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
+def get_charts_summary(workbook) -> Dict[str, Union[int, List]]:
     """
     워크북의 차트 요약 정보를 수집합니다.
 
     Args:
-        workbook: xlwings Book 객체
+        workbook: COM Workbook 객체 (Windows) 또는 워크북 이름 (macOS)
 
     Returns:
         차트 요약 정보 딕셔너리
@@ -2503,18 +2547,32 @@ def get_charts_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
     charts_summary = {"total_count": 0, "by_sheet": {}, "chart_names": []}
 
     try:
-        for sheet in workbook.sheets:
-            try:
-                sheet_charts = []
-                for chart in sheet.charts:
-                    sheet_charts.append(chart.name)
-                    charts_summary["chart_names"].append({"name": chart.name, "sheet": sheet.name})
+        if platform.system() == "Windows":
+            # Windows: COM 객체 사용
+            for i in range(1, workbook.Sheets.Count + 1):
+                try:
+                    sheet = workbook.Sheets(i)
+                    sheet_name = sheet.Name
+                    sheet_charts = []
 
-                if sheet_charts:
-                    charts_summary["by_sheet"][sheet.name] = {"count": len(sheet_charts), "names": sheet_charts}
-                    charts_summary["total_count"] += len(sheet_charts)
-            except:
-                pass
+                    # ChartObjects 컬렉션 사용
+                    for j in range(1, sheet.ChartObjects().Count + 1):
+                        try:
+                            chart_obj = sheet.ChartObjects(j)
+                            chart_name = chart_obj.Name
+                            sheet_charts.append(chart_name)
+                            charts_summary["chart_names"].append({"name": chart_name, "sheet": sheet_name})
+                        except:
+                            pass
+
+                    if sheet_charts:
+                        charts_summary["by_sheet"][sheet_name] = {"count": len(sheet_charts), "names": sheet_charts}
+                        charts_summary["total_count"] += len(sheet_charts)
+                except:
+                    pass
+        else:
+            # macOS: 제한적 지원 (Engine 사용 필요)
+            pass
 
     except:
         pass
@@ -2522,12 +2580,12 @@ def get_charts_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
     return charts_summary
 
 
-def get_pivots_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
+def get_pivots_summary(workbook) -> Dict[str, Union[int, List]]:
     """
     워크북의 피벗테이블 요약 정보를 수집합니다.
 
     Args:
-        workbook: xlwings Book 객체
+        workbook: COM Workbook 객체 (Windows) 또는 워크북 이름 (macOS)
 
     Returns:
         피벗테이블 요약 정보 딕셔너리
@@ -2536,25 +2594,29 @@ def get_pivots_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
 
     try:
         if platform.system() == "Windows":
-            for sheet in workbook.sheets:
+            # Windows: COM 객체 사용
+            for i in range(1, workbook.Sheets.Count + 1):
                 try:
-                    # PivotTables는 함수로 호출
-                    pivot_tables = sheet.api.PivotTables()
+                    sheet = workbook.Sheets(i)
+                    sheet_name = sheet.Name
                     sheet_pivots = []
 
+                    # PivotTables는 함수로 호출
+                    pivot_tables = sheet.PivotTables()
+
                     if hasattr(pivot_tables, "Count") and pivot_tables.Count > 0:
-                        for i in range(1, pivot_tables.Count + 1):
+                        for j in range(1, pivot_tables.Count + 1):
                             try:
                                 # Item 메서드를 사용하여 접근
-                                pivot = pivot_tables.Item(i)
+                                pivot = pivot_tables.Item(j)
                                 pivot_name = pivot.Name
                                 sheet_pivots.append(pivot_name)
-                                pivots_summary["pivot_names"].append({"name": pivot_name, "sheet": sheet.name})
+                                pivots_summary["pivot_names"].append({"name": pivot_name, "sheet": sheet_name})
                             except:
                                 pass
 
                     if sheet_pivots:
-                        pivots_summary["by_sheet"][sheet.name] = {"count": len(sheet_pivots), "names": sheet_pivots}
+                        pivots_summary["by_sheet"][sheet_name] = {"count": len(sheet_pivots), "names": sheet_pivots}
                         pivots_summary["total_count"] += len(sheet_pivots)
                 except:
                     pass

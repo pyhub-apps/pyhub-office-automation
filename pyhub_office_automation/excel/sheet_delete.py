@@ -1,5 +1,5 @@
 """
-Excel 워크시트 삭제 명령어 (Typer 버전)
+Excel 워크시트 삭제 명령어 (Engine 기반)
 """
 
 import json
@@ -7,7 +7,8 @@ from typing import Optional
 
 import typer
 
-from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook
+from .engines import get_engine
+from .utils import ExecutionTimer, create_error_response, create_success_response
 
 
 def sheet_delete(
@@ -19,7 +20,6 @@ def sheet_delete(
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
     """Excel 워크북에서 시트를 삭제합니다."""
-    book = None
     try:
         # 옵션 우선순위 처리 (새 옵션 우선)
         sheet_name = sheet or name
@@ -27,23 +27,38 @@ def sheet_delete(
             raise ValueError("--sheet(또는 --name) 옵션으로 삭제할 시트를 지정해야 합니다")
 
         with ExecutionTimer() as timer:
-            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=True)
+            # Engine 획득
+            engine = get_engine()
+
+            # 워크북 가져오기
+            if file_path:
+                book = engine.open_workbook(file_path, visible=True)
+            elif workbook_name:
+                book = engine.get_workbook_by_name(workbook_name)
+            else:
+                book = engine.get_active_workbook()
+
+            # 워크북 정보 가져오기
+            wb_info = engine.get_workbook_info(book)
+            existing_sheets = wb_info["sheets"]
 
             # 시트 존재 확인
-            if sheet_name not in [s.name for s in book.sheets]:
-                available_names = [s.name for s in book.sheets]
-                raise ValueError(f"시트 '{sheet_name}'을 찾을 수 없습니다. 사용 가능한 시트: {available_names}")
+            if sheet_name not in existing_sheets:
+                raise ValueError(f"시트 '{sheet_name}'을 찾을 수 없습니다. 사용 가능한 시트: {existing_sheets}")
 
             # 마지막 시트인지 확인
-            if len(book.sheets) == 1:
+            if len(existing_sheets) == 1:
                 raise ValueError("마지막 남은 시트는 삭제할 수 없습니다")
 
-            target_sheet = book.sheets[sheet_name]
-            target_sheet.delete()
+            # Engine을 통해 시트 삭제
+            engine.delete_sheet(book, sheet_name)
+
+            # 삭제 후 워크북 정보 가져오기
+            wb_info_after = engine.get_workbook_info(book)
 
             data_content = {
                 "deleted_sheet": {"name": sheet_name},
-                "workbook": {"name": book.name, "remaining_sheets": len(book.sheets)},
+                "workbook": {"name": wb_info_after["name"], "remaining_sheets": wb_info_after["sheet_count"]},
             }
 
             response = create_success_response(
@@ -51,7 +66,6 @@ def sheet_delete(
                 command="sheet-delete",
                 message=f"시트 '{sheet_name}'을(를) 삭제했습니다",
                 execution_time_ms=timer.execution_time_ms,
-                book=book,
             )
 
             if output_format == "json":

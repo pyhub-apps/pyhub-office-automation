@@ -4,16 +4,17 @@ AI 에이전트와의 연동을 위한 구조화된 출력 제공
 """
 
 import json
+import platform
 import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook, normalize_path
+from .engines import get_engine
+from .utils import ExecutionTimer, create_error_response, create_success_response, normalize_path
 
 
 def workbook_open(
@@ -51,81 +52,131 @@ def workbook_open(
 
         # 실행 시간 측정 시작
         with ExecutionTimer() as timer:
+            # Engine 획득
+            engine = get_engine()
+
             # 워크북 가져오기
-            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            if file_path:
+                book = engine.open_workbook(file_path, visible=visible)
+            elif workbook_name:
+                book = engine.get_workbook_by_name(workbook_name)
+            else:
+                book = engine.get_active_workbook()
 
-            # 앱 객체 가져오기
-            app = book.app
+            # 기본 워크북 정보 가져오기 (Engine 사용)
+            wb_info = engine.get_workbook_info(book)
 
-            # 시트 정보 수집
+            # 시트 정보 수집 (Windows COM을 통해)
             sheets_info = []
-            for sheet in book.sheets:
+            if platform.system() == "Windows":
                 try:
-                    # 시트의 사용된 범위 정보
-                    used_range = sheet.used_range
-                    if used_range:
-                        last_cell = used_range.last_cell.address
-                        row_count = used_range.rows.count
-                        col_count = used_range.columns.count
-                    else:
-                        last_cell = "A1"
-                        row_count = 0
-                        col_count = 0
+                    active_sheet_name = wb_info["active_sheet"]
+                    for i, sheet_name in enumerate(wb_info["sheets"], start=1):
+                        try:
+                            ws = book.Sheets(sheet_name)
+                            # 시트의 사용된 범위 정보
+                            try:
+                                used_range = ws.UsedRange
+                                if used_range:
+                                    last_cell = used_range.Cells(used_range.Rows.Count, used_range.Columns.Count).Address
+                                    row_count = used_range.Rows.Count
+                                    col_count = used_range.Columns.Count
+                                    used_range_address = used_range.Address
+                                else:
+                                    last_cell = "A1"
+                                    row_count = 0
+                                    col_count = 0
+                                    used_range_address = None
+                            except:
+                                last_cell = "A1"
+                                row_count = 0
+                                col_count = 0
+                                used_range_address = None
 
-                    sheet_info = {
-                        "name": sheet.name,
-                        "index": int(sheet.index) if hasattr(sheet, "index") else -1,
-                        "used_range": used_range.address if used_range else None,
-                        "last_cell": last_cell,
-                        "row_count": row_count,
-                        "column_count": col_count,
-                        "is_active": sheet == book.sheets.active,
-                    }
-                    sheets_info.append(sheet_info)
+                            sheet_info = {
+                                "name": sheet_name,
+                                "index": i,
+                                "used_range": used_range_address,
+                                "last_cell": last_cell,
+                                "row_count": row_count,
+                                "column_count": col_count,
+                                "is_active": sheet_name == active_sheet_name,
+                            }
+                            sheets_info.append(sheet_info)
 
+                        except Exception as e:
+                            # 개별 시트 정보 수집 실패 시 기본 정보만 포함
+                            sheets_info.append(
+                                {
+                                    "name": sheet_name,
+                                    "index": i,
+                                    "error": f"시트 정보 수집 실패: {str(e)}",
+                                }
+                            )
                 except Exception as e:
-                    # 개별 시트 정보 수집 실패 시 기본 정보만 포함
+                    # Windows에서 전체 시트 정보 수집 실패 시 기본 정보만 사용
+                    for i, sheet_name in enumerate(wb_info["sheets"], start=1):
+                        sheets_info.append(
+                            {
+                                "name": sheet_name,
+                                "index": i,
+                                "is_active": sheet_name == wb_info["active_sheet"],
+                            }
+                        )
+            else:
+                # macOS: 기본 정보만 사용
+                active_sheet_name = wb_info["active_sheet"]
+                for i, sheet_name in enumerate(wb_info["sheets"], start=1):
                     sheets_info.append(
                         {
-                            "name": sheet.name,
-                            "index": int(getattr(sheet, "index", -1)) if hasattr(sheet, "index") else -1,
-                            "error": f"시트 정보 수집 실패: {str(e)}",
+                            "name": sheet_name,
+                            "index": i,
+                            "is_active": sheet_name == active_sheet_name,
                         }
                     )
 
             # 워크북 정보 구성
             workbook_info = {
-                "name": normalize_path(book.name),
-                "full_name": normalize_path(book.fullname),
-                "saved": getattr(book, "saved", True),
-                "sheet_count": len(book.sheets),
-                "active_sheet": book.sheets.active.name if book.sheets.active else None,
+                "name": normalize_path(wb_info["name"]),
+                "full_name": normalize_path(wb_info["full_name"]),
+                "saved": wb_info["saved"],
+                "sheet_count": wb_info["sheet_count"],
+                "active_sheet": wb_info["active_sheet"],
                 "sheets": sheets_info,
             }
 
             # 파일 정보 추가 (실제 파일이 있는 경우)
-            try:
-                if hasattr(book, "fullname") and book.fullname:
-                    file_path_info = Path(book.fullname)
-                    if file_path_info.exists():
-                        file_stat = file_path_info.stat()
-                        workbook_info.update(
-                            {
-                                "file_size_bytes": file_stat.st_size,
-                                "file_extension": file_path_info.suffix.lower(),
-                                "is_read_only": not file_path_info.stat().st_mode & 0o200,
-                            }
-                        )
-            except (OSError, AttributeError):
-                # 새 워크북이거나 파일 정보 접근 불가능한 경우
-                pass
+            if wb_info.get("file_size_bytes"):
+                workbook_info["file_size_bytes"] = wb_info["file_size_bytes"]
 
-            # 애플리케이션 정보
-            app_info = {
-                "version": str(getattr(app, "version", "Unknown")),
-                "visible": bool(getattr(app, "visible", visible)),
-                "calculation_mode": str(getattr(app, "calculation", "Unknown")),
-            }
+            if wb_info.get("full_name"):
+                file_path_info = Path(wb_info["full_name"])
+                if file_path_info.exists():
+                    workbook_info["file_extension"] = file_path_info.suffix.lower()
+                    workbook_info["is_read_only"] = not (file_path_info.stat().st_mode & 0o200)
+
+            # 애플리케이션 정보 (Windows만)
+            app_info = {}
+            if platform.system() == "Windows":
+                try:
+                    app_info = {
+                        "version": str(book.Application.Version),
+                        "visible": bool(book.Application.Visible),
+                        "calculation_mode": str(book.Application.Calculation),
+                    }
+                except:
+                    app_info = {
+                        "version": "Unknown",
+                        "visible": visible,
+                        "calculation_mode": "Unknown",
+                    }
+            else:
+                # macOS
+                app_info = {
+                    "version": "Unknown",
+                    "visible": visible,
+                    "calculation_mode": "Unknown",
+                }
 
             # 데이터 구성
             data_content = {
