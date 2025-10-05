@@ -504,37 +504,35 @@ class ExcelEngineBase(ABC):
     # 헬퍼 메서드 (서브클래스에서 선택적 구현)
     # ===========================================
 
+    @abstractmethod
     def get_active_workbook(self) -> Any:
         """
-        현재 활성 워크북을 반환합니다.
+        현재 활성 워크북 객체를 반환합니다.
 
         Returns:
-            Any: 활성 워크북 객체
+            Any: 활성 워크북 객체 (플랫폼별로 다름)
+                 - Windows: COM Workbook 객체
+                 - macOS: 워크북 이름 (str)
 
         Raises:
-            RuntimeError: 열린 워크북이 없는 경우
+            WorkbookNotFoundError: 열린 워크북이 없는 경우
         """
-        workbooks = self.get_workbooks()
-        if not workbooks:
-            raise RuntimeError("열린 워크북이 없습니다")
-        return workbooks[0]  # 첫 번째 워크북을 활성으로 간주
+        pass
 
+    @abstractmethod
     def get_workbook_by_name(self, name: str) -> Any:
         """
-        이름으로 워크북을 찾습니다.
+        이름으로 워크북을 찾아 반환합니다.
 
         Args:
             name: 워크북 이름
 
         Returns:
-            Any: 워크북 객체
+            Any: 워크북 객체 (플랫폼별로 다름)
+                 - Windows: COM Workbook 객체
+                 - macOS: 워크북 이름 (str)
 
         Raises:
-            ValueError: 워크북을 찾을 수 없는 경우
+            WorkbookNotFoundError: 워크북을 찾을 수 없는 경우
         """
-        workbooks = self.get_workbooks()
-        for wb_info in workbooks:
-            if wb_info.name == name:
-                # 서브클래스에서 실제 워크북 객체를 반환하도록 구현 필요
-                raise NotImplementedError("서브클래스에서 구현 필요")
-        raise ValueError(f"워크북 '{name}'을 찾을 수 없습니다")
+        pass

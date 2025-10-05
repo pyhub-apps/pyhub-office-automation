@@ -678,3 +678,39 @@ class MacOSEngine(ExcelEngineBase):
     ) -> str:
         """피벗 차트 생성 (macOS 제한적 지원)"""
         raise NotImplementedError("macOS에서 피벗 차트는 제한적으로 지원됩니다")
+
+    # ===========================================
+    # 헬퍼 메서드 (워크북 객체 접근)
+    # ===========================================
+
+    def get_active_workbook(self) -> Any:
+        """활성 워크북 참조 반환 (macOS AppleScript)"""
+        script = """
+        tell application "Microsoft Excel"
+            if (count of workbooks) = 0 then
+                error "No workbooks open"
+            end if
+            return name of active workbook
+        end tell
+        """
+        try:
+            workbook_name = self._run_applescript(script).strip()
+            return workbook_name  # macOS에서는 이름을 반환
+        except Exception as e:
+            raise WorkbookNotFoundError(f"활성 워크북 가져오기 실패: {str(e)}")
+
+    def get_workbook_by_name(self, name: str) -> Any:
+        """이름으로 워크북 찾기 (macOS AppleScript)"""
+        script = f"""
+        tell application "Microsoft Excel"
+            if exists workbook "{name}" then
+                return name of workbook "{name}"
+            else
+                error "Workbook not found"
+            end if
+        end tell
+        """
+        try:
+            return self._run_applescript(script).strip()
+        except Exception as e:
+            raise WorkbookNotFoundError(f"워크북 '{name}'을 찾을 수 없습니다")

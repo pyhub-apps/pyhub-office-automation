@@ -850,3 +850,28 @@ class WindowsEngine(ExcelEngineBase):
             gc.collect()
         except:
             pass
+
+    # ===========================================
+    # 헬퍼 메서드 (워크북 객체 접근)
+    # ===========================================
+
+    def get_active_workbook(self) -> Any:
+        """활성 워크북 COM 객체 반환"""
+        try:
+            if self.xl.Workbooks.Count == 0:
+                raise WorkbookNotFoundError("열린 워크북이 없습니다")
+            return self.xl.ActiveWorkbook
+        except Exception as e:
+            raise COMError(f"활성 워크북 가져오기 실패: {str(e)}")
+
+    def get_workbook_by_name(self, name: str) -> Any:
+        """이름으로 워크북 COM 객체 찾기"""
+        try:
+            for wb in self.xl.Workbooks:
+                if wb.Name == name:
+                    return wb
+            raise WorkbookNotFoundError(f"워크북 '{name}'을 찾을 수 없습니다")
+        except WorkbookNotFoundError:
+            raise
+        except Exception as e:
+            raise COMError(f"워크북 찾기 실패: {str(e)}")
