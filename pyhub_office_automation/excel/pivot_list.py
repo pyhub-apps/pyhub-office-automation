@@ -14,6 +14,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     create_error_response,
     create_success_response,
@@ -68,6 +69,7 @@ def pivot_list(
 
         # 워크북 연결
         book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+        engine = get_engine()
 
         pivot_tables = []
 
@@ -81,133 +83,133 @@ def pivot_list(
             sheets_to_check = book.sheets
 
         # 각 시트에서 피벗테이블 찾기
-        for ws in sheets_to_check:
+        if platform.system() == "Windows":
+            # Windows에서는 Engine Layer 사용하여 전체 피벗테이블 정보 가져오기
             try:
-                if platform.system() == "Windows":
-                    # Windows에서는 COM API 사용
+                # Engine을 통해 전체 피벗테이블 목록 가져오기
+                all_pivot_info = engine.list_pivot_tables(workbook=book.api)
+
+                # 시트별로 필터링
+                for ws in sheets_to_check:
                     sheet_pivots = []
-                    for pivot_table in ws.api.PivotTables():
-                        pivot_info = {
-                            "name": pivot_table.Name,
-                            "sheet": ws.name,
-                            "location": pivot_table.TableRange1.Address if hasattr(pivot_table, "TableRange1") else "Unknown",
-                        }
 
-                        # 상세 범위 정보 추가 (자동 배치 기능용)
-                        if include_ranges:
+                    # 해당 시트의 피벗테이블만 필터링
+                    sheet_pivot_info = [p for p in all_pivot_info if p.get("sheet") == ws.name]
+
+                    # 추가 정보가 필요한 경우 직접 COM API 접근
+                    for pivot_data in sheet_pivot_info:
+                        pivot_info = pivot_data.copy()
+
+                        # include_ranges 옵션 처리 (기존 로직 유지)
+                        if include_ranges or include_details:
                             try:
-                                range_details = {}
+                                pivot_table = ws.api.PivotTables(pivot_info["name"])
 
-                                # TableRange1: 피벗 테이블 본체 범위
-                                if hasattr(pivot_table, "TableRange1") and pivot_table.TableRange1:
-                                    table_range1 = pivot_table.TableRange1.Address.replace("$", "")
-                                    range_details["table_range"] = table_range1
+                                # 상세 범위 정보 추가 (자동 배치 기능용)
+                                if include_ranges:
                                     try:
-                                        start_row, start_col, end_row, end_col = parse_excel_range(table_range1)
-                                        range_details["table_coords"] = {
-                                            "start": {"row": start_row, "col": start_col},
-                                            "end": {"row": end_row, "col": end_col},
-                                        }
-                                    except Exception:
-                                        pass
+                                        range_details = {}
 
-                                # TableRange2: 데이터 영역 포함 전체 범위 (더 정확한 크기)
-                                if hasattr(pivot_table, "TableRange2") and pivot_table.TableRange2:
-                                    table_range2 = pivot_table.TableRange2.Address.replace("$", "")
-                                    range_details["full_range"] = table_range2
+                                        # TableRange1: 피벗 테이블 본체 범위
+                                        if hasattr(pivot_table, "TableRange1") and pivot_table.TableRange1:
+                                            table_range1 = pivot_table.TableRange1.Address.replace("$", "")
+                                            range_details["table_range"] = table_range1
+                                            try:
+                                                start_row, start_col, end_row, end_col = parse_excel_range(table_range1)
+                                                range_details["table_coords"] = {
+                                                    "start": {"row": start_row, "col": start_col},
+                                                    "end": {"row": end_row, "col": end_col},
+                                                }
+                                            except Exception:
+                                                pass
+
+                                        # TableRange2: 데이터 영역 포함 전체 범위 (더 정확한 크기)
+                                        if hasattr(pivot_table, "TableRange2") and pivot_table.TableRange2:
+                                            table_range2 = pivot_table.TableRange2.Address.replace("$", "")
+                                            range_details["full_range"] = table_range2
+                                            try:
+                                                start_row, start_col, end_row, end_col = parse_excel_range(table_range2)
+                                                range_details["full_coords"] = {
+                                                    "start": {"row": start_row, "col": start_col},
+                                                    "end": {"row": end_row, "col": end_col},
+                                                }
+                                                # 자동 배치에 사용할 권장 범위
+                                                range_details["recommended_range"] = table_range2
+                                            except Exception:
+                                                pass
+
+                                        # 범위 크기 정보
+                                        if "full_coords" in range_details:
+                                            coords = range_details["full_coords"]
+                                            range_details["size"] = {
+                                                "width": coords["end"]["col"] - coords["start"]["col"] + 1,
+                                                "height": coords["end"]["row"] - coords["start"]["row"] + 1,
+                                            }
+
+                                        pivot_info["range_details"] = range_details
+
+                                    except Exception as e:
+                                        pivot_info["range_error"] = f"범위 정보 수집 실패: {str(e)}"
+
+                                if include_details:
                                     try:
-                                        start_row, start_col, end_row, end_col = parse_excel_range(table_range2)
-                                        range_details["full_coords"] = {
-                                            "start": {"row": start_row, "col": start_col},
-                                            "end": {"row": end_row, "col": end_col},
-                                        }
-                                        # 자동 배치에 사용할 권장 범위
-                                        range_details["recommended_range"] = table_range2
-                                    except Exception:
-                                        pass
-
-                                # 범위 크기 정보
-                                if "full_coords" in range_details:
-                                    coords = range_details["full_coords"]
-                                    range_details["size"] = {
-                                        "width": coords["end"]["col"] - coords["start"]["col"] + 1,
-                                        "height": coords["end"]["row"] - coords["start"]["row"] + 1,
-                                    }
-
-                                pivot_info["range_details"] = range_details
-
+                                        # 상세 정보 수집
+                                        pivot_info.update(
+                                            {
+                                                "source_data": (
+                                                    pivot_table.SourceData if hasattr(pivot_table, "SourceData") else "Unknown"
+                                                ),
+                                                "row_fields": (
+                                                    [field.Name for field in pivot_table.RowFields]
+                                                    if hasattr(pivot_table, "RowFields")
+                                                    else []
+                                                ),
+                                                "column_fields": (
+                                                    [field.Name for field in pivot_table.ColumnFields]
+                                                    if hasattr(pivot_table, "ColumnFields")
+                                                    else []
+                                                ),
+                                                "data_fields": (
+                                                    [field.Name for field in pivot_table.DataFields]
+                                                    if hasattr(pivot_table, "DataFields")
+                                                    else []
+                                                ),
+                                                "page_fields": (
+                                                    [field.Name for field in pivot_table.PageFields]
+                                                    if hasattr(pivot_table, "PageFields")
+                                                    else []
+                                                ),
+                                                "refresh_date": (
+                                                    str(pivot_table.RefreshDate)
+                                                    if hasattr(pivot_table, "RefreshDate")
+                                                    else None
+                                                ),
+                                                "cache_index": (
+                                                    pivot_table.CacheIndex if hasattr(pivot_table, "CacheIndex") else None
+                                                ),
+                                            }
+                                        )
+                                    except Exception as e:
+                                        pivot_info["details_error"] = f"상세 정보 수집 실패: {str(e)}"
                             except Exception as e:
-                                pivot_info["range_error"] = f"범위 정보 수집 실패: {str(e)}"
-
-                        if include_details:
-                            try:
-                                # 상세 정보 수집
-                                pivot_info.update(
-                                    {
-                                        "source_data": (
-                                            pivot_table.SourceData if hasattr(pivot_table, "SourceData") else "Unknown"
-                                        ),
-                                        "row_fields": (
-                                            [field.Name for field in pivot_table.RowFields]
-                                            if hasattr(pivot_table, "RowFields")
-                                            else []
-                                        ),
-                                        "column_fields": (
-                                            [field.Name for field in pivot_table.ColumnFields]
-                                            if hasattr(pivot_table, "ColumnFields")
-                                            else []
-                                        ),
-                                        "data_fields": (
-                                            [field.Name for field in pivot_table.DataFields]
-                                            if hasattr(pivot_table, "DataFields")
-                                            else []
-                                        ),
-                                        "page_fields": (
-                                            [field.Name for field in pivot_table.PageFields]
-                                            if hasattr(pivot_table, "PageFields")
-                                            else []
-                                        ),
-                                        "refresh_date": (
-                                            str(pivot_table.RefreshDate) if hasattr(pivot_table, "RefreshDate") else None
-                                        ),
-                                        "cache_index": pivot_table.CacheIndex if hasattr(pivot_table, "CacheIndex") else None,
-                                    }
-                                )
-                            except Exception as e:
-                                pivot_info["details_error"] = f"상세 정보 수집 실패: {str(e)}"
+                                # pivot_table을 가져올 수 없는 경우
+                                pivot_info["error"] = f"피벗테이블 접근 실패: {str(e)}"
 
                         sheet_pivots.append(pivot_info)
 
                     pivot_tables.extend(sheet_pivots)
 
-                else:
-                    # macOS에서는 제한적 정보만 제공
-                    # xlwings를 통한 범위 스캔으로 피벗테이블 추정 (완벽하지 않음)
-                    used_range = ws.used_range
-                    if used_range:
-                        # 간단한 휴리스틱: 사용된 범위 내에서 피벗테이블로 보이는 구조 찾기
-                        pivot_info = {
-                            "name": f"PivotTable_估算_{ws.name}",
-                            "sheet": ws.name,
-                            "location": "macOS에서는 정확한 위치 감지 불가",
-                            "note": "macOS에서는 피벗테이블 정확한 감지가 제한적입니다",
-                        }
-
-                        if include_details:
-                            pivot_info["limitation"] = "macOS에서는 상세 정보를 제공할 수 없습니다"
-
-                        # 실제로 피벗테이블이 있는지 확실하지 않으므로 조건부 추가
-                        # 여기서는 보수적으로 접근하여 빈 목록 반환
-                        pass
-
             except Exception as e:
-                # 시트별 오류는 로그만 남기고 계속 진행
+                # 전체 오류 처리
                 error_info = {
-                    "sheet": ws.name,
-                    "error": f"피벗테이블 조회 실패: {str(e)}",
-                    "note": "이 시트에서는 피벗테이블을 찾을 수 없습니다",
+                    "error": f"피벗테이블 목록 조회 실패: {str(e)}",
+                    "note": "Windows에서만 피벗테이블 조회가 지원됩니다",
                 }
                 pivot_tables.append(error_info)
+        else:
+            # macOS에서는 제한적 정보만 제공
+            # 간단히 에러 메시지만 표시 (실제 피벗테이블 검출 불가)
+            pass
 
         # 응답 데이터 구성
         data_content = {

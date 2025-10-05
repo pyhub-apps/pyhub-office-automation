@@ -13,6 +13,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     NEUMORPHISM_STYLES,
     ExecutionTimer,
@@ -138,6 +139,7 @@ def shape_format(
         with ExecutionTimer() as timer:
             # 워크북 연결
             book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            engine = get_engine()
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
@@ -161,7 +163,47 @@ def shape_format(
 
             # Windows에서만 고급 포맷팅 지원
             if platform.system() == "Windows":
+                # 포맷팅 옵션 준비
+                formatting_options = {}
+
+                if fill_color:
+                    formatting_options["fill_color"] = fill_color
+                if transparency is not None:
+                    formatting_options["transparency"] = transparency
+                if no_line:
+                    formatting_options["no_line"] = no_line
+                if line_color:
+                    formatting_options["line_color"] = line_color
+                if line_width is not None:
+                    formatting_options["line_width"] = line_width
+                if shadow_type:
+                    formatting_options["shadow_type"] = shadow_type
+                if shadow_color:
+                    formatting_options["shadow_color"] = shadow_color
+                if shadow_transparency is not None:
+                    formatting_options["shadow_transparency"] = shadow_transparency
+                if shadow_blur is not None:
+                    formatting_options["shadow_blur"] = shadow_blur
+                if shadow_distance is not None:
+                    formatting_options["shadow_distance"] = shadow_distance
+                if shadow_angle is not None:
+                    formatting_options["shadow_angle"] = shadow_angle
+                if gradient_color2:
+                    formatting_options["gradient_color2"] = gradient_color2
+
+                # Engine을 통한 포맷팅 적용
                 try:
+                    result = engine.format_shape(
+                        workbook=book.api, sheet_name=target_sheet.name, shape_name=shape_name, **formatting_options
+                    )
+
+                    if result.get("formatted"):
+                        applied_styles = result.get("applied_styles", [])
+                    else:
+                        applied_styles.append("포맷팅 적용 실패")
+
+                except Exception as e:
+                    # 엔진 실패 시 기존 방식으로 fallback
                     # 채우기 색상
                     if fill_color:
                         shape_obj.api.Fill.ForeColor.RGB = hex_to_rgb(fill_color)

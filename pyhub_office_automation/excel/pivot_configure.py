@@ -14,6 +14,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     create_error_response,
     create_success_response,
@@ -107,6 +108,7 @@ def pivot_configure(
 
         # 워크북 연결
         book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+        engine = get_engine()
 
         # 구성 데이터 로드
         config_data = {}
@@ -198,156 +200,69 @@ def pivot_configure(
         if not config_data:
             raise ValueError("구성할 필드가 지정되지 않았습니다. --config-file 또는 개별 필드 옵션을 사용하세요")
 
-        # 피벗테이블 찾기
+        # 피벗테이블 찾기 - 시트 이름만 필요
         target_sheet = None
-        pivot_table = None
 
         # 특정 시트가 지정된 경우
         if sheet:
             target_sheet = get_sheet(book, sheet)
-            try:
-                pivot_table = target_sheet.api.PivotTables(pivot_name)
-            except:
-                raise ValueError(f"시트 '{sheet}'에서 피벗테이블 '{pivot_name}'을 찾을 수 없습니다")
         else:
             # 전체 워크북에서 피벗테이블 검색
+            found = False
             for ws in book.sheets:
                 try:
-                    pivot_table = ws.api.PivotTables(pivot_name)
+                    # Engine을 통해 확인
+                    ws.api.PivotTables(pivot_name)
                     target_sheet = ws
+                    found = True
                     break
                 except:
                     continue
 
-            if not pivot_table:
+            if not found:
                 raise ValueError(f"피벗테이블 '{pivot_name}'을 찾을 수 없습니다")
 
-        # xlwings constants import
-        try:
-            from xlwings.constants import ConsolidationFunction, PivotFieldOrientation
-        except ImportError:
-            raise RuntimeError("xlwings.constants 모듈을 가져올 수 없습니다. xlwings 최신 버전이 필요합니다.")
+        # 구성 파라미터 준비
+        config_params = {}
 
-        # 집계 함수 매핑
-        function_map = {
-            "Sum": ConsolidationFunction.xlSum,
-            "Count": ConsolidationFunction.xlCount,
-            "Average": ConsolidationFunction.xlAverage,
-            "Max": ConsolidationFunction.xlMax,
-            "Min": ConsolidationFunction.xlMin,
-            "Product": ConsolidationFunction.xlProduct,
-            "CountNums": ConsolidationFunction.xlCountNums,
-            "StdDev": ConsolidationFunction.xlStDev,
-            "StdDevp": ConsolidationFunction.xlStDevP,
-            "Var": ConsolidationFunction.xlVar,
-            "Varp": ConsolidationFunction.xlVarP,
-        }
-
-        configuration_results = {
-            "pivot_name": pivot_name,
-            "sheet": target_sheet.name,
-            "configured_fields": {},
-            "errors": [],
-            "warnings": [],
-        }
-
-        # 기존 필드 정리 (선택적)
+        # clear_existing 옵션
         if clear_existing:
-            try:
-                # 모든 필드를 숨김 영역으로 이동
-                for field in pivot_table.PivotFields():
-                    try:
-                        field.Orientation = PivotFieldOrientation.xlHidden
-                    except:
-                        pass
+            config_params["clear_existing"] = True
 
-                # 데이터 필드 제거
-                while pivot_table.DataFields.Count > 0:
-                    try:
-                        pivot_table.DataFields(1).Delete()
-                    except:
-                        break
-
-                configuration_results["cleared_existing"] = True
-            except Exception as e:
-                configuration_results["warnings"].append(f"기존 필드 정리 중 오류: {str(e)}")
-
-        # 행 필드 설정
+        # 필드 설정
         if config_data.get("row_fields"):
-            configured_row_fields = []
-            for field_name in config_data["row_fields"]:
-                try:
-                    pivot_field = pivot_table.PivotFields(field_name)
-                    pivot_field.Orientation = PivotFieldOrientation.xlRowField
-                    configured_row_fields.append(field_name)
-                except Exception as e:
-                    configuration_results["errors"].append(f"행 필드 '{field_name}' 설정 실패: {str(e)}")
+            config_params["row_fields"] = config_data["row_fields"]
 
-            configuration_results["configured_fields"]["row_fields"] = configured_row_fields
-
-        # 열 필드 설정
         if config_data.get("column_fields"):
-            configured_column_fields = []
-            for field_name in config_data["column_fields"]:
-                try:
-                    pivot_field = pivot_table.PivotFields(field_name)
-                    pivot_field.Orientation = PivotFieldOrientation.xlColumnField
-                    configured_column_fields.append(field_name)
-                except Exception as e:
-                    configuration_results["errors"].append(f"열 필드 '{field_name}' 설정 실패: {str(e)}")
+            config_params["column_fields"] = config_data["column_fields"]
 
-            configuration_results["configured_fields"]["column_fields"] = configured_column_fields
-
-        # 필터 필드 설정
         if config_data.get("filter_fields"):
-            configured_filter_fields = []
-            for field_name in config_data["filter_fields"]:
-                try:
-                    pivot_field = pivot_table.PivotFields(field_name)
-                    pivot_field.Orientation = PivotFieldOrientation.xlPageField
-                    configured_filter_fields.append(field_name)
-                except Exception as e:
-                    configuration_results["errors"].append(f"필터 필드 '{field_name}' 설정 실패: {str(e)}")
+            config_params["filter_fields"] = config_data["filter_fields"]
 
-            configuration_results["configured_fields"]["filter_fields"] = configured_filter_fields
-
-        # 값 필드 설정
         if config_data.get("value_fields"):
-            configured_value_fields = []
-            for value_config in config_data["value_fields"]:
-                if not isinstance(value_config, dict) or "field" not in value_config:
-                    configuration_results["errors"].append(f"잘못된 값 필드 구성: {value_config}")
-                    continue
+            config_params["value_fields"] = config_data["value_fields"]
 
-                field_name = value_config["field"]
-                function_name = value_config.get("function", "Sum")
-
-                if function_name not in function_map:
-                    configuration_results["errors"].append(f"지원되지 않는 집계 함수: {function_name}")
-                    continue
-
-                try:
-                    # 값 필드 추가
-                    data_field = pivot_table.AddDataField(pivot_table.PivotFields(field_name))
-                    data_field.Function = function_map[function_name]
-
-                    # 사용자 지정 이름 설정 (선택적)
-                    if "name" in value_config:
-                        data_field.Name = value_config["name"]
-
-                    configured_value_fields.append({"field": field_name, "function": function_name, "name": data_field.Name})
-
-                except Exception as e:
-                    configuration_results["errors"].append(f"값 필드 '{field_name}' 설정 실패: {str(e)}")
-
-            configuration_results["configured_fields"]["value_fields"] = configured_value_fields
-
-        # 피벗테이블 새로고침
+        # Engine을 통한 피벗테이블 구성
         try:
-            pivot_table.RefreshTable()
-            configuration_results["refreshed"] = True
+            configuration_results = engine.configure_pivot_table(
+                workbook=book.api, sheet_name=target_sheet.name, pivot_name=pivot_name, **config_params
+            )
+
+            # 응답 형식 조정
+            if "sheet_name" in configuration_results:
+                configuration_results["sheet"] = configuration_results.pop("sheet_name")
+            if "pivot_name" not in configuration_results:
+                configuration_results["pivot_name"] = pivot_name
+
         except Exception as e:
-            configuration_results["warnings"].append(f"피벗테이블 새로고침 실패: {str(e)}")
+            # 오류 처리
+            configuration_results = {
+                "pivot_name": pivot_name,
+                "sheet": target_sheet.name if target_sheet else None,
+                "configured_fields": {},
+                "errors": [str(e)],
+                "warnings": [],
+            }
 
         # 파일 저장
         save_success = False

@@ -13,6 +13,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     NEUMORPHISM_STYLES,
     SHAPE_TYPES,
@@ -129,6 +130,7 @@ def shape_add(
 
             # 워크북 연결
             book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            engine = get_engine()
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
@@ -160,11 +162,18 @@ def shape_add(
             # 도형 생성
             try:
                 if platform.system() == "Windows":
-                    # Windows에서는 COM API 사용
-                    shape = target_sheet.api.Shapes.AddShape(
-                        Type=shape_type_value, Left=left, Top=top, Width=width, Height=height
+                    # Windows에서는 Engine Layer 사용
+                    result = engine.add_shape(
+                        workbook=book.api,
+                        sheet_name=target_sheet.name,
+                        shape_type=shape_type_value,
+                        left=left,
+                        top=top,
+                        width=width,
+                        height=height,
+                        name=shape_name,
                     )
-                    shape.Name = shape_name
+
                     # xlwings 객체로 래핑
                     shape_obj = target_sheet.shapes[shape_name]
                 else:

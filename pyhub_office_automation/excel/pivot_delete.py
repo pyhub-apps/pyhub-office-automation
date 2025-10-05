@@ -14,6 +14,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     create_error_response,
     create_success_response,
@@ -67,16 +68,17 @@ def pivot_delete(
 
         # 워크북 연결
         book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+        engine = get_engine()
 
         # 피벗테이블 찾기
         target_sheet = None
-        pivot_table = None
         pivot_info = None
 
         # 특정 시트가 지정된 경우
         if sheet:
             target_sheet = get_sheet(book, sheet)
             try:
+                # 피벗테이블 존재 확인
                 pivot_table = target_sheet.api.PivotTables(pivot_name)
                 pivot_info = {
                     "name": pivot_table.Name,
@@ -100,11 +102,13 @@ def pivot_delete(
                 except:
                     continue
 
-            if not pivot_table:
+            if not target_sheet:
                 raise ValueError(f"피벗테이블 '{pivot_name}'을 찾을 수 없습니다")
 
-        # 삭제 전 정보 수집
+        # 삭제 전 정보 수집 (Engine 사용 전 직접 수집)
         try:
+            pivot_table = target_sheet.api.PivotTables(pivot_name)
+
             # 피벗테이블 상세 정보 수집
             pivot_info.update(
                 {
@@ -159,14 +163,18 @@ def pivot_delete(
         delete_results = {"pivot_deleted": False, "cache_deleted": False, "errors": []}
 
         try:
-            # 피벗테이블 삭제
-            pivot_table.TableRange2.Delete() if hasattr(pivot_table, "TableRange2") else pivot_table.TableRange1.Delete()
-            delete_results["pivot_deleted"] = True
+            # Engine을 통한 피벗테이블 삭제
+            result = engine.delete_pivot_table(workbook=book.api, sheet_name=target_sheet.name, pivot_name=pivot_name)
+
+            if result.get("deleted"):
+                delete_results["pivot_deleted"] = True
+            else:
+                delete_results["errors"].append(f"피벗테이블 삭제 실패: {result.get('error', 'Unknown error')}")
 
         except Exception as e:
             delete_results["errors"].append(f"피벗테이블 삭제 실패: {str(e)}")
 
-        # 피벗캐시 삭제 (선택적)
+        # 피벗캐시 삭제 (선택적) - 기존 로직 유지 (Engine에 해당 메서드 없음)
         if delete_cache and cache_info and not cache_info.get("error"):
             try:
                 cache_index = cache_info["index"]

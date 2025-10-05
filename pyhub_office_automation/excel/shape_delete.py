@@ -11,6 +11,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     create_error_response,
@@ -104,6 +105,7 @@ def shape_delete(
 
             # 워크북 연결
             book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            engine = get_engine()
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
@@ -191,8 +193,10 @@ def shape_delete(
             deleted_count = 0
             for shape_obj in shapes_to_delete:
                 try:
-                    shape_obj.delete()
-                    deleted_count += 1
+                    # Engine을 통한 도형 삭제
+                    result = engine.delete_shape(workbook=book.api, sheet_name=target_sheet.name, shape_name=shape_obj.name)
+                    if result.get("deleted"):
+                        deleted_count += 1
                 except Exception as e:
                     # 개별 도형 삭제 실패는 경고로 처리
                     for info in deleted_info:

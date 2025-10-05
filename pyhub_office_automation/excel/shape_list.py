@@ -12,6 +12,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     create_error_response,
@@ -121,12 +122,13 @@ def shape_list(
 
             # 워크북 연결
             book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            engine = get_engine()
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
 
-            # 도형 정보 수집
-            shapes_info = get_shapes_info(target_sheet)
+            # 도형 정보 수집 - Engine Layer 사용
+            shapes_info = engine.list_shapes(workbook=book.api, sheet_name=target_sheet.name)
 
             # 타입 필터링
             if filter_type:

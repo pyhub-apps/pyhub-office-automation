@@ -14,6 +14,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExpandMode,
     check_range_overlap,
@@ -132,6 +133,7 @@ def pivot_create(
 
         # 워크북 연결
         book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+        engine = get_engine()
 
         # 소스 시트 가져오기
         source_sheet = get_sheet(book, source_sheet_name)
@@ -238,22 +240,21 @@ def pivot_create(
                 counter += 1
             pivot_name = f"{base_name}{counter}"
 
-        # Windows COM API를 사용한 피벗테이블 생성
+        # Engine Layer를 사용한 피벗테이블 생성
         try:
-            # xlwings constants import
-            from xlwings.constants import PivotTableSourceType
-
-            # PivotCache 생성 - 시트→부모 워크북 경로 사용 (pyhub-mcptools 방식)
-            pivot_cache = source_sheet.api.Parent.PivotCaches().Create(
-                SourceType=PivotTableSourceType.xlDatabase, SourceData=source_data_range.api
+            # Engine method 호출
+            pivot_result = engine.create_pivot_table(
+                workbook=book.api,
+                source_sheet=source_sheet.name,
+                source_range=source_data_range.address,
+                dest_sheet=target_sheet.name,
+                dest_cell=dest_cell.address.split(":")[0],  # 첫 번째 셀 주소만 사용
+                pivot_name=pivot_name,
             )
-
-            # PivotTable 생성 - DefaultVersion 제거, None 처리 개선
-            pivot_table = pivot_cache.CreatePivotTable(TableDestination=dest_cell.api, TableName=pivot_name or None)
 
             # 피벗테이블 정보 수집
             pivot_info = {
-                "name": pivot_table.Name,
+                "name": pivot_result["name"],
                 "source_range": source_data_range.address,
                 "dest_range": dest_cell.address,
                 "source_sheet": source_sheet.name,

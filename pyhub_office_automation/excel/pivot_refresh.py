@@ -14,6 +14,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     create_error_response,
     create_success_response,
@@ -60,6 +61,7 @@ def pivot_refresh(
     try:
         # 워크북 연결
         book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+        engine = get_engine()
 
         refresh_results = {
             "refreshed_pivots": [],
@@ -71,7 +73,7 @@ def pivot_refresh(
 
         # 플랫폼별 처리
         if platform.system() == "Windows":
-            # Windows: COM API 사용
+            # Windows: Engine Layer 사용
 
             if refresh_all:
                 # 전체 워크북의 모든 피벗테이블 새로고침
@@ -80,9 +82,18 @@ def pivot_refresh(
                         for pivot_table in ws.api.PivotTables():
                             pivot_info = {"name": pivot_table.Name, "sheet": ws.name, "status": "success"}
                             try:
-                                pivot_table.RefreshTable()
-                                refresh_results["refreshed_pivots"].append(pivot_info)
-                                refresh_results["success_count"] += 1
+                                # Engine을 통한 새로고침
+                                result = engine.refresh_pivot_table(
+                                    workbook=book.api, sheet_name=ws.name, pivot_name=pivot_table.Name
+                                )
+                                if result.get("refreshed"):
+                                    refresh_results["refreshed_pivots"].append(pivot_info)
+                                    refresh_results["success_count"] += 1
+                                else:
+                                    pivot_info["status"] = "failed"
+                                    pivot_info["error"] = "Refresh failed"
+                                    refresh_results["failed_pivots"].append(pivot_info)
+                                    refresh_results["error_count"] += 1
                             except Exception as e:
                                 pivot_info["status"] = "failed"
                                 pivot_info["error"] = str(e)
@@ -97,53 +108,50 @@ def pivot_refresh(
             elif pivot_name:
                 # 특정 피벗테이블 새로고침
                 target_sheet = None
-                pivot_table = None
 
                 # 특정 시트가 지정된 경우
                 if sheet:
                     target_sheet = get_sheet(book, sheet)
                     try:
-                        pivot_table = target_sheet.api.PivotTables(pivot_name)
+                        # 피벗테이블 존재 확인
+                        target_sheet.api.PivotTables(pivot_name)
                     except:
                         raise ValueError(f"시트 '{sheet}'에서 피벗테이블 '{pivot_name}'을 찾을 수 없습니다")
                 else:
                     # 전체 워크북에서 피벗테이블 검색
                     for ws in book.sheets:
                         try:
-                            pivot_table = ws.api.PivotTables(pivot_name)
+                            ws.api.PivotTables(pivot_name)
                             target_sheet = ws
                             break
                         except:
                             continue
 
-                    if not pivot_table:
+                    if not target_sheet:
                         raise ValueError(f"피벗테이블 '{pivot_name}'을 찾을 수 없습니다")
 
                 # 피벗테이블 새로고침
                 pivot_info = {"name": pivot_name, "sheet": target_sheet.name, "status": "success"}
 
                 try:
-                    # 새로고침 전 정보 수집
-                    refresh_date_before = None
-                    try:
-                        refresh_date_before = str(pivot_table.RefreshDate) if hasattr(pivot_table, "RefreshDate") else None
-                    except:
-                        pass
+                    # Engine을 통한 새로고침 실행
+                    result = engine.refresh_pivot_table(workbook=book.api, sheet_name=target_sheet.name, pivot_name=pivot_name)
 
-                    # 새로고침 실행
-                    pivot_table.RefreshTable()
+                    if result.get("refreshed"):
+                        pivot_info.update(
+                            {
+                                "refresh_date_before": result.get("refresh_date_before"),
+                                "refresh_date_after": result.get("refresh_date_after"),
+                            }
+                        )
+                        refresh_results["refreshed_pivots"].append(pivot_info)
+                        refresh_results["success_count"] = 1
+                    else:
+                        pivot_info["status"] = "failed"
+                        pivot_info["error"] = "Refresh failed"
+                        refresh_results["failed_pivots"].append(pivot_info)
+                        refresh_results["error_count"] = 1
 
-                    # 새로고침 후 정보 수집
-                    refresh_date_after = None
-                    try:
-                        refresh_date_after = str(pivot_table.RefreshDate) if hasattr(pivot_table, "RefreshDate") else None
-                    except:
-                        pass
-
-                    pivot_info.update({"refresh_date_before": refresh_date_before, "refresh_date_after": refresh_date_after})
-
-                    refresh_results["refreshed_pivots"].append(pivot_info)
-                    refresh_results["success_count"] = 1
                     refresh_results["total_processed"] = 1
 
                 except Exception as e:
@@ -160,9 +168,18 @@ def pivot_refresh(
                     for pivot_table in target_sheet.api.PivotTables():
                         pivot_info = {"name": pivot_table.Name, "sheet": target_sheet.name, "status": "success"}
                         try:
-                            pivot_table.RefreshTable()
-                            refresh_results["refreshed_pivots"].append(pivot_info)
-                            refresh_results["success_count"] += 1
+                            # Engine을 통한 새로고침
+                            result = engine.refresh_pivot_table(
+                                workbook=book.api, sheet_name=target_sheet.name, pivot_name=pivot_table.Name
+                            )
+                            if result.get("refreshed"):
+                                refresh_results["refreshed_pivots"].append(pivot_info)
+                                refresh_results["success_count"] += 1
+                            else:
+                                pivot_info["status"] = "failed"
+                                pivot_info["error"] = "Refresh failed"
+                                refresh_results["failed_pivots"].append(pivot_info)
+                                refresh_results["error_count"] += 1
                         except Exception as e:
                             pivot_info["status"] = "failed"
                             pivot_info["error"] = str(e)

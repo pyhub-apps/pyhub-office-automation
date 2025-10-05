@@ -12,6 +12,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     create_error_response,
@@ -144,13 +145,47 @@ def shape_group(
         with ExecutionTimer() as timer:
             # 워크북 연결
             book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            engine = get_engine()
 
             # 시트 가져오기
             target_sheet = get_sheet(book, sheet)
 
             # 작업별 검증 및 실행
             if action == "group":
-                result = handle_group_action(target_sheet, shape_names, group_name, dry_run)
+                # 그룹화 처리 - Engine 사용
+                if not shape_names:
+                    raise ValueError("그룹화할 도형 이름들을 지정해야 합니다 (--shape-names)")
+
+                shape_name_list = [name.strip() for name in shape_names.split(",") if name.strip()]
+
+                if len(shape_name_list) < 2:
+                    raise ValueError("그룹화하려면 최소 2개 이상의 도형이 필요합니다")
+
+                if not group_name:
+                    group_name = generate_unique_shape_name(target_sheet, "Group")
+
+                if dry_run:
+                    # Dry run 모드 처리
+                    result = {
+                        "group_would_be_created": {
+                            "name": group_name,
+                            "shape_names": shape_name_list,
+                            "shape_count": len(shape_name_list),
+                        }
+                    }
+                else:
+                    # 실제 그룹화 실행
+                    group_result = engine.group_shapes(
+                        workbook=book.api, sheet_name=target_sheet.name, shape_names=shape_name_list, group_name=group_name
+                    )
+
+                    result = {
+                        "group_created": {
+                            "name": group_result.get("group_name", group_name),
+                            "shape_names": shape_name_list,
+                            "shape_count": len(shape_name_list),
+                        }
+                    }
             else:  # ungroup
                 result = handle_ungroup_action(target_sheet, target_group, all_groups, include_nested, dry_run)
 
