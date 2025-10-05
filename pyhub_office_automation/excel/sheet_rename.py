@@ -1,5 +1,5 @@
 """
-Excel 워크시트 이름 변경 명령어 (Typer 버전)
+Excel 워크시트 이름 변경 명령어 (Engine 기반)
 """
 
 import json
@@ -7,7 +7,8 @@ from typing import Optional
 
 import typer
 
-from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook
+from .engines import get_engine
+from .utils import ExecutionTimer, create_error_response, create_success_response
 
 
 def sheet_rename(
@@ -20,7 +21,6 @@ def sheet_rename(
     output_format: str = typer.Option("json", "--format", help="출력 형식 선택"),
 ):
     """Excel 워크북의 시트 이름을 변경합니다."""
-    book = None
     try:
         # 옵션 우선순위 처리 (새 옵션 우선)
         current_name = old_sheet or old_name
@@ -30,23 +30,35 @@ def sheet_rename(
             raise ValueError("--old-sheet(또는 --old-name)와 --new-sheet(또는 --new-name) 옵션을 모두 지정해야 합니다")
 
         with ExecutionTimer() as timer:
-            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=True)
+            # Engine 획득
+            engine = get_engine()
+
+            # 워크북 가져오기
+            if file_path:
+                book = engine.open_workbook(file_path, visible=True)
+            elif workbook_name:
+                book = engine.get_workbook_by_name(workbook_name)
+            else:
+                book = engine.get_active_workbook()
+
+            # 워크북 정보 가져오기
+            wb_info = engine.get_workbook_info(book)
+            existing_sheets = wb_info["sheets"]
 
             # 기존 시트 존재 확인
-            if current_name not in [sheet.name for sheet in book.sheets]:
-                available_names = [sheet.name for sheet in book.sheets]
-                raise ValueError(f"시트 '{current_name}'을 찾을 수 없습니다. 사용 가능한 시트: {available_names}")
+            if current_name not in existing_sheets:
+                raise ValueError(f"시트 '{current_name}'을 찾을 수 없습니다. 사용 가능한 시트: {existing_sheets}")
 
             # 새 이름 중복 확인
-            if target_name in [sheet.name for sheet in book.sheets]:
+            if target_name in existing_sheets:
                 raise ValueError(f"시트 이름 '{target_name}'이 이미 존재합니다")
 
-            target_sheet = book.sheets[current_name]
-            target_sheet.name = target_name
+            # Engine을 통해 시트 이름 변경
+            engine.rename_sheet(book, current_name, target_name)
 
             data_content = {
                 "renamed_sheet": {"old_name": current_name, "new_name": target_name},
-                "workbook": {"name": book.name},
+                "workbook": {"name": wb_info["name"]},
             }
 
             response = create_success_response(
@@ -54,7 +66,6 @@ def sheet_rename(
                 command="sheet-rename",
                 message=f"시트 이름을 '{current_name}'에서 '{target_name}'으로 변경했습니다",
                 execution_time_ms=timer.execution_time_ms,
-                book=book,
             )
 
             if output_format == "json":
