@@ -1,33 +1,24 @@
 """
-Excel 셀 범위 데이터 쓰기 명령어 (Typer 버전)
-AI 에이전트와의 연동을 위한 구조화된 출력 제공
+Excel 셀 범위 데이터 쓰기 명령어 (Engine 기반)
 """
 
 import json
-import platform
-import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     cleanup_temp_file,
     create_error_response,
     create_success_response,
-    format_output,
-    get_or_open_workbook,
-    get_range,
-    get_sheet,
-    get_workbook,
     load_data_from_file,
     normalize_path,
     parse_range,
-    validate_range_string,
 )
 
 
@@ -46,11 +37,9 @@ def range_write(
     """
     Excel 셀 범위에 데이터를 씁니다.
 
-    지정된 시작 위치부터 데이터를 쓸 수 있습니다.
-
     \b
     워크북 접근 방법:
-      • 옵션 없음: 활성 워크북 자동 사용 (기본값)
+      • 옵션 없음: 활성 워크북 자동 사용
       • --file-path: 파일 경로로 워크북 열기
       • --workbook-name: 열린 워크북 이름으로 접근
 
@@ -62,11 +51,10 @@ def range_write(
 
     \b
     사용 예제:
-      oa excel range-write --file-path "data.xlsx" --range "A1" --data '["Name", "Age"]'
-      oa excel range-write --range "A1" --data-file "data.json"
-      oa excel range-write --workbook-name "Sales.xlsx" --range "Sheet1!A1" --data-file "data.csv"
+      oa excel range-write --range "A1" --data '["Name", "Age"]'
+      oa excel range-write --file-path "data.xlsx" --range "A1" --data-file "data.json"
+      oa excel range-write --range "Sheet1!A1" --data '[[1,2,3],[4,5,6]]'
     """
-    book = None
     temp_file_path = None
 
     try:
@@ -77,7 +65,7 @@ def range_write(
         if data_file and data:
             raise ValueError("--data-file과 --data는 동시에 사용할 수 없습니다")
 
-        # 범위 문자열 유효성 검증 (시작 셀만 검증)
+        # 범위 문자열 파싱
         parsed_sheet, parsed_range = parse_range(range_str)
         start_cell = parsed_range.split(":")[0]  # 시작 셀만 추출
 
@@ -98,32 +86,46 @@ def range_write(
                 except json.JSONDecodeError as e:
                     raise ValueError(f"JSON 데이터 형식이 잘못되었습니다: {str(e)}")
 
-            # 워크북 연결
-            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            # Engine 획득
+            engine = get_engine()
 
-            # 시트 및 범위 처리
+            # 워크북 가져오기
+            if file_path:
+                book = engine.open_workbook(file_path, visible=visible)
+            elif workbook_name:
+                book = engine.get_workbook_by_name(workbook_name)
+            else:
+                book = engine.get_active_workbook()
+
+            # 워크북 정보 가져오기
+            wb_info = engine.get_workbook_info(book)
+
+            # 시트 처리
             sheet_name = parsed_sheet or sheet
-            try:
-                target_sheet = get_sheet(book, sheet_name)
-            except ValueError as sheet_error:
-                if create_sheet and sheet_name:
-                    # 시트가 없으면 새로 생성
-                    target_sheet = book.sheets.add(sheet_name)
+            if not sheet_name:
+                sheet_name = wb_info["active_sheet"]
+
+            # 시트 존재 확인 및 생성
+            if sheet_name not in wb_info["sheets"]:
+                if create_sheet:
+                    # 시트 생성
+                    sheet_name = engine.add_sheet(book, sheet_name)
+                    # 워크북 정보 갱신
+                    wb_info = engine.get_workbook_info(book)
                 else:
-                    # 시트 생성 옵션이 없거나 시트명이 없으면 원래 에러 발생
-                    raise sheet_error
+                    raise ValueError(f"시트 '{sheet_name}'을 찾을 수 없습니다. 사용 가능한 시트: {wb_info['sheets']}")
 
-            # 시작 셀 범위 객체 가져오기
-            start_range = get_range(target_sheet, start_cell)
+            # Engine을 통해 데이터 쓰기
+            engine.write_range(book, sheet_name, start_cell, write_data, include_formulas=False)
 
-            # 데이터의 크기를 계산하여 실제 쓸 범위 결정
+            # 데이터 크기 계산
             if isinstance(write_data, list):
-                if len(write_data) > 0 and isinstance(write_data[0], list):
+                if write_data and isinstance(write_data[0], list):
                     # 2차원 데이터
                     row_count = len(write_data)
                     col_count = len(write_data[0]) if write_data else 1
                 else:
-                    # 1차원 데이터 (가로로 배치)
+                    # 1차원 데이터
                     row_count = 1
                     col_count = len(write_data)
             else:
@@ -131,73 +133,42 @@ def range_write(
                 row_count = 1
                 col_count = 1
 
-            # 실제 쓸 범위 계산
-            if row_count == 1 and col_count == 1:
-                # 단일 셀
-                write_range = start_range
-                actual_range_address = start_range.address
-            else:
-                # 범위 확장
-                end_range = start_range.offset(row_count - 1, col_count - 1)
-                write_range = target_sheet.range(start_range, end_range)
-                actual_range_address = write_range.address
-
-            # 데이터 쓰기
-            write_range.value = write_data
-
             # 쓰여진 데이터 정보 수집
             written_info = {
-                "range": actual_range_address,
-                "sheet": target_sheet.name,
-                "data_type": type(write_data).__name__,
-                "data_size": {"rows": row_count, "columns": col_count, "total_cells": row_count * col_count},
+                "range": start_cell,  # Engine은 실제 범위를 반환하지 않음
+                "sheet": sheet_name,
+                "row_count": row_count,
+                "column_count": col_count,
+                "cells_count": row_count * col_count,
             }
 
-            # 데이터 미리보기 추가 (큰 데이터의 경우 제한)
-            if isinstance(write_data, list):
-                if len(write_data) <= 5:  # 작은 데이터는 전체 포함
-                    written_info["data_preview"] = write_data
-                else:  # 큰 데이터는 일부만 포함
-                    if isinstance(write_data[0], list):
-                        written_info["data_preview"] = write_data[:3] + ["... (더 많은 데이터)"]
-                    else:
-                        written_info["data_preview"] = write_data[:10] + ["... (더 많은 데이터)"]
-            else:
-                written_info["data_preview"] = write_data
-
-            # 저장 처리
-            saved = False
+            # 저장 처리 (macOS의 경우 COM 객체가 아닐 수 있음)
+            saved_successfully = False
             if save:
                 try:
-                    book.save()
-                    saved = True
-                except Exception as e:
-                    # 저장 실패해도 데이터는 쓰여진 상태
-                    written_info["save_error"] = f"저장 실패: {str(e)}"
-
-            written_info["saved"] = saved
-
-            # 워크북 정보 추가
-            workbook_info = {
-                "name": normalize_path(book.name),
-                "full_name": normalize_path(book.fullname),
-                "saved": getattr(book, "saved", True),
-            }
+                    # Windows에서는 COM 객체의 Save 메서드 호출
+                    if hasattr(book, "Save"):
+                        book.Save()
+                        saved_successfully = True
+                    # macOS에서는 AppleScript로 저장 시도 (Engine 구현에 따라)
+                except Exception as save_error:
+                    # 저장 실패는 경고만 하고 계속 진행
+                    written_info["save_warning"] = f"저장 실패: {str(save_error)}"
 
             # 데이터 구성
             data_content = {
                 "written": written_info,
-                "workbook": workbook_info,
-                "operation": {
-                    "source": "data_file" if data_file else "direct_input",
-                    "input_file": str(data_file_path) if data_file else None,
-                },
+                "workbook": {"name": wb_info["name"], "path": wb_info["full_name"]},
+                "saved": saved_successfully if save else False,
             }
 
-            # 성공 메시지 생성
-            cells_written = row_count * col_count
-            save_status = "저장됨" if saved else ("저장 실패" if save else "저장하지 않음")
-            message = f"범위 '{actual_range_address}'에 {cells_written}개 셀 데이터를 썼습니다 ({save_status})"
+            # 성공 메시지
+            if save and saved_successfully:
+                message = f"범위 '{start_cell}'에 데이터를 성공적으로 쓰고 저장했습니다"
+            elif save:
+                message = f"범위 '{start_cell}'에 데이터를 썼습니다 (저장 시도했으나 실패할 수 있음)"
+            else:
+                message = f"범위 '{start_cell}'에 데이터를 성공적으로 썼습니다"
 
             # 성공 응답 생성
             response = create_success_response(
@@ -205,43 +176,25 @@ def range_write(
                 command="range-write",
                 message=message,
                 execution_time_ms=timer.execution_time_ms,
-                book=book,
-                range_obj=write_range,
-                data_size=len(str(write_data).encode("utf-8")),
             )
 
-            # 출력 형식에 따른 결과 반환
+            # 출력
             if output_format == "json":
                 typer.echo(json.dumps(response, ensure_ascii=False, indent=2))
             else:  # text 형식
-                written = written_info
-                wb = workbook_info
-
                 typer.echo(f"✅ {message}")
                 typer.echo()
-                typer.echo(f"📁 워크북: {wb['name']}")
-                typer.echo(f"📄 시트: {written['sheet']}")
-                typer.echo(f"📍 범위: {written['range']}")
-                typer.echo(
-                    f"📊 크기: {written['data_size']['rows']}행 × {written['data_size']['columns']}열 ({written['data_size']['total_cells']}개 셀)"
-                )
-
-                if "data_preview" in written:
-                    typer.echo(f"💾 데이터 미리보기: {written['data_preview']}")
-
-                if saved:
-                    typer.echo(f"💾 저장: ✅ 완료")
-                elif "save_error" in written:
-                    typer.echo(f"💾 저장: ❌ {written['save_error']}")
-                elif not save:
-                    typer.echo(f"💾 저장: ⚠️ 저장하지 않음 (--no-save 옵션)")
+                typer.echo(f"📄 워크북: {wb_info['name']}")
+                typer.echo(f"📋 시트: {sheet_name}")
+                typer.echo(f"📍 범위: {start_cell}")
+                typer.echo(f"📊 크기: {row_count}행 × {col_count}열 ({row_count * col_count}개 셀)")
 
     except FileNotFoundError as e:
         error_response = create_error_response(e, "range-write")
         if output_format == "json":
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
-            typer.echo(f"❌ 파일을 찾을 수 없습니다", err=True)
+            typer.echo(f"❌ 파일을 찾을 수 없습니다: {str(e)}", err=True)
         raise typer.Exit(1)
 
     except ValueError as e:
@@ -258,41 +211,12 @@ def range_write(
             typer.echo(json.dumps(error_response, ensure_ascii=False, indent=2), err=True)
         else:
             typer.echo(f"❌ 예기치 않은 오류: {str(e)}", err=True)
-            typer.echo(
-                "💡 Excel이 설치되어 있는지 확인하고, 파일이 다른 프로그램에서 사용 중이지 않은지 확인하세요.", err=True
-            )
         raise typer.Exit(1)
 
     finally:
-        # COM 객체 명시적 해제
-        try:
-            # 가비지 컬렉션 강제 실행
-            import gc
-
-            gc.collect()
-
-            # Windows에서 COM 라이브러리 정리
-            if platform.system() == "Windows":
-                try:
-                    import pythoncom
-
-                    pythoncom.CoUninitialize()
-                except:
-                    pass
-
-        except:
-            pass
-
         # 임시 파일 정리
         if temp_file_path:
             cleanup_temp_file(temp_file_path)
-
-        # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
-        if book and not visible and file_path:
-            try:
-                book.app.quit()
-            except:
-                pass
 
 
 if __name__ == "__main__":
