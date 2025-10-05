@@ -10,7 +10,8 @@ from typing import Optional
 import pandas as pd
 import typer
 
-from .utils import ExecutionTimer, create_error_response, create_success_response, get_or_open_workbook
+from .engines import get_engine
+from .utils import ExecutionTimer, create_error_response, create_success_response
 
 
 def table_write(
@@ -72,10 +73,20 @@ def table_write(
             else:
                 raise ValueError("지원되지 않는 파일 형식입니다. CSV 또는 JSON 파일을 사용하세요.")
 
-            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            # Engine 획득
+            engine = get_engine()
 
-            target_sheet = book.sheets.active if not sheet else book.sheets[sheet]
-            start_range = target_sheet.range(range_str)
+            # 워크북 연결
+            if file_path:
+                book = engine.open_workbook(file_path, visible=visible)
+            elif workbook_name:
+                book = engine.get_workbook_by_name(workbook_name)
+            else:
+                book = engine.get_active_workbook()
+
+            # 대상 시트 결정 (COM API 직접 사용)
+            target_sheet = book.ActiveSheet if not sheet else book.Sheets(sheet)
+            start_range = target_sheet.Range(range_str)
 
             # DataFrame을 Excel에 쓰기
             if header:
@@ -85,12 +96,12 @@ def table_write(
                 # 헤더 제외
                 values = df.values.tolist()
 
-            # 데이터 크기에 맞는 범위 계산
-            end_row = start_range.row + len(values) - 1
-            end_col = start_range.column + len(values[0]) - 1
+            # 데이터 크기에 맞는 범위 계산 (COM API 사용)
+            end_row = start_range.Row + len(values) - 1
+            end_col = start_range.Column + len(values[0]) - 1
 
-            write_range = target_sheet.range((start_range.row, start_range.column), (end_row, end_col))
-            write_range.value = values
+            write_range = target_sheet.Range(start_range, target_sheet.Cells(end_row, end_col))
+            write_range.Value = values
 
             # Excel Table 생성 (옵션이 활성화된 경우)
             table_info = None
@@ -100,9 +111,11 @@ def table_write(
                     table_info = {"warning": "Excel Table 생성은 Windows에서만 지원됩니다."}
                 else:
                     try:
-                        # 테이블 이름 자동 생성
+                        # 테이블 이름 자동 생성 (COM API 사용)
                         if not table_name:
-                            existing_tables = [table.name for table in target_sheet.tables]
+                            existing_tables = []
+                            for lo in target_sheet.ListObjects:
+                                existing_tables.append(lo.Name)
                             counter = 1
                             while True:
                                 candidate_name = f"Table{counter}"
@@ -112,7 +125,9 @@ def table_write(
                                 counter += 1
 
                         # 테이블 이름 중복 확인
-                        existing_table_names = [table.name for table in target_sheet.tables]
+                        existing_table_names = []
+                        for lo in target_sheet.ListObjects:
+                            existing_table_names.append(lo.Name)
                         if table_name in existing_table_names:
                             # 중복 시 숫자 suffix 추가
                             base_name = table_name
@@ -122,9 +137,9 @@ def table_write(
                                 counter += 1
 
                         # Excel Table 생성 (Windows COM API 사용)
-                        list_object = target_sheet.api.ListObjects.Add(
+                        list_object = target_sheet.ListObjects.Add(
                             SourceType=1,  # xlSrcRange
-                            Source=write_range.api,
+                            Source=write_range,
                             XlListObjectHasHeaders=1 if header else 2,  # xlYes=1, xlNo=2
                         )
 
@@ -141,7 +156,7 @@ def table_write(
 
                         table_info = {
                             "name": table_name,
-                            "range": write_range.address,
+                            "range": write_range.Address,
                             "style": table_style,
                             "has_headers": header,
                             "created": True,
@@ -150,18 +165,18 @@ def table_write(
                     except Exception as e:
                         table_info = {"error": f"Excel Table 생성 실패: {str(e)}"}
 
-            # 저장 처리
+            # 저장 처리 (COM API 사용)
             saved = False
             if save:
                 try:
-                    book.save()
+                    book.Save()
                     saved = True
                 except Exception as e:
                     # 저장 실패해도 데이터는 쓰여진 상태
                     pass
 
             data_content = {
-                "written_data": {"shape": df.shape, "range": write_range.address, "header_included": header},
+                "written_data": {"shape": df.shape, "range": write_range.Address, "header_included": header},
                 "table": table_info,
                 "source_file": data_file,
                 "saved": saved,
@@ -218,10 +233,10 @@ def table_write(
         raise typer.Exit(1)
 
     finally:
-        # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
+        # 워크북 정리 - 파일 경로로 열었고 visible=False인 경우에만 앱 종료
         if book and not visible and file_path:
             try:
-                book.app.quit()
+                book.Application.Quit()
             except:
                 pass
 
