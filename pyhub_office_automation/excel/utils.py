@@ -2402,12 +2402,12 @@ def get_slicer_by_name(workbook: xw.Book, slicer_name: str):
         return None
 
 
-def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Union[str, int, float]]]:
+def get_slicers_info(workbook) -> List[Dict[str, Union[str, int, float]]]:
     """
     워크북의 모든 슬라이서 정보를 수집합니다.
 
     Args:
-        workbook: xlwings Book 객체
+        workbook: COM Workbook 객체 (Windows) 또는 워크북 이름 (macOS)
 
     Returns:
         슬라이서 정보 리스트
@@ -2417,7 +2417,7 @@ def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Union[str, int, float]
     try:
         if platform.system() == "Windows":
             # SlicerCaches는 컬렉션이므로 Count를 확인 후 인덱스로 접근
-            slicer_caches = workbook.api.SlicerCaches
+            slicer_caches = workbook.SlicerCaches
             if hasattr(slicer_caches, "Count") and slicer_caches.Count > 0:
                 for i in range(1, slicer_caches.Count + 1):
                     try:
@@ -2490,12 +2490,12 @@ def get_slicers_info(workbook: xw.Book) -> List[Dict[str, Union[str, int, float]
     return slicers_info
 
 
-def get_charts_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
+def get_charts_summary(workbook) -> Dict[str, Union[int, List]]:
     """
     워크북의 차트 요약 정보를 수집합니다.
 
     Args:
-        workbook: xlwings Book 객체
+        workbook: COM Workbook 객체 (Windows) 또는 워크북 이름 (macOS)
 
     Returns:
         차트 요약 정보 딕셔너리
@@ -2503,18 +2503,32 @@ def get_charts_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
     charts_summary = {"total_count": 0, "by_sheet": {}, "chart_names": []}
 
     try:
-        for sheet in workbook.sheets:
-            try:
-                sheet_charts = []
-                for chart in sheet.charts:
-                    sheet_charts.append(chart.name)
-                    charts_summary["chart_names"].append({"name": chart.name, "sheet": sheet.name})
+        if platform.system() == "Windows":
+            # Windows: COM 객체 사용
+            for i in range(1, workbook.Sheets.Count + 1):
+                try:
+                    sheet = workbook.Sheets(i)
+                    sheet_name = sheet.Name
+                    sheet_charts = []
 
-                if sheet_charts:
-                    charts_summary["by_sheet"][sheet.name] = {"count": len(sheet_charts), "names": sheet_charts}
-                    charts_summary["total_count"] += len(sheet_charts)
-            except:
-                pass
+                    # ChartObjects 컬렉션 사용
+                    for j in range(1, sheet.ChartObjects().Count + 1):
+                        try:
+                            chart_obj = sheet.ChartObjects(j)
+                            chart_name = chart_obj.Name
+                            sheet_charts.append(chart_name)
+                            charts_summary["chart_names"].append({"name": chart_name, "sheet": sheet_name})
+                        except:
+                            pass
+
+                    if sheet_charts:
+                        charts_summary["by_sheet"][sheet_name] = {"count": len(sheet_charts), "names": sheet_charts}
+                        charts_summary["total_count"] += len(sheet_charts)
+                except:
+                    pass
+        else:
+            # macOS: 제한적 지원 (Engine 사용 필요)
+            pass
 
     except:
         pass
@@ -2522,12 +2536,12 @@ def get_charts_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
     return charts_summary
 
 
-def get_pivots_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
+def get_pivots_summary(workbook) -> Dict[str, Union[int, List]]:
     """
     워크북의 피벗테이블 요약 정보를 수집합니다.
 
     Args:
-        workbook: xlwings Book 객체
+        workbook: COM Workbook 객체 (Windows) 또는 워크북 이름 (macOS)
 
     Returns:
         피벗테이블 요약 정보 딕셔너리
@@ -2536,25 +2550,29 @@ def get_pivots_summary(workbook: xw.Book) -> Dict[str, Union[int, List]]:
 
     try:
         if platform.system() == "Windows":
-            for sheet in workbook.sheets:
+            # Windows: COM 객체 사용
+            for i in range(1, workbook.Sheets.Count + 1):
                 try:
-                    # PivotTables는 함수로 호출
-                    pivot_tables = sheet.api.PivotTables()
+                    sheet = workbook.Sheets(i)
+                    sheet_name = sheet.Name
                     sheet_pivots = []
 
+                    # PivotTables는 함수로 호출
+                    pivot_tables = sheet.PivotTables()
+
                     if hasattr(pivot_tables, "Count") and pivot_tables.Count > 0:
-                        for i in range(1, pivot_tables.Count + 1):
+                        for j in range(1, pivot_tables.Count + 1):
                             try:
                                 # Item 메서드를 사용하여 접근
-                                pivot = pivot_tables.Item(i)
+                                pivot = pivot_tables.Item(j)
                                 pivot_name = pivot.Name
                                 sheet_pivots.append(pivot_name)
-                                pivots_summary["pivot_names"].append({"name": pivot_name, "sheet": sheet.name})
+                                pivots_summary["pivot_names"].append({"name": pivot_name, "sheet": sheet_name})
                             except:
                                 pass
 
                     if sheet_pivots:
-                        pivots_summary["by_sheet"][sheet.name] = {"count": len(sheet_pivots), "names": sheet_pivots}
+                        pivots_summary["by_sheet"][sheet_name] = {"count": len(sheet_pivots), "names": sheet_pivots}
                         pivots_summary["total_count"] += len(sheet_pivots)
                 except:
                     pass
