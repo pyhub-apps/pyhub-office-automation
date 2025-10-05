@@ -10,39 +10,52 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import (
-    create_error_response,
-    create_success_response,
-    get_chart_com_object,
-    get_or_open_workbook,
-    get_sheet,
-    normalize_path,
-)
+from .engines import get_engine
+from .utils import create_error_response, create_success_response, get_chart_com_object, get_sheet
 
 
 def find_chart_by_name_or_index(sheet, chart_name=None, chart_index=None):
     """차트 이름이나 인덱스로 차트 객체 찾기"""
-    if chart_name:
-        for chart in sheet.charts:
-            if chart.name == chart_name:
-                return chart
-        raise ValueError(f"차트 '{chart_name}'을 찾을 수 없습니다")
+    if platform.system() == "Windows":
+        # Windows: COM API 사용
+        chart_objects = sheet.ChartObjects()
 
-    elif chart_index is not None:
-        try:
-            if 0 <= chart_index < len(sheet.charts):
-                return sheet.charts[chart_index]
+        if chart_name:
+            for i in range(1, chart_objects.Count + 1):
+                chart_obj = chart_objects(i)
+                if chart_obj.Name == chart_name:
+                    return chart_obj
+            raise ValueError(f"차트 '{chart_name}'을 찾을 수 없습니다")
+
+        elif chart_index is not None:
+            if 0 <= chart_index < chart_objects.Count:
+                return chart_objects(chart_index + 1)  # COM is 1-indexed
             else:
-                raise IndexError(f"차트 인덱스 {chart_index}는 범위를 벗어났습니다 (0-{len(sheet.charts)-1})")
-        except IndexError as e:
-            raise ValueError(str(e))
-
+                raise IndexError(f"차트 인덱스 {chart_index}는 범위를 벗어났습니다 (0-{chart_objects.Count-1})")
+        else:
+            raise ValueError("차트 이름(--chart-name) 또는 인덱스(--chart-index) 중 하나를 지정해야 합니다")
     else:
-        raise ValueError("차트 이름(--chart-name) 또는 인덱스(--chart-index) 중 하나를 지정해야 합니다")
+        # macOS: xlwings 방식
+        if chart_name:
+            for chart in sheet.charts:
+                if chart.name == chart_name:
+                    return chart
+            raise ValueError(f"차트 '{chart_name}'을 찾을 수 없습니다")
+
+        elif chart_index is not None:
+            try:
+                if 0 <= chart_index < len(sheet.charts):
+                    return sheet.charts[chart_index]
+                else:
+                    raise IndexError(f"차트 인덱스 {chart_index}는 범위를 벗어났습니다 (0-{len(sheet.charts)-1})")
+            except IndexError as e:
+                raise ValueError(str(e))
+
+        else:
+            raise ValueError("차트 이름(--chart-name) 또는 인덱스(--chart-index) 중 하나를 지정해야 합니다")
 
 
 def get_image_format_constant(image_format):
@@ -86,8 +99,7 @@ def get_image_format_constant(image_format):
 
 def validate_output_path(output_path, image_format):
     """출력 경로 검증 및 정규화"""
-    # 한글 경로 정규화
-    output_path = normalize_path(output_path)
+    # 경로 정규화 (Engine이 내부적으로 처리)
     output_path = Path(output_path).resolve()
 
     # 확장자가 없으면 추가
@@ -286,11 +298,32 @@ def chart_export(
     book = None
 
     try:
-        # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+        # Engine 획득
+        engine = get_engine()
 
-        # 시트 가져오기
-        target_sheet = get_sheet(book, sheet)
+        # 워크북 연결
+        if file_path:
+            book = engine.open_workbook(file_path, visible=visible)
+        elif workbook_name:
+            book = engine.get_workbook_by_name(workbook_name)
+        else:
+            book = engine.get_active_workbook()
+
+        # 워크북 정보 조회
+        wb_info = engine.get_workbook_info(book)
+
+        # 시트 가져오기 (플랫폼별)
+        if platform.system() == "Windows":
+            if sheet:
+                target_sheet = book.Sheets(sheet)
+            else:
+                target_sheet = book.ActiveSheet
+        else:
+            # macOS는 xlwings 방식 유지
+            import xlwings as xw
+
+            xw_book = xw.books[wb_info["name"]]
+            target_sheet = get_sheet(xw_book, sheet)
 
         # 차트 찾기
         chart = find_chart_by_name_or_index(target_sheet, chart_name, chart_index)
