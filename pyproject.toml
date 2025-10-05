@@ -26,6 +26,9 @@ classifiers = [
 
 dependencies = [
     "typer>=0.9.0",
+    # xlwings: macOS에서 필수 (AppleScript 한계로 인한 하이브리드 접근)
+    # Windows 핵심 22개 명령어는 Engine 레이어(pywin32 COM)로 마이그레이션 완료
+    # 추가 기능(pivot, slicer, shape)과 macOS는 xlwings 의존성 유지
     "xlwings>=0.30.0",
     "pyhwpx>=0.2.0; sys_platform == 'win32'",
     "pandas>=2.0.0",
@@ -33,6 +36,7 @@ dependencies = [
     "typing-extensions>=4.0.0",
     "keyring>=24.0.0",
     "python-pptx>=0.6.23",
+    # pywin32: Windows Engine 레이어 핵심 (Issue #87)
     "pywin32>=306; sys_platform == 'win32'",
     "Pillow>=10.0.0",
     "prompt-toolkit>=3.0.50",

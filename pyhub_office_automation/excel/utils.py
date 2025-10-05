@@ -1,6 +1,23 @@
 """
 Excel 자동화를 위한 공통 유틸리티 함수들
-xlwings 기반 Excel 조작 및 데이터 처리 지원
+
+⚠️ DEPRECATION NOTICE:
+이 모듈의 xlwings 기반 함수들은 레거시입니다.
+새로운 코드에서는 engines 모듈을 사용하세요:
+
+    from .engines import get_engine
+    engine = get_engine()
+
+    # 권장: Engine 메서드 사용
+    book = engine.get_active_workbook()
+    book = engine.get_workbook_by_name("Sales.xlsx")
+    book = engine.open_workbook("file.xlsx")
+
+    # 레거시: xlwings 직접 사용 (macOS 호환성 또는 특수 케이스)
+    from .utils import get_workbook, get_sheet, get_range
+
+22개 핵심 Excel 명령어는 이미 Engine 레이어로 마이그레이션 완료.
+pivot, slicer, shape 등 추가 기능은 xlwings 의존성을 유지합니다.
 """
 
 import csv
@@ -189,6 +206,11 @@ def normalize_path(path: str) -> str:
 def get_workbook(file_path: str, visible: bool = True) -> xw.Book:
     """
     Excel 워크북을 열거나 생성합니다.
+
+    ⚠️ DEPRECATED: 대신 Engine 레이어 사용 권장
+        from .engines import get_engine
+        engine = get_engine()
+        book = engine.open_workbook(file_path, visible=visible)
 
     Args:
         file_path: Excel 파일 경로
@@ -688,6 +710,11 @@ def get_active_workbook() -> xw.Book:
     """
     현재 활성 워크북을 반환합니다.
 
+    ⚠️ DEPRECATED: 대신 Engine 레이어 사용 권장
+        from .engines import get_engine
+        engine = get_engine()
+        book = engine.get_active_workbook()
+
     Returns:
         xlwings Book 객체
 
@@ -706,6 +733,11 @@ def get_active_workbook() -> xw.Book:
 def get_workbook_by_name(workbook_name: str) -> xw.Book:
     """
     이름으로 열린 워크북을 찾습니다.
+
+    ⚠️ DEPRECATED: 대신 Engine 레이어 사용 권장
+        from .engines import get_engine
+        engine = get_engine()
+        book = engine.get_workbook_by_name("Sales.xlsx")
 
     Args:
         workbook_name: 찾을 워크북 이름 (예: "Sales.xlsx")
@@ -768,6 +800,18 @@ def get_or_open_workbook(
 ) -> xw.Book:
     """
     여러 방법으로 워크북을 가져오는 통합 함수입니다.
+
+    ⚠️ DEPRECATED: 대신 Engine 레이어 사용 권장
+        from .engines import get_engine
+        engine = get_engine()
+
+        # 옵션에 따라:
+        if file_path:
+            book = engine.open_workbook(file_path, visible=visible)
+        elif workbook_name:
+            book = engine.get_workbook_by_name(workbook_name)
+        else:
+            book = engine.get_active_workbook()
 
     Args:
         file_path: 파일 경로 (기존 방식)
