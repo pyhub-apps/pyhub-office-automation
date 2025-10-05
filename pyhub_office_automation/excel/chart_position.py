@@ -9,39 +9,65 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import create_error_response, create_success_response, get_or_open_workbook, get_sheet, normalize_path
+from .engines import get_engine
+from .utils import create_error_response, create_success_response, get_sheet
 
 
 def find_chart_by_name_or_index(sheet, chart_name=None, chart_index=None):
     """차트 이름이나 인덱스로 차트 객체 찾기"""
-    if chart_name:
-        for chart in sheet.charts:
-            if chart.name == chart_name:
-                return chart
-        raise ValueError(f"차트 '{chart_name}'을 찾을 수 없습니다")
+    if platform.system() == "Windows":
+        # Windows: COM API 사용
+        chart_objects = sheet.ChartObjects()
 
-    elif chart_index is not None:
-        try:
-            if 0 <= chart_index < len(sheet.charts):
-                return sheet.charts[chart_index]
+        if chart_name:
+            for i in range(1, chart_objects.Count + 1):
+                chart_obj = chart_objects(i)
+                if chart_obj.Name == chart_name:
+                    return chart_obj
+            raise ValueError(f"차트 '{chart_name}'을 찾을 수 없습니다")
+
+        elif chart_index is not None:
+            if 0 <= chart_index < chart_objects.Count:
+                return chart_objects(chart_index + 1)  # COM is 1-indexed
             else:
-                raise IndexError(f"차트 인덱스 {chart_index}는 범위를 벗어났습니다 (0-{len(sheet.charts)-1})")
-        except IndexError as e:
-            raise ValueError(str(e))
-
+                raise IndexError(f"차트 인덱스 {chart_index}는 범위를 벗어났습니다 (0-{chart_objects.Count-1})")
+        else:
+            raise ValueError("차트 이름(--chart-name) 또는 인덱스(--chart-index) 중 하나를 지정해야 합니다")
     else:
-        raise ValueError("차트 이름(--chart-name) 또는 인덱스(--chart-index) 중 하나를 지정해야 합니다")
+        # macOS: xlwings 방식
+        if chart_name:
+            for chart in sheet.charts:
+                if chart.name == chart_name:
+                    return chart
+            raise ValueError(f"차트 '{chart_name}'을 찾을 수 없습니다")
+
+        elif chart_index is not None:
+            try:
+                if 0 <= chart_index < len(sheet.charts):
+                    return sheet.charts[chart_index]
+                else:
+                    raise IndexError(f"차트 인덱스 {chart_index}는 범위를 벗어났습니다 (0-{len(sheet.charts)-1})")
+            except IndexError as e:
+                raise ValueError(str(e))
+
+        else:
+            raise ValueError("차트 이름(--chart-name) 또는 인덱스(--chart-index) 중 하나를 지정해야 합니다")
 
 
 def get_cell_position(sheet, cell_address):
     """셀 주소에서 픽셀 위치 계산"""
     try:
-        cell_range = sheet.range(cell_address)
-        return {"left": cell_range.left, "top": cell_range.top, "width": cell_range.width, "height": cell_range.height}
+        if platform.system() == "Windows":
+            # Windows: COM API 사용
+            cell_range = sheet.Range(cell_address)
+            return {"left": cell_range.Left, "top": cell_range.Top, "width": cell_range.Width, "height": cell_range.Height}
+        else:
+            # macOS: xlwings 방식
+            cell_range = sheet.range(cell_address)
+            return {"left": cell_range.left, "top": cell_range.top, "width": cell_range.width, "height": cell_range.height}
     except Exception:
         raise ValueError(f"잘못된 셀 주소입니다: {cell_address}")
 
@@ -49,17 +75,17 @@ def get_cell_position(sheet, cell_address):
 def find_shape_by_name(sheet, shape_name):
     """시트에서 도형 이름으로 도형 찾기"""
     try:
-        # xlwings를 통해 도형 찾기
-        if hasattr(sheet, "shapes"):
-            for shape in sheet.shapes:
-                if shape.name == shape_name:
-                    return {"left": shape.left, "top": shape.top, "width": shape.width, "height": shape.height}
-
-        # 직접 API를 통해 찾기 (Windows)
         if platform.system() == "Windows":
-            for shape in sheet.api.Shapes:
+            # Windows: COM API 사용
+            for shape in sheet.Shapes:
                 if shape.Name == shape_name:
                     return {"left": shape.Left, "top": shape.Top, "width": shape.Width, "height": shape.Height}
+        else:
+            # macOS: xlwings 방식
+            if hasattr(sheet, "shapes"):
+                for shape in sheet.shapes:
+                    if shape.name == shape_name:
+                        return {"left": shape.left, "top": shape.top, "width": shape.width, "height": shape.height}
 
         raise ValueError(f"도형 '{shape_name}'을 찾을 수 없습니다")
     except Exception as e:
@@ -213,24 +239,46 @@ def chart_position(
     if fmt not in ["json", "text"]:
         raise ValueError(f"잘못된 출력 형식: {fmt}. 사용 가능한 형식: json, text")
 
-    book = None
-
     try:
         # 옵션 우선순위 처리 (새 옵션 우선)
         target_name = name or chart_name
         target_index = index if index is not None else chart_index
 
-        # 워크북 연결
-        book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+        # Engine 획득
+        engine = get_engine()
 
-        # 시트 가져오기
-        target_sheet = get_sheet(book, sheet)
+        # 워크북 연결
+        if file_path:
+            book = engine.open_workbook(file_path, visible=visible)
+        elif workbook_name:
+            book = engine.get_workbook_by_name(workbook_name)
+        else:
+            book = engine.get_active_workbook()
+
+        # 워크북 정보 조회
+        wb_info = engine.get_workbook_info(book)
+
+        # 시트 가져오기 (COM API 직접 사용)
+        if platform.system() == "Windows":
+            if sheet:
+                target_sheet = book.Sheets(sheet)
+            else:
+                target_sheet = book.ActiveSheet
+        else:
+            # macOS는 xlwings 방식 유지
+            import xlwings as xw
+
+            xw_book = xw.books[wb_info["name"]]
+            target_sheet = get_sheet(xw_book, sheet)
 
         # 차트 찾기
         chart = find_chart_by_name_or_index(target_sheet, target_name, target_index)
 
-        # 현재 차트 위치 및 크기 저장
-        original_position = {"left": chart.left, "top": chart.top, "width": chart.width, "height": chart.height}
+        # 현재 차트 위치 및 크기 저장 (플랫폼별)
+        if platform.system() == "Windows":
+            original_position = {"left": chart.Left, "top": chart.Top, "width": chart.Width, "height": chart.Height}
+        else:
+            original_position = {"left": chart.left, "top": chart.top, "width": chart.width, "height": chart.height}
 
         # 새로운 위치 계산
         new_position = {"left": None, "top": None}
@@ -268,27 +316,49 @@ def chart_position(
         position_changed = False
         size_changed = False
 
-        # 위치 적용
-        if new_position["left"] is not None:
-            chart.left = new_position["left"]
-            changes_made["left"] = new_position["left"]
-            position_changed = True
+        # 위치 적용 (플랫폼별)
+        if platform.system() == "Windows":
+            if new_position["left"] is not None:
+                chart.Left = new_position["left"]
+                changes_made["left"] = new_position["left"]
+                position_changed = True
 
-        if new_position["top"] is not None:
-            chart.top = new_position["top"]
-            changes_made["top"] = new_position["top"]
-            position_changed = True
+            if new_position["top"] is not None:
+                chart.Top = new_position["top"]
+                changes_made["top"] = new_position["top"]
+                position_changed = True
 
-        # 크기 적용
-        if new_size["width"] is not None:
-            chart.width = new_size["width"]
-            changes_made["width"] = new_size["width"]
-            size_changed = True
+            # 크기 적용
+            if new_size["width"] is not None:
+                chart.Width = new_size["width"]
+                changes_made["width"] = new_size["width"]
+                size_changed = True
 
-        if new_size["height"] is not None:
-            chart.height = new_size["height"]
-            changes_made["height"] = new_size["height"]
-            size_changed = True
+            if new_size["height"] is not None:
+                chart.Height = new_size["height"]
+                changes_made["height"] = new_size["height"]
+                size_changed = True
+        else:
+            # macOS: xlwings 방식
+            if new_position["left"] is not None:
+                chart.left = new_position["left"]
+                changes_made["left"] = new_position["left"]
+                position_changed = True
+
+            if new_position["top"] is not None:
+                chart.top = new_position["top"]
+                changes_made["top"] = new_position["top"]
+                position_changed = True
+
+            if new_size["width"] is not None:
+                chart.width = new_size["width"]
+                changes_made["width"] = new_size["width"]
+                size_changed = True
+
+            if new_size["height"] is not None:
+                chart.height = new_size["height"]
+                changes_made["height"] = new_size["height"]
+                size_changed = True
 
         # 변경사항이 없는 경우 확인
         if not changes_made:
@@ -296,14 +366,27 @@ def chart_position(
 
         # 파일 저장
         if save and file_path:
-            book.save()
+            if platform.system() == "Windows":
+                book.Save()
+            else:
+                book.save()
+
+        # 차트 이름 및 시트 이름 가져오기 (플랫폼별)
+        if platform.system() == "Windows":
+            chart_name_str = chart.Name
+            sheet_name_str = target_sheet.Name
+            current_pos = {"left": chart.Left, "top": chart.Top, "width": chart.Width, "height": chart.Height}
+        else:
+            chart_name_str = chart.name
+            sheet_name_str = target_sheet.name
+            current_pos = {"left": chart.left, "top": chart.top, "width": chart.width, "height": chart.height}
 
         # 응답 데이터 구성
         response_data = {
-            "chart_name": chart.name,
-            "sheet": target_sheet.name,
+            "chart_name": chart_name_str,
+            "sheet": sheet_name_str,
             "original_position": original_position,
-            "new_position": {"left": chart.left, "top": chart.top, "width": chart.width, "height": chart.height},
+            "new_position": current_pos,
             "changes_applied": changes_made,
             "position_changed": position_changed,
             "size_changed": size_changed,
@@ -325,7 +408,7 @@ def chart_position(
         if save and file_path:
             response_data["file_saved"] = True
 
-        message = f"차트 '{chart.name}' 위치/크기 조정 완료"
+        message = f"차트 '{chart_name_str}' 위치/크기 조정 완료"
         if position_changed and size_changed:
             message += " (위치 및 크기 변경)"
         elif position_changed:
@@ -340,17 +423,17 @@ def chart_position(
         else:
             # 텍스트 형식 출력
             print(f"=== 차트 위치 조정 결과 ===")
-            print(f"차트: {chart.name}")
-            print(f"시트: {target_sheet.name}")
+            print(f"차트: {chart_name_str}")
+            print(f"시트: {sheet_name_str}")
             print()
 
             print("📍 위치 변경:")
             print(f"   이전: ({original_position['left']:.1f}, {original_position['top']:.1f})")
-            print(f"   현재: ({chart.left:.1f}, {chart.top:.1f})")
+            print(f"   현재: ({current_pos['left']:.1f}, {current_pos['top']:.1f})")
 
             print("📏 크기 변경:")
             print(f"   이전: {original_position['width']:.1f} x {original_position['height']:.1f}")
-            print(f"   현재: {chart.width:.1f} x {chart.height:.1f}")
+            print(f"   현재: {current_pos['width']:.1f} x {current_pos['height']:.1f}")
             print()
 
             if changes_made:
@@ -381,36 +464,13 @@ def chart_position(
         return 1
 
     finally:
-        # COM 객체 명시적 해제
+        # COM resource cleanup
         try:
-            # 가비지 컬렉션 강제 실행
             import gc
 
             gc.collect()
-
-            # Windows에서 COM 라이브러리 정리
-            if platform.system() == "Windows":
-                try:
-                    import pythoncom
-
-                    pythoncom.CoUninitialize()
-                except:
-                    pass
-
         except:
             pass
-
-        # 새로 생성한 워크북인 경우에만 정리
-        if book and file_path and not workbook_name:
-            try:
-                if visible:
-                    # 화면에 표시하는 경우 닫지 않음
-                    pass
-                else:
-                    # 백그라운드 실행인 경우 앱 정리
-                    book.app.quit()
-            except:
-                pass
 
     return 0
 
