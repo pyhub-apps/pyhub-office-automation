@@ -9,87 +9,42 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import (
-    ExecutionTimer,
-    create_error_response,
-    create_success_response,
-    get_or_open_workbook,
-    get_sheet,
-    normalize_path,
-)
+from .engines import get_engine
+from .utils import ExecutionTimer, create_error_response, create_success_response
 
 
-def get_table_columns_and_sample_data(table_range, sheet_obj, has_headers=True, sample_rows=5):
+def truncate_sample_data(sample_data, max_length=50):
     """
-    테이블의 컬럼 리스트와 샘플 데이터를 가져옵니다.
+    샘플 데이터의 각 셀 길이를 제한합니다.
 
     Args:
-        table_range: xlwings Range 객체
-        sheet_obj: xlwings Worksheet 객체
-        has_headers: 헤더 여부
-        sample_rows: 가져올 샘플 행 수
+        sample_data: 샘플 데이터 리스트
+        max_length: 최대 문자 길이
 
     Returns:
-        dict: {"columns": [...], "sample_data": [...]}
+        list: 길이 제한된 샘플 데이터
     """
-    try:
-        columns = []
-        sample_data = []
+    if not sample_data:
+        return []
 
-        # xlwings Range 객체를 직접 사용하여 데이터 읽기
-        all_data = table_range.value
+    def truncate_cell_value(value):
+        if value is None:
+            return None
+        str_value = str(value)
+        return str_value[:max_length] + "..." if len(str_value) > max_length else str_value
 
-        if not all_data:
-            return {"columns": [], "sample_data": []}
-
-        # 데이터가 단일 행인 경우 리스트로 감싸기
-        if not isinstance(all_data, list):
-            all_data = [[all_data]]
-        elif len(all_data) > 0 and not isinstance(all_data[0], list):
-            all_data = [all_data]
-
-        # 컬럼 정보 추출
-        if has_headers and len(all_data) > 0:
-            header_row = all_data[0]
-            columns = [str(val) if val is not None else f"Column_{i+1}" for i, val in enumerate(header_row)]
-            data_rows = all_data[1:]  # 헤더 제외한 데이터 행들
+    truncated_data = []
+    for row in sample_data:
+        if isinstance(row, list):
+            truncated_row = [truncate_cell_value(cell) for cell in row]
         else:
-            # 헤더가 없는 경우 기본 컬럼명 생성
-            if len(all_data) > 0:
-                columns = [f"Column_{i+1}" for i in range(len(all_data[0]))]
-                data_rows = all_data
-            else:
-                columns = []
-                data_rows = []
+            truncated_row = [truncate_cell_value(row)]
+        truncated_data.append(truncated_row)
 
-        # 샘플 데이터 추출 (최대 sample_rows개)
-        sample_data = data_rows[:sample_rows] if data_rows else []
-
-        # 셀 길이 제한 (50자)
-        def truncate_cell_value(value):
-            if value is None:
-                return None
-            str_value = str(value)
-            return str_value[:50] + "..." if len(str_value) > 50 else str_value
-
-        # 샘플 데이터의 각 셀에 길이 제한 적용
-        truncated_sample_data = []
-        for row in sample_data:
-            if isinstance(row, list):
-                truncated_row = [truncate_cell_value(cell) for cell in row]
-            else:
-                truncated_row = [truncate_cell_value(row)]
-            truncated_sample_data.append(truncated_row)
-
-        return {"columns": columns, "sample_data": truncated_sample_data}
-
-    except Exception as e:
-        # 오류 발생 시 기본값 반환
-        return {"columns": [], "sample_data": []}
+    return truncated_data
 
 
 def table_list(
@@ -141,150 +96,85 @@ def table_list(
             if platform.system() != "Windows":
                 raise ValueError("Excel Table 조회는 Windows에서만 지원됩니다.")
 
-            # 워크북 연결
-            book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
+            # Engine 획득
+            engine = get_engine()
 
-            # 조회할 시트 목록 결정
-            if sheet:
-                target_sheets = [get_sheet(book, sheet)]
+            # 워크북 연결
+            if file_path:
+                book = engine.open_workbook(file_path, visible=visible)
+            elif workbook_name:
+                book = engine.get_workbook_by_name(workbook_name)
             else:
-                target_sheets = list(book.sheets)
+                book = engine.get_active_workbook()
+
+            # 워크북 정보 조회
+            wb_info = engine.get_workbook_info(book)
+
+            # 테이블 목록 조회 (Engine 메서드 사용)
+            table_infos = engine.list_tables(book, sheet=sheet)
 
             # 모든 테이블 정보 수집
             all_tables = []
-            total_tables = 0
+            total_tables = len(table_infos)
 
-            for sheet_obj in target_sheets:
-                sheet_tables = []
+            for table_info in table_infos:
+                # TableInfo를 딕셔너리로 변환하고 추가 정보 포함
+                table_dict = {
+                    "name": table_info.name,
+                    "sheet": table_info.sheet_name,
+                    "range": table_info.address,
+                    "row_count": table_info.row_count,
+                    "column_count": table_info.column_count,
+                    "has_headers": len(table_info.headers) > 0,
+                    "data_rows": table_info.row_count - (1 if len(table_info.headers) > 0 else 0),
+                    "columns": table_info.headers,
+                    "sample_data": truncate_sample_data(table_info.sample_data) if table_info.sample_data else [],
+                }
 
-                try:
-                    # 시트의 모든 테이블 조회
-                    for table in sheet_obj.tables:
-                        # 기본 정보 (항상 포함)
+                # --detailed 옵션: Windows COM API로 추가 정보 조회
+                if detailed:
+                    try:
+                        # COM API를 통한 상세 정보 (Windows만)
+                        ws = book.Sheets(table_info.sheet_name)
+                        list_object = ws.ListObjects(table_info.name)
+
+                        # 스타일 정보
                         try:
-                            table_info = {
-                                "name": table.name,
-                                "sheet": sheet_obj.name,
-                                "range": table.range.address,
-                                "row_count": table.range.rows.count,
-                                "column_count": table.range.columns.count,
-                            }
-                        except:
-                            # 기본 정보 수집 실패 시 최소 정보만
-                            table_info = {
-                                "name": table.name,
-                                "sheet": sheet_obj.name,
-                                "range": "Unknown",
-                                "row_count": 0,
-                                "column_count": 0,
-                            }
-
-                        # 유용한 정보 추가 (기본으로 포함) - AI 에이전트에게 유용한 정보들
-                        try:
-                            # COM API를 통한 기본 유용 정보 (Windows만)
-                            list_object = None
-                            for lo in sheet_obj.api.ListObjects:
-                                if lo.Name == table.name:
-                                    list_object = lo
-                                    break
-
-                            if list_object:
-                                # TableStyle은 COM 객체이므로 Name 속성을 통해 문자열로 변환
-                                try:
-                                    style_name = (
-                                        list_object.TableStyle.Name
-                                        if hasattr(list_object.TableStyle, "Name")
-                                        else str(list_object.TableStyle)
-                                    )
-                                except:
-                                    style_name = "TableStyleMedium2"
-
-                                table_info.update(
-                                    {
-                                        "has_headers": list_object.HeaderRowRange is not None,
-                                        "style": style_name,
-                                    }
-                                )
-                                # 데이터만 있는 행 수 계산 (헤더 제외)
-                                if list_object.DataBodyRange:
-                                    table_info["data_rows"] = list_object.DataBodyRange.Rows.Count
-                                else:
-                                    table_info["data_rows"] = max(
-                                        0, table_info["row_count"] - (1 if table_info.get("has_headers") else 0)
-                                    )
-                            else:
-                                # ListObject를 찾지 못한 경우 기본값
-                                table_info.update(
-                                    {
-                                        "has_headers": True,  # 대부분의 Table이 헤더를 가짐
-                                        "style": "Unknown",
-                                        "data_rows": max(0, table_info["row_count"] - 1),  # 헤더 제외
-                                    }
-                                )
-                        except:
-                            # COM API 접근 실패 시 기본값 설정
-                            table_info.update(
-                                {"has_headers": True, "style": "Unknown", "data_rows": max(0, table_info["row_count"] - 1)}
+                            style_name = (
+                                list_object.TableStyle.Name
+                                if hasattr(list_object.TableStyle, "Name")
+                                else str(list_object.TableStyle)
                             )
+                            table_dict["style"] = style_name
+                        except:
+                            table_dict["style"] = "Unknown"
 
-                        # 컬럼 리스트와 샘플 데이터 추가 (항상 포함)
-                        try:
-                            if table_info.get("range") != "Unknown" and table.range:
-                                columns_and_data = get_table_columns_and_sample_data(
-                                    table.range, sheet_obj, has_headers=table_info.get("has_headers", True), sample_rows=5
-                                )
-                                table_info.update(
-                                    {"columns": columns_and_data["columns"], "sample_data": columns_and_data["sample_data"]}
-                                )
-                            else:
-                                table_info.update({"columns": [], "sample_data": []})
-                        except Exception as e:
-                            # 컬럼/샘플 데이터 수집 실패 시 빈 값으로 설정
-                            table_info.update({"columns": [], "sample_data": []})
+                        # 상세 범위 정보
+                        table_dict.update(
+                            {
+                                "data_range": list_object.DataBodyRange.Address if list_object.DataBodyRange else None,
+                                "header_range": list_object.HeaderRowRange.Address if list_object.HeaderRowRange else None,
+                                "total_range": list_object.TotalsRowRange.Address if list_object.TotalsRowRange else None,
+                            }
+                        )
+                    except Exception as e:
+                        table_dict["detailed_error"] = f"고급 정보 수집 실패: {str(e)}"
 
-                        # --detailed 옵션: 고급 정보만 추가 (범위 세부 정보 등)
-                        if detailed:
-                            try:
-                                if list_object:
-                                    table_info.update(
-                                        {
-                                            "data_range": (
-                                                list_object.DataBodyRange.Address if list_object.DataBodyRange else None
-                                            ),
-                                            "header_range": (
-                                                list_object.HeaderRowRange.Address if list_object.HeaderRowRange else None
-                                            ),
-                                            "total_range": (
-                                                list_object.TotalsRowRange.Address if list_object.TotalsRowRange else None
-                                            ),
-                                        }
-                                    )
-                            except Exception as e:
-                                table_info.update({"detailed_error": f"고급 정보 수집 실패: {str(e)}"})
-
-                        sheet_tables.append(table_info)
-                        total_tables += 1
-
-                except Exception as e:
-                    # 시트 접근 실패 시 에러 정보 추가
-                    sheet_tables.append({"sheet": sheet_obj.name, "error": f"시트 접근 실패: {str(e)}"})
-
-                if sheet_tables or not sheet:  # 특정 시트 지정했거나 테이블이 있는 경우만 추가
-                    all_tables.extend(sheet_tables)
+                all_tables.append(table_dict)
 
             # 워크북 정보
             workbook_info = {
-                "name": normalize_path(book.name),
-                "full_name": normalize_path(book.fullname),
-                "saved": getattr(book, "saved", True),
-                "sheet_count": len(book.sheets),
+                "name": wb_info["workbook"]["name"],
+                "full_name": wb_info["workbook"]["full_name"],
+                "saved": wb_info["workbook"]["saved"],
+                "sheet_count": wb_info["workbook"]["sheet_count"],
             }
 
             # 요약 정보
             summary = {
                 "total_tables": total_tables,
-                "sheets_with_tables": len(set(table.get("sheet") for table in all_tables if "error" not in table)),
-                "sheets_scanned": len(target_sheets),
+                "sheets_with_tables": len(set(t["sheet"] for t in all_tables)),
+                "sheets_scanned": 1 if sheet else wb_info["workbook"]["sheet_count"],
             }
 
             # 데이터 구성
@@ -420,29 +310,10 @@ def table_list(
         raise typer.Exit(1)
 
     finally:
-        # COM 객체 명시적 해제
-        try:
-            # 가비지 컬렉션 강제 실행
-            import gc
-
-            gc.collect()
-
-            # Windows에서 COM 라이브러리 정리
-            if platform.system() == "Windows":
-                try:
-                    import pythoncom
-
-                    pythoncom.CoUninitialize()
-                except:
-                    pass
-
-        except:
-            pass
-
-        # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
+        # 워크북 정리 - 파일 경로로 열었고 visible=False인 경우에만 앱 종료
         if book and not visible and file_path:
             try:
-                book.app.quit()
+                book.Application.Quit()
             except:
                 pass
 
