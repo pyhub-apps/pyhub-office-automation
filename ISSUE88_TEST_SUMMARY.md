@@ -298,9 +298,12 @@ $python = "C:\Users\pyhub\AppData\Local\Programs\Python\Python313\python.EXE"
 - Excel에서 실제 결과 확인
 
 📝 **테스트 기록**:
-- 테스트 실행일:
-- 테스트 환경: Windows 10/11, Excel 버전
-- 결과: [여기에 테스트 결과 기록]
+- 테스트 실행일: 2025-10-06
+- 테스트 환경: Windows, Python 3.13, pyhub-office-automation v10.2539.17
+- 자동 테스트 결과: 2/2 통과 (100%)
+  - Excel --help 명령어: PASSED
+  - workbook-list 명령어: PASSED
+- 수동 테스트: 18개 명령어는 실제 Excel 파일 필요 (위 가이드 참조)
 
 ---
 
