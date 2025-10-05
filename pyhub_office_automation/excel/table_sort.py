@@ -13,6 +13,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     create_error_response,
@@ -144,62 +145,22 @@ def table_sort(
                 sheet_msg = f"시트 '{sheet}'" if sheet else "워크북"
                 raise ValueError(f"{sheet_msg}에서 테이블 '{table_name}'을 찾을 수 없습니다.")
 
-            # 테이블의 ListObject 가져오기 (COM API 사용)
-            list_object = None
-            try:
-                for lo in target_sheet.api.ListObjects:
-                    if lo.Name == table_name:
-                        list_object = lo
-                        break
+            # Engine 가져오기
+            engine = get_engine()
 
-                if not list_object:
-                    raise ValueError(f"테이블 '{table_name}'의 ListObject를 찾을 수 없습니다.")
-            except Exception as e:
-                raise ValueError(f"ListObject 접근 실패: {str(e)}")
-
-            # 테이블 헤더 정보 가져오기
-            header_range = list_object.HeaderRowRange
-            if not header_range:
-                raise ValueError(f"테이블 '{table_name}'에 헤더가 없습니다. 정렬을 위해서는 헤더가 필요합니다.")
-
-            # 헤더 컬럼명 목록 가져오기
-            header_values = [cell.Value for cell in header_range]
-            header_map = {str(name).strip(): idx + 1 for idx, name in enumerate(header_values) if name}
-
-            # 컬럼 존재 여부 확인 및 컬럼 인덱스 변환
-            sort_fields = []
+            # 정렬 필드를 Engine에 맞는 형식으로 준비
+            engine_sort_fields = []
             for config in sort_configs:
-                col_name = config["column"]
-                if col_name not in header_map:
-                    available_columns = ", ".join(header_map.keys())
-                    raise ValueError(f"컬럼 '{col_name}'을 찾을 수 없습니다. 사용 가능한 컬럼: {available_columns}")
+                engine_sort_fields.append({"column": config["column"], "order": config["order"]})
 
-                sort_fields.append({"column_name": col_name, "column_index": header_map[col_name], "order": config["order"]})
-
-            # 정렬 적용
+            # 정렬 적용 (Engine Layer 사용)
             try:
-                # AutoFilter가 없으면 생성
-                if not list_object.AutoFilter:
-                    list_object.Range.AutoFilter()
+                result = engine.sort_table(
+                    workbook=book.api, sheet_name=target_sheet.name, table_name=table_name, sort_fields=engine_sort_fields
+                )
 
-                # 정렬 설정 초기화
-                list_object.AutoFilter.Sort.SortFields.Clear()
-
-                # 정렬 필드 추가
-                xlAscending = 1
-                xlDescending = 2
-
-                for field in sort_fields:
-                    sort_order = xlAscending if field["order"] == "asc" else xlDescending
-                    list_object.AutoFilter.Sort.SortFields.Add(
-                        Key=list_object.Range.Columns(field["column_index"]),
-                        SortOn=0,  # xlSortOnValues
-                        Order=sort_order,
-                        DataOption=0,  # xlSortNormal
-                    )
-
-                # 정렬 실행
-                list_object.AutoFilter.Sort.Apply()
+                # result에서 정렬 필드 정보 추출
+                sort_fields = result.get("sort_fields", [])
 
             except Exception as e:
                 raise ValueError(f"정렬 적용 실패: {str(e)}")
@@ -219,7 +180,11 @@ def table_sort(
                 "table_name": table_name,
                 "sheet": target_sheet.name,
                 "sort_fields": [
-                    {"column": field["column_name"], "order": field["order"], "position": idx + 1}
+                    {
+                        "column": field.get("column", field.get("column_name", "")),
+                        "order": field.get("order", "asc"),
+                        "position": idx + 1,
+                    }
                     for idx, field in enumerate(sort_fields)
                 ],
                 "total_sort_fields": len(sort_fields),

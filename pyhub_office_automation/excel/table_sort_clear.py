@@ -13,6 +13,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     create_error_response,
@@ -106,74 +107,30 @@ def table_sort_clear(
                 sheet_msg = f"시트 '{sheet}'" if sheet else "워크북"
                 raise ValueError(f"{sheet_msg}에서 테이블 '{table_name}'을 찾을 수 없습니다.")
 
-            # 테이블의 ListObject 가져오기 (COM API 사용)
-            list_object = None
-            try:
-                for lo in target_sheet.api.ListObjects:
-                    if lo.Name == table_name:
-                        list_object = lo
-                        break
+            # Engine 가져오기
+            engine = get_engine()
 
-                if not list_object:
-                    raise ValueError(f"테이블 '{table_name}'의 ListObject를 찾을 수 없습니다.")
-            except Exception as e:
-                raise ValueError(f"ListObject 접근 실패: {str(e)}")
-
-            # 정렬 해제 전 현재 정렬 상태 확인
+            # 정렬 해제 전 현재 정렬 상태 가져오기
             previous_sort_fields = []
             had_sort = False
 
             try:
-                # AutoFilter와 정렬 상태 확인
-                if list_object.AutoFilter:
-                    sort_obj = list_object.AutoFilter.Sort
-                    if sort_obj and sort_obj.SortFields.Count > 0:
-                        had_sort = True
+                # 현재 정렬 상태 확인
+                sort_info = engine.get_table_sort_info(workbook=book.api, sheet_name=target_sheet.name, table_name=table_name)
 
-                        # 기존 정렬 필드 정보 수집 (로그용)
-                        header_range = list_object.HeaderRowRange
-                        header_values = []
-                        if header_range:
-                            header_values = [
-                                str(cell.Value) if cell.Value else f"Column{idx+1}" for idx, cell in enumerate(header_range)
-                            ]
-
-                        for i in range(1, sort_obj.SortFields.Count + 1):
-                            try:
-                                sort_field = sort_obj.SortFields.Item(i)
-                                key_range = sort_field.Key
-                                column_index = key_range.Column - list_object.Range.Column
-
-                                column_name = (
-                                    header_values[column_index]
-                                    if 0 <= column_index < len(header_values)
-                                    else f"Column{column_index + 1}"
-                                )
-
-                                order = "asc" if sort_field.Order == 1 else "desc"
-
-                                previous_sort_fields.append({"column": column_name, "order": order, "priority": i})
-                            except:
-                                continue
+                previous_sort_fields = sort_info.get("sort_fields", [])
+                had_sort = len(previous_sort_fields) > 0
 
             except Exception:
                 # 정렬 상태 확인 실패 시 정렬 없음으로 처리
                 had_sort = False
 
-            # 정렬 해제 실행
+            # 정렬 해제 실행 (Engine Layer 사용)
             sort_cleared = False
             try:
-                if list_object.AutoFilter:
-                    # 정렬 필드 모두 제거
-                    list_object.AutoFilter.Sort.SortFields.Clear()
+                result = engine.clear_table_sort(workbook=book.api, sheet_name=target_sheet.name, table_name=table_name)
 
-                    # ShowAllData를 호출하여 필터와 정렬을 모두 초기화
-                    list_object.AutoFilter.ShowAllData()
-
-                    sort_cleared = True
-                else:
-                    # AutoFilter가 없으면 정렬도 없음
-                    sort_cleared = True
+                sort_cleared = result.get("success", False)
 
             except Exception as e:
                 raise ValueError(f"정렬 해제 실패: {str(e)}")

@@ -12,6 +12,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     create_error_response,
@@ -225,6 +226,9 @@ def slicer_position(
             # 워크북 연결
             book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
+            # Engine 가져오기
+            engine = get_engine()
+
             # 슬라이서 찾기
             slicer_cache = get_slicer_by_name(book, slicer_name)
             if not slicer_cache:
@@ -271,27 +275,33 @@ def slicer_position(
             if not is_valid:
                 raise ValueError(error_msg)
 
-            # 실제 위치 조정 수행
-            changes_made = []
+            # Engine Layer를 사용한 위치 조정
+            try:
+                result = engine.position_slicer(
+                    workbook=book.api,
+                    slicer_name=slicer_name,
+                    left=new_position["left"] if new_position["left"] != current_position["left"] else None,
+                    top=new_position["top"] if new_position["top"] != current_position["top"] else None,
+                    width=new_position["width"] if new_position["width"] != current_position["width"] else None,
+                    height=new_position["height"] if new_position["height"] != current_position["height"] else None,
+                )
 
-            if new_position["left"] != current_position["left"]:
-                slicer_obj.Left = new_position["left"]
-                changes_made.append(f"left: {current_position['left']} → {new_position['left']}")
+                # 변경사항 추적
+                changes_made = []
+                if new_position["left"] != current_position["left"]:
+                    changes_made.append(f"left: {current_position['left']} → {new_position['left']}")
+                if new_position["top"] != current_position["top"]:
+                    changes_made.append(f"top: {current_position['top']} → {new_position['top']}")
+                if new_position["width"] != current_position["width"]:
+                    changes_made.append(f"width: {current_position['width']} → {new_position['width']}")
+                if new_position["height"] != current_position["height"]:
+                    changes_made.append(f"height: {current_position['height']} → {new_position['height']}")
 
-            if new_position["top"] != current_position["top"]:
-                slicer_obj.Top = new_position["top"]
-                changes_made.append(f"top: {current_position['top']} → {new_position['top']}")
+                if not changes_made:
+                    changes_made.append("변경사항 없음 (이미 목표 위치/크기)")
 
-            if new_position["width"] != current_position["width"]:
-                slicer_obj.Width = new_position["width"]
-                changes_made.append(f"width: {current_position['width']} → {new_position['width']}")
-
-            if new_position["height"] != current_position["height"]:
-                slicer_obj.Height = new_position["height"]
-                changes_made.append(f"height: {current_position['height']} → {new_position['height']}")
-
-            if not changes_made:
-                changes_made.append("변경사항 없음 (이미 목표 위치/크기)")
+            except Exception as e:
+                raise RuntimeError(f"슬라이서 위치 조정 실패: {str(e)}")
 
             # 파일 저장
             if save and file_path:

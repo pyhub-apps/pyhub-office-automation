@@ -13,6 +13,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     ExpandMode,
@@ -126,24 +127,22 @@ def table_create(
             if table_name in existing_table_names:
                 raise ValueError(f"테이블 이름 '{table_name}'이 이미 존재합니다.")
 
-            # Excel Table 생성 (Windows COM API 사용)
+            # Excel Table 생성 (Engine Layer 사용)
             try:
-                # ListObject 추가
-                list_object = target_sheet.api.ListObjects.Add(
-                    SourceType=1,  # xlSrcRange
-                    Source=range_obj.api,
-                    XlListObjectHasHeaders=1 if has_headers else 2,  # xlYes=1, xlNo=2
+                # Engine 가져오기
+                engine = get_engine()
+
+                # Engine 메서드로 테이블 생성
+                result = engine.create_table(
+                    workbook=book.api,
+                    sheet_name=target_sheet.name,
+                    range_address=range_obj.address,
+                    table_name=table_name,
+                    has_headers=has_headers,
+                    table_style=table_style,
                 )
 
-                # 테이블 이름 설정
-                list_object.Name = table_name
-
-                # 테이블 스타일 적용
-                try:
-                    list_object.TableStyle = table_style
-                except:
-                    # 스타일 적용 실패 시 기본 스타일 사용
-                    list_object.TableStyle = "TableStyleMedium2"
+                # result는 {"name": ..., "range": ..., "row_count": ..., ...} 구조
 
             except Exception as e:
                 raise ValueError(f"Excel Table 생성 실패: {str(e)}")

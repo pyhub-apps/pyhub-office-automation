@@ -12,6 +12,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     analyze_slicer_conflicts,
@@ -104,8 +105,15 @@ def slicer_list(
             # 워크북 연결
             book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
-            # 슬라이서 정보 수집
-            slicers_info = get_slicers_info(book)
+            # Engine 가져오기
+            engine = get_engine()
+
+            # 슬라이서 정보 수집 (Engine Layer 사용)
+            try:
+                slicers_info = engine.list_slicers(workbook=book.api)
+            except Exception as e:
+                # Fallback to utility function if engine method fails
+                slicers_info = get_slicers_info(book)
 
             # 필터링 적용
             if filter_field:

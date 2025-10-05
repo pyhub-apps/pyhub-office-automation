@@ -12,6 +12,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     create_error_response,
@@ -174,6 +175,9 @@ def slicer_connect(
             # 워크북 연결
             book = get_or_open_workbook(file_path=file_path, workbook_name=workbook_name, visible=visible)
 
+            # Engine 가져오기
+            engine = get_engine()
+
             # 슬라이서 찾기
             slicer_cache = get_slicer_by_name(book, slicer_name)
             if not slicer_cache:
@@ -184,11 +188,11 @@ def slicer_connect(
                 result = handle_list_connections(book, slicer_cache, slicer_name)
             elif action == "connect":
                 result = handle_connect_action(
-                    book, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run
+                    book, engine, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run
                 )
             else:  # disconnect
                 result = handle_disconnect_action(
-                    book, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run
+                    book, engine, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run
                 )
 
             # 파일 저장
@@ -287,7 +291,7 @@ def handle_list_connections(book, slicer_cache, slicer_name):
         raise RuntimeError(f"연결 상태 조회 실패: {str(e)}")
 
 
-def handle_connect_action(book, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run):
+def handle_connect_action(book, engine, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run):
     """연결 작업 처리"""
     if not pivot_tables and not all_pivots:
         raise ValueError("연결할 피벗테이블을 지정해야 합니다 (--pivot-tables 또는 --all-pivots)")
@@ -333,27 +337,39 @@ def handle_connect_action(book, slicer_cache, slicer_name, pivot_tables, all_piv
             "message": f"{len(compatible_pivots)}개의 피벗테이블에 연결될 예정입니다",
         }
 
-    # 실제 연결 수행
+    # 실제 연결 수행 (Engine Layer 사용)
     successful_connections = []
     failed_connections = []
 
+    # 연결할 피벗테이블 이름 목록 준비
+    pivot_names_to_connect = []
     for pivot_info in compatible_pivots:
-        try:
-            # 슬라이서 캐시에 피벗테이블 추가
-            slicer_cache.PivotTables.AddPivotTable(pivot_info["pivot_object"])
-            successful_connections.append(pivot_info["name"])
-        except Exception as e:
-            failed_connections.append({"name": pivot_info["name"], "error": str(e)})
+        pivot_names_to_connect.append(pivot_info["name"])
 
-    # 강제 모드에서 호환되지 않는 피벗테이블도 시도
+    # 강제 모드에서 호환되지 않는 피벗테이블도 포함
     if force and incompatible_pivots:
         for pivot_info in target_pivot_tables:
             if pivot_info["name"] in [p["name"] for p in incompatible_pivots]:
-                try:
-                    slicer_cache.PivotTables.AddPivotTable(pivot_info["pivot_object"])
-                    successful_connections.append(pivot_info["name"] + " (강제)")
-                except Exception as e:
-                    failed_connections.append({"name": pivot_info["name"] + " (강제)", "error": str(e)})
+                pivot_names_to_connect.append(pivot_info["name"])
+
+    # Engine을 통한 연결
+    try:
+        result = engine.connect_slicer(
+            workbook=book.api, slicer_name=slicer_name, pivot_table_names=pivot_names_to_connect, action="connect"
+        )
+
+        successful_connections = result.get("successful", pivot_names_to_connect)
+        failed_list = result.get("failed", [])
+        failed_connections = [{"name": name, "error": "Connection failed"} for name in failed_list]
+
+    except Exception as e:
+        # Fallback to individual connections if engine method fails
+        for pivot_info in compatible_pivots:
+            try:
+                slicer_cache.PivotTables.AddPivotTable(pivot_info["pivot_object"])
+                successful_connections.append(pivot_info["name"])
+            except Exception as err:
+                failed_connections.append({"name": pivot_info["name"], "error": str(err)})
 
     result = {
         "successful_connections": successful_connections,
@@ -376,7 +392,7 @@ def handle_connect_action(book, slicer_cache, slicer_name, pivot_tables, all_piv
     return result
 
 
-def handle_disconnect_action(book, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run):
+def handle_disconnect_action(book, engine, slicer_cache, slicer_name, pivot_tables, all_pivots, target_sheet, force, dry_run):
     """연결 해제 작업 처리"""
     # 현재 연결된 피벗테이블 목록
     current_connections = []
@@ -422,18 +438,31 @@ def handle_disconnect_action(book, slicer_cache, slicer_name, pivot_tables, all_
             "message": f"{len(targets_to_disconnect)}개의 연결이 해제될 예정입니다",
         }
 
-    # 실제 해제 수행
+    # 실제 해제 수행 (Engine Layer 사용)
     successful_disconnections = []
     failed_disconnections = []
 
-    for target in targets_to_disconnect:
-        try:
-            # 특정 피벗테이블과의 연결 해제
-            # Excel COM API를 통해 해제
-            target["pivot_object"].PivotCache.RemoveSlicerCaches(slicer_cache)
-            successful_disconnections.append(target["name"])
-        except Exception as e:
-            failed_disconnections.append({"name": target["name"], "error": str(e)})
+    # 해제할 피벗테이블 이름 목록 준비
+    pivot_names_to_disconnect = [target["name"] for target in targets_to_disconnect]
+
+    # Engine을 통한 연결 해제
+    try:
+        result = engine.connect_slicer(
+            workbook=book.api, slicer_name=slicer_name, pivot_table_names=pivot_names_to_disconnect, action="disconnect"
+        )
+
+        successful_disconnections = result.get("successful", pivot_names_to_disconnect)
+        failed_list = result.get("failed", [])
+        failed_disconnections = [{"name": name, "error": "Disconnection failed"} for name in failed_list]
+
+    except Exception as e:
+        # Fallback to individual disconnections if engine method fails
+        for target in targets_to_disconnect:
+            try:
+                target["pivot_object"].PivotCache.RemoveSlicerCaches(slicer_cache)
+                successful_disconnections.append(target["name"])
+            except Exception as err:
+                failed_disconnections.append({"name": target["name"], "error": str(err)})
 
     result = {
         "successful_disconnections": successful_disconnections,

@@ -13,6 +13,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     create_error_response,
@@ -100,63 +101,20 @@ def table_sort_info(
                 sheet_msg = f"시트 '{sheet}'" if sheet else "워크북"
                 raise ValueError(f"{sheet_msg}에서 테이블 '{table_name}'을 찾을 수 없습니다.")
 
-            # 테이블의 ListObject 가져오기 (COM API 사용)
-            list_object = None
-            try:
-                for lo in target_sheet.api.ListObjects:
-                    if lo.Name == table_name:
-                        list_object = lo
-                        break
+            # Engine 가져오기
+            engine = get_engine()
 
-                if not list_object:
-                    raise ValueError(f"테이블 '{table_name}'의 ListObject를 찾을 수 없습니다.")
-            except Exception as e:
-                raise ValueError(f"ListObject 접근 실패: {str(e)}")
-
-            # 테이블 헤더 정보 가져오기
-            header_range = list_object.HeaderRowRange
-            header_values = []
-            if header_range:
-                header_values = [str(cell.Value) if cell.Value else f"Column{idx+1}" for idx, cell in enumerate(header_range)]
-
-            # 정렬 상태 조회
+            # 정렬 상태 조회 (Engine Layer 사용)
             sort_fields = []
             has_sort = False
+            header_values = []
 
             try:
-                # AutoFilter가 있는지 확인
-                if list_object.AutoFilter:
-                    sort_obj = list_object.AutoFilter.Sort
-                    if sort_obj and sort_obj.SortFields.Count > 0:
-                        has_sort = True
+                result = engine.get_table_sort_info(workbook=book.api, sheet_name=target_sheet.name, table_name=table_name)
 
-                        # 각 정렬 필드 정보 수집
-                        for i in range(1, sort_obj.SortFields.Count + 1):
-                            sort_field = sort_obj.SortFields.Item(i)
-
-                            # 컬럼 인덱스 찾기
-                            try:
-                                # Key 속성에서 컬럼 번호 추출
-                                key_range = sort_field.Key
-                                column_index = key_range.Column - list_object.Range.Column
-
-                                # 헤더명 가져오기
-                                column_name = (
-                                    header_values[column_index]
-                                    if 0 <= column_index < len(header_values)
-                                    else f"Column{column_index + 1}"
-                                )
-
-                                # 정렬 순서 확인 (1=오름차순, 2=내림차순)
-                                order = "asc" if sort_field.Order == 1 else "desc"
-
-                                sort_fields.append(
-                                    {"column": column_name, "column_index": column_index + 1, "order": order, "priority": i}
-                                )
-
-                            except Exception as field_error:
-                                # 개별 필드 처리 실패 시 스킵
-                                continue
+                sort_fields = result.get("sort_fields", [])
+                has_sort = result.get("has_sort", False)
+                header_values = result.get("headers", [])
 
             except Exception as e:
                 # 정렬 정보 조회 실패 시 정렬 없음으로 처리
@@ -170,7 +128,7 @@ def table_sort_info(
                 "range": target_table.range.address,
                 "row_count": target_table.range.rows.count,
                 "column_count": target_table.range.columns.count,
-                "has_headers": header_range is not None,
+                "has_headers": len(header_values) > 0,
                 "headers": header_values if header_values else [],
             }
 

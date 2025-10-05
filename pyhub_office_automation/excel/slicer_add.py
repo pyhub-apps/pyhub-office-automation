@@ -13,6 +13,7 @@ import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
+from .engines import get_engine
 from .utils import (
     ExecutionTimer,
     OutputFormat,
@@ -184,70 +185,43 @@ def slicer_add(
             if not caption:
                 caption = field
 
-            # 슬라이서 생성 (Windows COM API)
+            # 슬라이서 생성 (Engine Layer 사용)
             try:
-                # 피벗테이블 객체 가져오기
-                pivot_table_obj = None
-                for pt in target_sheet.api.PivotTables():
-                    if pt.Name == pivot_table:
-                        pivot_table_obj = pt
-                        break
+                # Engine 가져오기
+                engine = get_engine()
 
-                if not pivot_table_obj:
-                    raise RuntimeError(f"피벗테이블 '{pivot_table}' 객체를 가져올 수 없습니다")
-
-                # 필드 객체 가져오기
-                field_obj = None
-                try:
-                    field_obj = pivot_table_obj.PivotFields(field)
-                except:
-                    raise ValueError(f"필드 '{field}'에 접근할 수 없습니다")
-
-                # 슬라이서 캐시 처리
-                if existing_slicer_cache:
-                    # 기존 캐시 재사용
-                    slicer_cache = existing_slicer_cache
-                else:
-                    # 새 슬라이서 캐시 생성
-                    slicer_cache = book.api.SlicerCaches.Add(Source=pivot_table_obj, SourceField=field_obj)
-                    # 슬라이서 이름 설정
-                    slicer_cache.Name = name
-
-                # 슬라이서 배치
-                slicer = slicer_cache.Slicers.Add(
-                    SlicerDestination=target_sheet.api, Left=left, Top=top, Width=width, Height=height
-                )
-
-                # 슬라이서 설정
-                slicer.Caption = caption
-
-                # 스타일 설정
-                style_map = {"light": "SlicerStyleLight1", "medium": "SlicerStyleLight2", "dark": "SlicerStyleDark1"}
-
-                try:
-                    if style in style_map:
-                        slicer.Style = style_map[style]
-                except:
-                    pass
-
-                # 레이아웃 설정
-                if columns > 1:
-                    try:
-                        slicer.NumberOfColumns = columns
-                    except:
-                        pass
+                # 슬라이서 추가 옵션 준비
+                kwargs = {
+                    "columns": columns,
+                    "style": style.value if hasattr(style, "value") else style,
+                    "caption": caption,
+                    "show_header": show_header,
+                }
 
                 if item_height:
-                    try:
-                        slicer.RowHeight = item_height
-                    except:
-                        pass
+                    kwargs["item_height"] = item_height
 
-                # 헤더 표시 설정
-                try:
-                    slicer.DisplayHeader = show_header
-                except:
-                    pass
+                # 기존 캐시 재사용 처리
+                if existing_slicer_cache:
+                    kwargs["existing_cache"] = existing_slicer_cache
+
+                # Engine 메서드로 슬라이서 추가
+                result = engine.add_slicer(
+                    workbook=book.api,
+                    sheet_name=target_sheet.name,
+                    pivot_table_name=pivot_table,
+                    field_name=field,
+                    left=left,
+                    top=top,
+                    width=width,
+                    height=height,
+                    slicer_name=name,
+                    **kwargs,
+                )
+
+                # result에서 슬라이서 정보 추출
+                slicer_name = result.get("name", name)
+                slicer_items = result.get("slicer_items", [])
 
             except Exception as e:
                 raise RuntimeError(f"슬라이서 생성 실패: {str(e)}")
@@ -256,23 +230,19 @@ def slicer_add(
             if save and file_path:
                 book.save()
 
-            # 슬라이서 정보 수집
-            slicer_items = []
-            try:
-                for item in slicer_cache.SlicerItems():
-                    slicer_items.append({"name": item.Name, "selected": item.Selected})
-            except:
-                pass
-
             # 성공 응답 생성
             response_data = {
-                "slicer_name": name,
+                "slicer_name": slicer_name,
                 "slicer_caption": caption,
                 "pivot_table": pivot_table,
                 "field": field,
                 "position": {"left": left, "top": top},
                 "size": {"width": width, "height": height},
-                "settings": {"style": style, "columns": columns, "show_header": show_header},
+                "settings": {
+                    "style": style.value if hasattr(style, "value") else style,
+                    "columns": columns,
+                    "show_header": show_header,
+                },
                 "slicer_items": slicer_items,
                 "total_items": len(slicer_items),
                 "sheet": target_sheet.name,
