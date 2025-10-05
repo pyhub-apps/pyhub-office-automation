@@ -65,12 +65,57 @@ class ChartInfo:
     title: Optional[str] = None
 
 
+@dataclass
+class PivotTableInfo:
+    """피벗테이블 정보 데이터 클래스"""
+
+    name: str
+    sheet_name: str
+    source_data: str
+    row_fields: List[str]
+    column_fields: List[str]
+    value_fields: List[str]
+    filter_fields: List[str]
+
+
+@dataclass
+class SlicerInfo:
+    """슬라이서 정보 데이터 클래스"""
+
+    name: str
+    sheet_name: str
+    caption: str
+    source_field: str
+    left: float
+    top: float
+    width: float
+    height: float
+
+
+@dataclass
+class ShapeInfo:
+    """도형 정보 데이터 클래스"""
+
+    name: str
+    sheet_name: str
+    shape_type: str
+    left: float
+    top: float
+    width: float
+    height: float
+    has_text: bool = False
+    text: Optional[str] = None
+
+
 class ExcelEngineBase(ABC):
     """
     Excel 자동화 엔진 추상 기반 클래스
 
     모든 플랫폼별 구현체(WindowsEngine, MacOSEngine)는 이 클래스를 상속받아
-    22개 Excel 명령어에 대응하는 메서드를 구현해야 합니다.
+    43개 Excel 명령어에 대응하는 메서드를 구현해야 합니다.
+
+    Issue #87: 핵심 22개 명령어 (완료)
+    Issue #88: 추가 21개 명령어 (진행 중)
     """
 
     # ===========================================
@@ -534,5 +579,464 @@ class ExcelEngineBase(ABC):
 
         Raises:
             WorkbookNotFoundError: 워크북을 찾을 수 없는 경우
+        """
+        pass
+
+    # ===========================================
+    # 피벗 테이블 (5개 명령어) - Issue #88
+    # ===========================================
+
+    @abstractmethod
+    def create_pivot_table(
+        self,
+        workbook: Any,
+        source_sheet: str,
+        source_range: str,
+        dest_sheet: str,
+        dest_cell: str,
+        pivot_name: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        피벗 테이블을 생성합니다.
+
+        Args:
+            workbook: 워크북 객체
+            source_sheet: 원본 데이터 시트 이름
+            source_range: 원본 데이터 범위 (예: "A1:D100")
+            dest_sheet: 피벗 테이블을 생성할 시트 이름
+            dest_cell: 피벗 테이블 시작 위치 (예: "F1")
+            pivot_name: 피벗 테이블 이름 (None이면 자동 생성)
+            **kwargs: 추가 옵션
+
+        Returns:
+            Dict[str, Any]: 생성된 피벗 테이블 정보
+
+        Raises:
+            EngineNotSupportedError: macOS에서 지원하지 않는 경우
+
+        CLI 명령어: pivot-create
+        """
+        pass
+
+    @abstractmethod
+    def configure_pivot_table(
+        self,
+        workbook: Any,
+        sheet: str,
+        pivot_name: str,
+        row_fields: Optional[List[str]] = None,
+        column_fields: Optional[List[str]] = None,
+        value_fields: Optional[List[Tuple[str, str]]] = None,
+        filter_fields: Optional[List[str]] = None,
+        **kwargs,
+    ):
+        """
+        피벗 테이블을 설정합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            pivot_name: 피벗 테이블 이름
+            row_fields: 행 필드 리스트
+            column_fields: 열 필드 리스트
+            value_fields: 값 필드 리스트 [(필드명, 집계함수), ...]
+            filter_fields: 필터 필드 리스트
+            **kwargs: 추가 옵션
+
+        Raises:
+            EngineNotSupportedError: macOS에서 지원하지 않는 경우
+
+        CLI 명령어: pivot-configure
+        """
+        pass
+
+    @abstractmethod
+    def refresh_pivot_table(self, workbook: Any, sheet: str, pivot_name: str):
+        """
+        피벗 테이블 데이터를 새로고침합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            pivot_name: 피벗 테이블 이름
+
+        CLI 명령어: pivot-refresh
+        """
+        pass
+
+    @abstractmethod
+    def delete_pivot_table(self, workbook: Any, sheet: str, pivot_name: str):
+        """
+        피벗 테이블을 삭제합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            pivot_name: 피벗 테이블 이름
+
+        CLI 명령어: pivot-delete
+        """
+        pass
+
+    @abstractmethod
+    def list_pivot_tables(self, workbook: Any, sheet: Optional[str] = None) -> List[PivotTableInfo]:
+        """
+        피벗 테이블 목록을 조회합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름 (None이면 전체 시트)
+
+        Returns:
+            List[PivotTableInfo]: 피벗 테이블 정보 리스트
+
+        CLI 명령어: pivot-list
+        """
+        pass
+
+    # ===========================================
+    # 슬라이서 (4개 명령어) - Issue #88
+    # ===========================================
+
+    @abstractmethod
+    def add_slicer(
+        self,
+        workbook: Any,
+        sheet: str,
+        pivot_name: str,
+        field_name: str,
+        left: int,
+        top: int,
+        width: int = 200,
+        height: int = 150,
+        slicer_name: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        슬라이서를 추가합니다. (Windows 전용)
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            pivot_name: 피벗 테이블 이름
+            field_name: 슬라이서 필드 이름
+            left: 왼쪽 위치 (픽셀)
+            top: 상단 위치 (픽셀)
+            width: 너비 (픽셀)
+            height: 높이 (픽셀)
+            slicer_name: 슬라이서 이름 (None이면 자동 생성)
+            **kwargs: 추가 옵션 (caption, style, columns 등)
+
+        Returns:
+            Dict[str, Any]: 생성된 슬라이서 정보
+
+        Raises:
+            EngineNotSupportedError: macOS에서는 지원하지 않음
+
+        CLI 명령어: slicer-add
+        """
+        pass
+
+    @abstractmethod
+    def list_slicers(self, workbook: Any, sheet: Optional[str] = None) -> List[SlicerInfo]:
+        """
+        슬라이서 목록을 조회합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름 (None이면 전체 시트)
+
+        Returns:
+            List[SlicerInfo]: 슬라이서 정보 리스트
+
+        Raises:
+            EngineNotSupportedError: macOS에서는 지원하지 않음
+
+        CLI 명령어: slicer-list
+        """
+        pass
+
+    @abstractmethod
+    def position_slicer(
+        self,
+        workbook: Any,
+        sheet: str,
+        slicer_name: str,
+        left: int,
+        top: int,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ):
+        """
+        슬라이서 위치와 크기를 조정합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            slicer_name: 슬라이서 이름
+            left: 왼쪽 위치 (픽셀)
+            top: 상단 위치 (픽셀)
+            width: 너비 (픽셀, None이면 유지)
+            height: 높이 (픽셀, None이면 유지)
+
+        Raises:
+            EngineNotSupportedError: macOS에서는 지원하지 않음
+
+        CLI 명령어: slicer-position
+        """
+        pass
+
+    @abstractmethod
+    def connect_slicer(self, workbook: Any, slicer_name: str, pivot_names: List[str]):
+        """
+        슬라이서를 여러 피벗 테이블에 연결합니다.
+
+        Args:
+            workbook: 워크북 객체
+            slicer_name: 슬라이서 이름
+            pivot_names: 연결할 피벗 테이블 이름 리스트
+
+        Raises:
+            EngineNotSupportedError: macOS에서는 지원하지 않음
+
+        CLI 명령어: slicer-connect
+        """
+        pass
+
+    # ===========================================
+    # 도형 (5개 명령어) - Issue #88
+    # ===========================================
+
+    @abstractmethod
+    def add_shape(
+        self,
+        workbook: Any,
+        sheet: str,
+        shape_type: str,
+        left: int,
+        top: int,
+        width: int,
+        height: int,
+        shape_name: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        도형을 추가합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            shape_type: 도형 유형 (rectangle, oval, line, arrow 등)
+            left: 왼쪽 위치 (픽셀)
+            top: 상단 위치 (픽셀)
+            width: 너비 (픽셀)
+            height: 높이 (픽셀)
+            shape_name: 도형 이름 (None이면 자동 생성)
+            **kwargs: 추가 옵션 (fill_color, transparency 등)
+
+        Returns:
+            Dict[str, Any]: 생성된 도형 정보
+
+        Note:
+            고급 기능(뉴모피즘 스타일 등)은 xlwings 하이브리드 사용
+
+        CLI 명령어: shape-add
+        """
+        pass
+
+    @abstractmethod
+    def delete_shape(self, workbook: Any, sheet: str, shape_name: str):
+        """
+        도형을 삭제합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            shape_name: 도형 이름
+
+        CLI 명령어: shape-delete
+        """
+        pass
+
+    @abstractmethod
+    def list_shapes(self, workbook: Any, sheet: str) -> List[ShapeInfo]:
+        """
+        도형 목록을 조회합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+
+        Returns:
+            List[ShapeInfo]: 도형 정보 리스트
+
+        CLI 명령어: shape-list
+        """
+        pass
+
+    @abstractmethod
+    def format_shape(self, workbook: Any, sheet: str, shape_name: str, **kwargs):
+        """
+        도형 서식을 설정합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            shape_name: 도형 이름
+            **kwargs: 서식 옵션 (fill_color, line_color, line_width 등)
+
+        Note:
+            복잡한 서식은 xlwings 하이브리드 사용 권장
+
+        CLI 명령어: shape-format
+        """
+        pass
+
+    @abstractmethod
+    def group_shapes(self, workbook: Any, sheet: str, shape_names: List[str], group_name: Optional[str] = None) -> str:
+        """
+        여러 도형을 그룹화합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            shape_names: 그룹화할 도형 이름 리스트
+            group_name: 그룹 이름 (None이면 자동 생성)
+
+        Returns:
+            str: 생성된 그룹 이름
+
+        Note:
+            macOS에서는 제한적 지원
+
+        CLI 명령어: shape-group
+        """
+        pass
+
+    # ===========================================
+    # 테이블 추가 기능 (4개 명령어) - Issue #88
+    # ===========================================
+
+    @abstractmethod
+    def create_table(
+        self, workbook: Any, sheet: str, range_str: str, table_name: Optional[str] = None, has_headers: bool = True, **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Excel 테이블(ListObject)을 생성합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            range_str: 테이블 범위 (예: "A1:D100")
+            table_name: 테이블 이름 (None이면 자동 생성)
+            has_headers: 첫 행이 헤더인지 여부
+            **kwargs: 추가 옵션 (table_style 등)
+
+        Returns:
+            Dict[str, Any]: 생성된 테이블 정보
+
+        CLI 명령어: table-create
+        """
+        pass
+
+    @abstractmethod
+    def sort_table(self, workbook: Any, sheet: str, table_name: str, sort_fields: List[Tuple[str, str]]):
+        """
+        테이블을 정렬합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            table_name: 테이블 이름
+            sort_fields: 정렬 필드 리스트 [(컬럼명, 정렬방향), ...]
+                        정렬방향: "asc" 또는 "desc"
+
+        CLI 명령어: table-sort
+        """
+        pass
+
+    @abstractmethod
+    def clear_table_sort(self, workbook: Any, sheet: str, table_name: str):
+        """
+        테이블 정렬을 해제합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            table_name: 테이블 이름
+
+        CLI 명령어: table-sort-clear
+        """
+        pass
+
+    @abstractmethod
+    def get_table_sort_info(self, workbook: Any, sheet: str, table_name: str) -> Dict[str, Any]:
+        """
+        테이블 정렬 정보를 조회합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            table_name: 테이블 이름
+
+        Returns:
+            Dict[str, Any]: 정렬 정보
+
+        CLI 명령어: table-sort-info
+        """
+        pass
+
+    # ===========================================
+    # 데이터 변환 (3개 명령어) - Issue #88
+    # ===========================================
+
+    @abstractmethod
+    def analyze_data(self, workbook: Any, sheet: str, range_str: str, **kwargs) -> Dict[str, Any]:
+        """
+        데이터를 분석합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            range_str: 분석할 범위
+            **kwargs: 분석 옵션
+
+        Returns:
+            Dict[str, Any]: 분석 결과 (통계, 데이터 타입 등)
+
+        CLI 명령어: data-analyze
+        """
+        pass
+
+    @abstractmethod
+    def transform_data(self, workbook: Any, sheet: str, range_str: str, transform_type: str, **kwargs):
+        """
+        데이터를 변환합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            range_str: 변환할 범위
+            transform_type: 변환 유형 (transpose, normalize 등)
+            **kwargs: 변환 옵션
+
+        CLI 명령어: data-transform
+        """
+        pass
+
+    @abstractmethod
+    def convert_range(self, workbook: Any, sheet: str, range_str: str, target_type: str, **kwargs):
+        """
+        셀 범위의 데이터 형식을 변환합니다.
+
+        Args:
+            workbook: 워크북 객체
+            sheet: 시트 이름
+            range_str: 변환할 범위
+            target_type: 목표 데이터 타입 (number, text, date 등)
+            **kwargs: 변환 옵션
+
+        CLI 명령어: range-convert
         """
         pass

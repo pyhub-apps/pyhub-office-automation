@@ -14,11 +14,12 @@ from typing import Any, Dict, List, Optional
 
 import pythoncom
 
-from .base import ChartInfo, ExcelEngineBase, RangeData, TableInfo, WorkbookInfo
+from .base import ChartInfo, ExcelEngineBase, PivotTableInfo, RangeData, ShapeInfo, SlicerInfo, TableInfo, WorkbookInfo
 from .exceptions import (
     ChartNotFoundError,
     COMError,
     EngineInitializationError,
+    EngineNotSupportedError,
     ExcelNotRunningError,
     RangeError,
     SheetNotFoundError,
@@ -875,3 +876,618 @@ class WindowsEngine(ExcelEngineBase):
             raise
         except Exception as e:
             raise COMError(f"워크북 찾기 실패: {str(e)}")
+
+    # ===========================================
+    # 피벗 테이블 (5개 명령어) - Issue #88
+    # ===========================================
+
+    def create_pivot_table(
+        self,
+        workbook: Any,
+        source_sheet: str,
+        source_range: str,
+        dest_sheet: str,
+        dest_cell: str,
+        pivot_name: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """피벗 테이블 생성 (COM API)"""
+        try:
+            import win32com.client as win32
+
+            # 소스 데이터 범위 가져오기
+            src_sheet = workbook.Sheets(source_sheet)
+            src_range = src_sheet.Range(source_range)
+
+            # PivotCache 생성
+            pivot_cache = workbook.PivotCaches().Create(SourceType=win32.constants.xlDatabase, SourceData=src_range)
+
+            # 대상 시트와 위치 지정
+            dst_sheet = workbook.Sheets(dest_sheet)
+            dst_range = dst_sheet.Range(dest_cell)
+
+            # 피벗 테이블 생성
+            pivot_table = pivot_cache.CreatePivotTable(
+                TableDestination=dst_range,
+                TableName=pivot_name or f"PivotTable{workbook.PivotTables().Count + 1}",
+            )
+
+            return {
+                "name": pivot_table.Name,
+                "sheet": dest_sheet,
+                "location": dest_cell,
+            }
+        except Exception as e:
+            raise COMError(f"피벗 테이블 생성 실패: {str(e)}")
+
+    def configure_pivot_table(
+        self,
+        workbook: Any,
+        sheet: str,
+        pivot_name: str,
+        row_fields: Optional[List[str]] = None,
+        column_fields: Optional[List[str]] = None,
+        value_fields: Optional[List[tuple]] = None,
+        filter_fields: Optional[List[str]] = None,
+        **kwargs,
+    ):
+        """피벗 테이블 설정 (행/열/값 필드)"""
+        try:
+            import win32com.client as win32
+
+            ws = workbook.Sheets(sheet)
+            pivot_table = ws.PivotTables(pivot_name)
+
+            # 행 필드 추가
+            if row_fields:
+                for field_name in row_fields:
+                    field = pivot_table.PivotFields(field_name)
+                    field.Orientation = win32.constants.xlRowField
+
+            # 열 필드 추가
+            if column_fields:
+                for field_name in column_fields:
+                    field = pivot_table.PivotFields(field_name)
+                    field.Orientation = win32.constants.xlColumnField
+
+            # 값 필드 추가
+            if value_fields:
+                for field_name, func in value_fields:
+                    field = pivot_table.PivotFields(field_name)
+                    field.Orientation = win32.constants.xlDataField
+                    # 집계 함수 매핑
+                    func_map = {
+                        "sum": win32.constants.xlSum,
+                        "count": win32.constants.xlCount,
+                        "average": win32.constants.xlAverage,
+                        "max": win32.constants.xlMax,
+                        "min": win32.constants.xlMin,
+                    }
+                    if func.lower() in func_map:
+                        field.Function = func_map[func.lower()]
+
+            # 필터 필드 추가
+            if filter_fields:
+                for field_name in filter_fields:
+                    field = pivot_table.PivotFields(field_name)
+                    field.Orientation = win32.constants.xlPageField
+
+        except Exception as e:
+            raise COMError(f"피벗 테이블 설정 실패: {str(e)}")
+
+    def refresh_pivot_table(self, workbook: Any, sheet: str, pivot_name: str):
+        """피벗 테이블 새로고침"""
+        try:
+            ws = workbook.Sheets(sheet)
+            pivot_table = ws.PivotTables(pivot_name)
+            pivot_table.RefreshTable()
+        except Exception as e:
+            raise COMError(f"피벗 테이블 새로고침 실패: {str(e)}")
+
+    def delete_pivot_table(self, workbook: Any, sheet: str, pivot_name: str):
+        """피벗 테이블 삭제"""
+        try:
+            ws = workbook.Sheets(sheet)
+            pivot_table = ws.PivotTables(pivot_name)
+            pivot_table.TableRange2.Clear()
+        except Exception as e:
+            raise COMError(f"피벗 테이블 삭제 실패: {str(e)}")
+
+    def list_pivot_tables(self, workbook: Any, sheet: Optional[str] = None) -> List[PivotTableInfo]:
+        """피벗 테이블 목록 조회"""
+        try:
+            pivot_tables = []
+            sheets_to_check = [workbook.Sheets(sheet)] if sheet else workbook.Sheets
+
+            for ws in sheets_to_check:
+                for pt in ws.PivotTables():
+                    # 필드 정보 수집
+                    row_fields = []
+                    column_fields = []
+                    value_fields = []
+                    filter_fields = []
+
+                    import win32com.client as win32
+
+                    for field in pt.PivotFields():
+                        try:
+                            if field.Orientation == win32.constants.xlRowField:
+                                row_fields.append(field.Name)
+                            elif field.Orientation == win32.constants.xlColumnField:
+                                column_fields.append(field.Name)
+                            elif field.Orientation == win32.constants.xlDataField:
+                                value_fields.append(field.Name)
+                            elif field.Orientation == win32.constants.xlPageField:
+                                filter_fields.append(field.Name)
+                        except:
+                            continue
+
+                    pivot_tables.append(
+                        PivotTableInfo(
+                            name=pt.Name,
+                            sheet_name=ws.Name,
+                            source_data=str(pt.SourceData) if hasattr(pt, "SourceData") else "",
+                            row_fields=row_fields,
+                            column_fields=column_fields,
+                            value_fields=value_fields,
+                            filter_fields=filter_fields,
+                        )
+                    )
+
+            return pivot_tables
+        except Exception as e:
+            raise COMError(f"피벗 테이블 목록 조회 실패: {str(e)}")
+
+    # ===========================================
+    # 슬라이서 (4개 명령어) - Issue #88
+    # ===========================================
+
+    def add_slicer(
+        self,
+        workbook: Any,
+        sheet: str,
+        pivot_name: str,
+        field_name: str,
+        left: int,
+        top: int,
+        width: int = 200,
+        height: int = 150,
+        slicer_name: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """슬라이서 추가 (Windows 전용)"""
+        try:
+            ws = workbook.Sheets(sheet)
+            pivot_table = ws.PivotTables(pivot_name)
+
+            # 슬라이서 캐시 생성
+            slicer_cache = workbook.SlicerCaches.Add2(pivot_table, field_name)
+
+            # 슬라이서 추가
+            slicer = slicer_cache.Slicers.Add(
+                SlicerDestination=ws,
+                Name=slicer_name or f"Slicer_{field_name}",
+                Left=left,
+                Top=top,
+                Width=width,
+                Height=height,
+            )
+
+            # 추가 옵션 적용
+            if "caption" in kwargs:
+                slicer.Caption = kwargs["caption"]
+            if "columns" in kwargs:
+                slicer.NumberOfColumns = kwargs["columns"]
+
+            return {
+                "name": slicer.Name,
+                "caption": slicer.Caption,
+                "field": field_name,
+                "sheet": sheet,
+            }
+        except Exception as e:
+            raise COMError(f"슬라이서 추가 실패: {str(e)}")
+
+    def list_slicers(self, workbook: Any, sheet: Optional[str] = None) -> List[SlicerInfo]:
+        """슬라이서 목록 조회"""
+        try:
+            slicers = []
+            sheets_to_check = [workbook.Sheets(sheet)] if sheet else workbook.Sheets
+
+            for ws in sheets_to_check:
+                for slicer in ws.Slicers():
+                    slicers.append(
+                        SlicerInfo(
+                            name=slicer.Name,
+                            sheet_name=ws.Name,
+                            caption=slicer.Caption,
+                            source_field=slicer.SlicerCache.SourceName if hasattr(slicer.SlicerCache, "SourceName") else "",
+                            left=slicer.Left,
+                            top=slicer.Top,
+                            width=slicer.Width,
+                            height=slicer.Height,
+                        )
+                    )
+
+            return slicers
+        except Exception as e:
+            raise COMError(f"슬라이서 목록 조회 실패: {str(e)}")
+
+    def position_slicer(
+        self,
+        workbook: Any,
+        sheet: str,
+        slicer_name: str,
+        left: int,
+        top: int,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ):
+        """슬라이서 위치 조정"""
+        try:
+            ws = workbook.Sheets(sheet)
+            slicer = ws.Slicers(slicer_name)
+
+            slicer.Left = left
+            slicer.Top = top
+            if width is not None:
+                slicer.Width = width
+            if height is not None:
+                slicer.Height = height
+        except Exception as e:
+            raise COMError(f"슬라이서 위치 조정 실패: {str(e)}")
+
+    def connect_slicer(self, workbook: Any, slicer_name: str, pivot_names: List[str]):
+        """슬라이서를 여러 피벗 테이블에 연결"""
+        try:
+            # 슬라이서 찾기
+            slicer = None
+            for ws in workbook.Sheets:
+                try:
+                    slicer = ws.Slicers(slicer_name)
+                    break
+                except:
+                    continue
+
+            if slicer is None:
+                raise ValueError(f"슬라이서 '{slicer_name}'을 찾을 수 없습니다")
+
+            # 피벗 테이블 연결
+            slicer_cache = slicer.SlicerCache
+            for pivot_name in pivot_names:
+                # 피벗 테이블 찾기
+                for ws in workbook.Sheets:
+                    try:
+                        pivot_table = ws.PivotTables(pivot_name)
+                        slicer_cache.PivotTables.AddPivotTable(pivot_table)
+                        break
+                    except:
+                        continue
+
+        except Exception as e:
+            raise COMError(f"슬라이서 연결 실패: {str(e)}")
+
+    # ===========================================
+    # 도형 (5개 명령어) - Issue #88
+    # ===========================================
+
+    def add_shape(
+        self,
+        workbook: Any,
+        sheet: str,
+        shape_type: str,
+        left: int,
+        top: int,
+        width: int,
+        height: int,
+        shape_name: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """도형 추가 (기본 기능만, 고급 기능은 xlwings 사용)"""
+        try:
+            import win32com.client as win32
+
+            ws = workbook.Sheets(sheet)
+
+            # 도형 유형 매핑
+            shape_type_map = {
+                "rectangle": 1,  # msoShapeRectangle
+                "oval": 9,  # msoShapeOval
+                "line": 9,  # msoShapeLine (간단한 선)
+                "arrow": 13,  # msoShapeRightArrow
+            }
+
+            shape_type_id = shape_type_map.get(shape_type.lower(), 1)
+
+            # 도형 추가
+            shape = ws.Shapes.AddShape(shape_type_id, left, top, width, height)
+
+            if shape_name:
+                shape.Name = shape_name
+
+            # 간단한 서식 옵션
+            if "fill_color" in kwargs:
+                # HEX to RGB 변환 필요 (간단 구현)
+                shape.Fill.ForeColor.RGB = int(kwargs["fill_color"].replace("#", ""), 16)
+            if "transparency" in kwargs:
+                shape.Fill.Transparency = kwargs["transparency"] / 100.0
+
+            return {
+                "name": shape.Name,
+                "type": shape_type,
+                "sheet": sheet,
+            }
+        except Exception as e:
+            raise COMError(f"도형 추가 실패: {str(e)}")
+
+    def delete_shape(self, workbook: Any, sheet: str, shape_name: str):
+        """도형 삭제"""
+        try:
+            ws = workbook.Sheets(sheet)
+            shape = ws.Shapes(shape_name)
+            shape.Delete()
+        except Exception as e:
+            raise COMError(f"도형 삭제 실패: {str(e)}")
+
+    def list_shapes(self, workbook: Any, sheet: str) -> List[ShapeInfo]:
+        """도형 목록 조회"""
+        try:
+            ws = workbook.Sheets(sheet)
+            shapes = []
+
+            for shape in ws.Shapes:
+                has_text = False
+                text = None
+                try:
+                    if hasattr(shape, "TextFrame") and hasattr(shape.TextFrame, "Characters"):
+                        has_text = True
+                        text = shape.TextFrame.Characters().Text
+                except:
+                    pass
+
+                shapes.append(
+                    ShapeInfo(
+                        name=shape.Name,
+                        sheet_name=sheet,
+                        shape_type=str(shape.Type),
+                        left=shape.Left,
+                        top=shape.Top,
+                        width=shape.Width,
+                        height=shape.Height,
+                        has_text=has_text,
+                        text=text,
+                    )
+                )
+
+            return shapes
+        except Exception as e:
+            raise COMError(f"도형 목록 조회 실패: {str(e)}")
+
+    def format_shape(self, workbook: Any, sheet: str, shape_name: str, **kwargs):
+        """도형 서식 설정 (기본 기능만)"""
+        try:
+            ws = workbook.Sheets(sheet)
+            shape = ws.Shapes(shape_name)
+
+            if "fill_color" in kwargs:
+                shape.Fill.ForeColor.RGB = int(kwargs["fill_color"].replace("#", ""), 16)
+            if "line_color" in kwargs:
+                shape.Line.ForeColor.RGB = int(kwargs["line_color"].replace("#", ""), 16)
+            if "line_width" in kwargs:
+                shape.Line.Weight = kwargs["line_width"]
+
+        except Exception as e:
+            raise COMError(f"도형 서식 설정 실패: {str(e)}")
+
+    def group_shapes(self, workbook: Any, sheet: str, shape_names: List[str], group_name: Optional[str] = None) -> str:
+        """도형 그룹화"""
+        try:
+            ws = workbook.Sheets(sheet)
+
+            # 도형 객체 배열 생성
+            shape_range = ws.Shapes.Range(shape_names)
+            grouped_shape = shape_range.Group()
+
+            if group_name:
+                grouped_shape.Name = group_name
+
+            return grouped_shape.Name
+        except Exception as e:
+            raise COMError(f"도형 그룹화 실패: {str(e)}")
+
+    # ===========================================
+    # 테이블 추가 기능 (4개 명령어) - Issue #88
+    # ===========================================
+
+    def create_table(
+        self, workbook: Any, sheet: str, range_str: str, table_name: Optional[str] = None, has_headers: bool = True, **kwargs
+    ) -> Dict[str, Any]:
+        """Excel 테이블(ListObject) 생성"""
+        try:
+            import win32com.client as win32
+
+            ws = workbook.Sheets(sheet)
+            range_obj = ws.Range(range_str)
+
+            # 테이블 생성
+            table = ws.ListObjects.Add(
+                SourceType=win32.constants.xlSrcRange,
+                Source=range_obj,
+                XlListObjectHasHeaders=win32.constants.xlYes if has_headers else win32.constants.xlNo,
+            )
+
+            if table_name:
+                table.Name = table_name
+
+            # 테이블 스타일 적용
+            if "table_style" in kwargs:
+                table.TableStyle = kwargs["table_style"]
+
+            return {
+                "name": table.Name,
+                "sheet": sheet,
+                "range": table.Range.Address,
+            }
+        except Exception as e:
+            raise COMError(f"테이블 생성 실패: {str(e)}")
+
+    def sort_table(self, workbook: Any, sheet: str, table_name: str, sort_fields: List[tuple]):
+        """테이블 정렬"""
+        try:
+            import win32com.client as win32
+
+            ws = workbook.Sheets(sheet)
+            table = ws.ListObjects(table_name)
+
+            # 기존 정렬 해제
+            table.Sort.SortFields.Clear()
+
+            # 정렬 필드 추가
+            for column_name, order in sort_fields:
+                # 컬럼 인덱스 찾기
+                col_index = None
+                for i, col in enumerate(table.ListColumns, 1):
+                    if col.Name == column_name:
+                        col_index = i
+                        break
+
+                if col_index is None:
+                    continue
+
+                sort_order = win32.constants.xlAscending if order.lower() == "asc" else win32.constants.xlDescending
+
+                table.Sort.SortFields.Add(
+                    Key=table.ListColumns(col_index).Range, SortOn=win32.constants.xlSortOnValues, Order=sort_order
+                )
+
+            # 정렬 실행
+            table.Sort.Apply()
+
+        except Exception as e:
+            raise COMError(f"테이블 정렬 실패: {str(e)}")
+
+    def clear_table_sort(self, workbook: Any, sheet: str, table_name: str):
+        """테이블 정렬 해제"""
+        try:
+            ws = workbook.Sheets(sheet)
+            table = ws.ListObjects(table_name)
+            table.Sort.SortFields.Clear()
+        except Exception as e:
+            raise COMError(f"정렬 해제 실패: {str(e)}")
+
+    def get_table_sort_info(self, workbook: Any, sheet: str, table_name: str) -> Dict[str, Any]:
+        """테이블 정렬 정보 조회"""
+        try:
+            import win32com.client as win32
+
+            ws = workbook.Sheets(sheet)
+            table = ws.ListObjects(table_name)
+
+            sort_fields = []
+            for sort_field in table.Sort.SortFields:
+                # 정렬 방향
+                order = "asc" if sort_field.Order == win32.constants.xlAscending else "desc"
+
+                # 컬럼 이름 찾기
+                column_name = None
+                for col in table.ListColumns:
+                    if col.Range.Address == sort_field.Key.Address:
+                        column_name = col.Name
+                        break
+
+                if column_name:
+                    sort_fields.append({"column": column_name, "order": order})
+
+            return {
+                "table_name": table_name,
+                "sort_fields": sort_fields,
+            }
+        except Exception as e:
+            raise COMError(f"정렬 정보 조회 실패: {str(e)}")
+
+    # ===========================================
+    # 데이터 변환 (3개 명령어) - Issue #88
+    # ===========================================
+
+    def analyze_data(self, workbook: Any, sheet: str, range_str: str, **kwargs) -> Dict[str, Any]:
+        """데이터 분석 (기본 통계)"""
+        try:
+            ws = workbook.Sheets(sheet)
+            range_obj = ws.Range(range_str)
+            values = range_obj.Value
+
+            # 2D 리스트로 변환
+            if not isinstance(values, (list, tuple)):
+                values = [[values]]
+            elif not isinstance(values[0], (list, tuple)):
+                values = [[v] for v in values]
+
+            # 기본 통계 계산
+            import statistics
+
+            result = {"columns": []}
+
+            # 컬럼별 분석
+            for col_idx in range(len(values[0])):
+                col_values = [row[col_idx] for row in values if row[col_idx] is not None]
+                numeric_values = [v for v in col_values if isinstance(v, (int, float))]
+
+                col_stats = {"column_index": col_idx + 1, "count": len(col_values), "numeric_count": len(numeric_values)}
+
+                if numeric_values:
+                    col_stats.update(
+                        {
+                            "mean": statistics.mean(numeric_values),
+                            "median": statistics.median(numeric_values),
+                            "min": min(numeric_values),
+                            "max": max(numeric_values),
+                        }
+                    )
+
+                result["columns"].append(col_stats)
+
+            return result
+        except Exception as e:
+            raise COMError(f"데이터 분석 실패: {str(e)}")
+
+    def transform_data(self, workbook: Any, sheet: str, range_str: str, transform_type: str, **kwargs):
+        """데이터 변환 (transpose 등)"""
+        try:
+            ws = workbook.Sheets(sheet)
+            range_obj = ws.Range(range_str)
+
+            if transform_type.lower() == "transpose":
+                # 전치 (Transpose)
+                values = range_obj.Value
+                if isinstance(values, (list, tuple)):
+                    # 2D 배열 전치
+                    transposed = list(map(list, zip(*values)))
+                    range_obj.Value = transposed
+            else:
+                raise ValueError(f"지원하지 않는 변환 유형: {transform_type}")
+
+        except Exception as e:
+            raise COMError(f"데이터 변환 실패: {str(e)}")
+
+    def convert_range(self, workbook: Any, sheet: str, range_str: str, target_type: str, **kwargs):
+        """셀 범위 데이터 형식 변환"""
+        try:
+            import win32com.client as win32
+
+            ws = workbook.Sheets(sheet)
+            range_obj = ws.Range(range_str)
+
+            if target_type.lower() == "number":
+                # 숫자 형식으로 변환
+                range_obj.NumberFormat = "0.00"
+            elif target_type.lower() == "text":
+                # 텍스트 형식으로 변환
+                range_obj.NumberFormat = "@"
+            elif target_type.lower() == "date":
+                # 날짜 형식으로 변환
+                range_obj.NumberFormat = "yyyy-mm-dd"
+            else:
+                raise ValueError(f"지원하지 않는 데이터 타입: {target_type}")
+
+        except Exception as e:
+            raise COMError(f"데이터 형식 변환 실패: {str(e)}")
