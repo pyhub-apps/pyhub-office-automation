@@ -1,20 +1,17 @@
 """
-Excel 워크북 목록 조회 명령어 (Typer 버전)
+Excel 워크북 목록 조회 명령어 (Engine 기반)
 현재 열려있는 모든 워크북들의 목록과 기본 정보 제공
 """
 
-import datetime
 import json
-import sys
-from pathlib import Path
 from typing import Optional
 
 import typer
-import xlwings as xw
 
 from pyhub_office_automation.version import get_version
 
-from .utils import ExecutionTimer, create_error_response, create_success_response, normalize_path
+from .engines import get_engine
+from .utils import ExecutionTimer, create_error_response, create_success_response
 
 
 def workbook_list(
@@ -32,66 +29,36 @@ def workbook_list(
     try:
         # 실행 시간 측정 시작
         with ExecutionTimer() as timer:
-            # 현재 열린 워크북들 확인
-            if len(xw.books) == 0:
-                # 열린 워크북이 없는 경우
-                workbooks_data = []
-                has_unsaved = False
-                message = "현재 열려있는 워크북이 없습니다"
-            else:
-                workbooks_data = []
-                has_unsaved = False
+            # Engine 획득 (플랫폼 자동 감지)
+            engine = get_engine()
 
-                for book in xw.books:
-                    try:
-                        # 안전하게 saved 상태 확인
-                        try:
-                            saved_status = book.saved
-                        except:
-                            saved_status = True  # 기본값으로 저장됨으로 가정
+            # 워크북 목록 조회
+            workbooks = engine.get_workbooks()
 
-                        # 기본 정보
-                        workbook_info = {"name": normalize_path(book.name), "saved": saved_status}
+            # 데이터 변환 (WorkbookInfo → dict)
+            workbooks_data = []
+            has_unsaved = False
 
-                        # 저장되지 않은 워크북 체크
-                        if not saved_status:
-                            has_unsaved = True
+            for wb_info in workbooks:
+                workbook_dict = {
+                    "name": wb_info.name,
+                    "saved": wb_info.saved,
+                    "full_name": wb_info.full_name,
+                    "sheet_count": wb_info.sheet_count,
+                    "active_sheet": wb_info.active_sheet,
+                }
 
-                        # 상세 정보 항상 추가
-                        workbook_info.update(
-                            {
-                                "full_name": normalize_path(book.fullname),
-                                "sheet_count": len(book.sheets),
-                                "active_sheet": book.sheets.active.name if book.sheets else None,
-                            }
-                        )
+                # 선택적 정보 추가
+                if wb_info.file_size_bytes is not None:
+                    workbook_dict["file_size_bytes"] = wb_info.file_size_bytes
 
-                        # 파일 정보 추가 (파일이 실제로 존재하는 경우)
-                        try:
-                            file_path = Path(book.fullname)
-                            if file_path.exists():
-                                file_stat = file_path.stat()
-                                workbook_info.update(
-                                    {
-                                        "file_size_bytes": file_stat.st_size,
-                                        "last_modified": datetime.datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
-                                    }
-                                )
-                        except (OSError, AttributeError):
-                            # 새 워크북이거나 파일 접근 불가능한 경우
-                            pass
+                if wb_info.last_modified is not None:
+                    workbook_dict["last_modified"] = wb_info.last_modified
 
-                        workbooks_data.append(workbook_info)
+                if not wb_info.saved:
+                    has_unsaved = True
 
-                    except Exception as e:
-                        # 개별 워크북 정보 수집 실패 시 기본 정보만 포함
-                        workbooks_data.append(
-                            {
-                                "name": getattr(book, "name", "Unknown"),
-                                "saved": getattr(book, "saved", False),
-                                "error": f"정보 수집 실패: {str(e)}",
-                            }
-                        )
+                workbooks_data.append(workbook_dict)
 
             # 메시지 생성
             total_count = len(workbooks_data)
