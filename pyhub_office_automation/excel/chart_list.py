@@ -171,7 +171,7 @@ def chart_list(
 
         # 응답 데이터 구성
         response_data = {
-            "workbook": wb_info["workbook"]["name"],
+            "workbook": wb_info["name"],
             "total_charts": total_charts,
             "charts": charts_info,
             "query_info": {
@@ -186,7 +186,7 @@ def chart_list(
             response_data["sheet"] = sheet
         else:
             # Engine에서 시트 개수 가져오기
-            response_data["sheets_checked"] = wb_info["workbook"]["sheet_count"]
+            response_data["sheets_checked"] = wb_info["sheet_count"]
 
         response = create_success_response(
             data=response_data, command="chart-list", message=f"{total_charts}개의 차트를 찾았습니다"
@@ -238,7 +238,7 @@ def chart_list(
 
     finally:
         # 워크북 정리 - 파일 경로로 열었고 visible=False인 경우에만 앱 종료
-        if book and not visible and file_path:
+        if book is not None and not visible and file_path:
             try:
                 book.Application.Quit()
             except:

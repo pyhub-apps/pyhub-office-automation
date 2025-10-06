@@ -47,8 +47,20 @@ class WindowsEngine(ExcelEngineBase):
             # COM 초기화
             pythoncom.CoInitialize()
 
-            # Excel Application 연결 (Early Binding)
-            self.xl = win32com.client.gencache.EnsureDispatch("Excel.Application")
+            # Excel Application 연결
+            # 1. 실행 중인 Excel에 연결 시도 (GetObject)
+            # 2. 실패시 새 인스턴스 생성 (Dispatch)
+            try:
+                # 실행 중인 Excel에 연결
+                self.xl = win32com.client.GetObject(Class="Excel.Application")
+            except Exception:
+                try:
+                    # Early Binding (타입 라이브러리 사용)
+                    self.xl = win32com.client.gencache.EnsureDispatch("Excel.Application")
+                except Exception:
+                    # Late Binding (동적 바인딩) - Fallback
+                    self.xl = win32com.client.Dispatch("Excel.Application")
+
             self._win32com = win32com.client
             self._constants = win32com.client.constants
 
@@ -80,12 +92,29 @@ class WindowsEngine(ExcelEngineBase):
             for wb in self.xl.Workbooks:
                 try:
                     # 워크북 정보 수집
+                    # Late binding에서는 체인 속성 접근이 실패하므로 단계별로 접근
+                    active_sheet_name = None
+                    if wb.Sheets.Count > 0:
+                        try:
+                            # Late binding에서는 모든 속성 접근을 단계별로 분리
+                            active_sheet = wb.ActiveSheet
+                            # COM 객체의 Name 속성 직접 가져오기 (getattr 사용)
+                            active_sheet_name = getattr(active_sheet, "Name", None)
+                        except:
+                            # ActiveSheet 접근 실패 시 첫 번째 시트 이름 사용
+                            try:
+                                sheets = wb.Sheets
+                                first_sheet = sheets(1)  # Sheets collection의 Item(1) 호출
+                                active_sheet_name = getattr(first_sheet, "Name", None)
+                            except:
+                                pass
+
                     wb_info = WorkbookInfo(
                         name=wb.Name,
                         saved=wb.Saved,
                         full_name=wb.FullName,
                         sheet_count=wb.Sheets.Count,
-                        active_sheet=wb.ActiveSheet.Name if wb.Sheets.Count > 0 else None,
+                        active_sheet=active_sheet_name,
                     )
 
                     # 파일 정보 추가

@@ -46,3 +46,6 @@ pyhub_office_automation/__version__.py
 
 # Test Django project
 myproject/
+
+# Verification checklist (temporary)
+CHECKLIST.md

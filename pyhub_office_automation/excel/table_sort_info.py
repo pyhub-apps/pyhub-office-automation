@@ -229,7 +229,7 @@ def table_sort_info(
 
     finally:
         # 워크북 정리 - 활성 워크북이나 이름으로 접근한 경우 앱 종료하지 않음
-        if book and not visible and file_path:
+        if book is not None and not visible and file_path:
             try:
                 book.app.quit()
             except:

@@ -620,7 +620,7 @@ def chart_add(
 
     finally:
         # 워크북 정리 - 파일 경로로 열었고 visible=False인 경우에만 앱 종료
-        if book and not visible and file_path:
+        if book is not None and not visible and file_path:
             try:
                 book.Application.Quit()
             except:

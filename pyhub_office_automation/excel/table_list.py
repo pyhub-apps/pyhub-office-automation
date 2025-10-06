@@ -164,17 +164,17 @@ def table_list(
 
             # 워크북 정보
             workbook_info = {
-                "name": wb_info["workbook"]["name"],
-                "full_name": wb_info["workbook"]["full_name"],
-                "saved": wb_info["workbook"]["saved"],
-                "sheet_count": wb_info["workbook"]["sheet_count"],
+                "name": wb_info["name"],
+                "full_name": wb_info["full_name"],
+                "saved": wb_info["saved"],
+                "sheet_count": wb_info["sheet_count"],
             }
 
             # 요약 정보
             summary = {
                 "total_tables": total_tables,
                 "sheets_with_tables": len(set(t["sheet"] for t in all_tables)),
-                "sheets_scanned": 1 if sheet else wb_info["workbook"]["sheet_count"],
+                "sheets_scanned": 1 if sheet else wb_info["sheet_count"],
             }
 
             # 데이터 구성
@@ -311,7 +311,7 @@ def table_list(
 
     finally:
         # 워크북 정리 - 파일 경로로 열었고 visible=False인 경우에만 앱 종료
-        if book and not visible and file_path:
+        if book is not None and not visible and file_path:
             try:
                 book.Application.Quit()
             except:

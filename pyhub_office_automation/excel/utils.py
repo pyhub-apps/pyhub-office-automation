@@ -964,23 +964,41 @@ COMMAND_SUGGESTIONS = {
 
 # 명령어 카테고리 정의
 COMMAND_CATEGORIES = {
+    # Workbook commands
     "workbook-open": "workbook",
     "workbook-list": "workbook",
     "workbook-info": "workbook",
     "workbook-create": "workbook",
+    # Range commands (직접 셀 범위 조작)
     "range-read": "data",
     "range-write": "data",
-    "table-read": "data",
-    "table-write": "data",
+    "range-convert": "data",
+    # Data commands (데이터 분석 및 변환)
+    "data-analyze": "data",
+    "data-transform": "data",
+    "data-validate": "data",
+    # Table commands (Excel Table/ListObject 조작)
+    "table-read": "table",
+    "table-write": "table",
+    "table-list": "table",
+    "table-analyze": "table",
+    "table-create": "table",
+    "table-sort": "table",
+    "table-sort-clear": "table",
+    "table-sort-info": "table",
+    "metadata-generate": "table",
+    # Sheet commands
     "sheet-add": "sheet",
     "sheet-activate": "sheet",
     "sheet-rename": "sheet",
     "sheet-delete": "sheet",
+    # Pivot commands
     "pivot-create": "pivot",
     "pivot-configure": "pivot",
     "pivot-list": "pivot",
     "pivot-refresh": "pivot",
     "pivot-delete": "pivot",
+    # Chart commands
     "chart-add": "chart",
     "chart-configure": "chart",
     "chart-list": "chart",
@@ -988,37 +1006,66 @@ COMMAND_CATEGORIES = {
     "chart-pivot-create": "chart",
     "chart-delete": "chart",
     "chart-export": "chart",
+    "map-location-guide": "chart",
+    "map-visualize": "chart",
+    # Shape commands
     "shape-add": "shape",
     "shape-format": "shape",
     "shape-list": "shape",
     "shape-delete": "shape",
     "shape-group": "shape",
     "textbox-add": "shape",
+    # Slicer commands
     "slicer-add": "slicer",
     "slicer-connect": "slicer",
     "slicer-position": "slicer",
     "slicer-list": "slicer",
+    # Utility commands
+    "shell": "utility",
+    "list": "utility",
 }
 
 # 작업 타입 정의
 OPERATION_TYPES = {
+    # Workbook operations
     "workbook-open": "read",
     "workbook-list": "read",
     "workbook-info": "read",
     "workbook-create": "create",
+    # Range operations
     "range-read": "read",
     "range-write": "write",
+    "range-convert": "modify",
+    # Data operations
+    "data-analyze": "read",
+    "data-transform": "modify",
+    "data-validate": "read",
+    # Map operations
+    "map-location-guide": "read",
+    "map-visualize": "create",
+    # Table operations
     "table-read": "read",
     "table-write": "write",
+    "table-list": "read",
+    "table-analyze": "read",
+    "table-create": "create",
+    "table-sort": "modify",
+    "table-sort-clear": "modify",
+    "table-sort-info": "read",
+    # Metadata operations
+    "metadata-generate": "create",
+    # Sheet operations
     "sheet-add": "create",
     "sheet-activate": "modify",
     "sheet-rename": "modify",
     "sheet-delete": "delete",
+    # Pivot operations
     "pivot-create": "create",
     "pivot-configure": "modify",
     "pivot-list": "read",
     "pivot-refresh": "modify",
     "pivot-delete": "delete",
+    # Chart operations
     "chart-add": "create",
     "chart-configure": "modify",
     "chart-list": "read",
@@ -1026,16 +1073,21 @@ OPERATION_TYPES = {
     "chart-pivot-create": "create",
     "chart-delete": "delete",
     "chart-export": "read",
+    # Shape operations
     "shape-add": "create",
     "shape-format": "modify",
     "shape-list": "read",
     "shape-delete": "delete",
     "shape-group": "modify",
     "textbox-add": "create",
+    # Slicer operations
     "slicer-add": "create",
     "slicer-connect": "modify",
     "slicer-position": "modify",
     "slicer-list": "read",
+    # Utility operations
+    "shell": "read",
+    "list": "read",
 }
 
 
